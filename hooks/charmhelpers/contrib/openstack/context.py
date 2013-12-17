@@ -185,11 +185,6 @@ class AMQPContext(OSContextGenerator):
                 if context_complete(ctxt):
                     # Sufficient information found = break out!
                     break
-            # Used for active/active rabbitmq >= grizzly
-            ctxt['rabbitmq_hosts'] = []
-            for unit in related_units(rid):
-                ctxt['rabbitmq_hosts'].append(relation_get('private-address',
-                                                           rid=rid, unit=unit))
         if not context_complete(ctxt):
             return {}
         else:
