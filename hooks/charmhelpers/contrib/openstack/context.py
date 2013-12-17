@@ -172,10 +172,6 @@ class AMQPContext(OSContextGenerator):
                 else:
                     ctxt['rabbitmq_host'] = relation_get('private-address',
                                                          rid=rid, unit=unit)
-                    # if several hosts are provided, send the rabbitmq_hosts
-                    hosts = relation_get('hosts', rid=rid, unit=unit)
-                    if hosts is not None:
-                        ctxt['rabbitmq_hosts'] = hosts
                 ctxt.update({
                     'rabbitmq_user': username,
                     'rabbitmq_password': relation_get('password', rid=rid,
@@ -185,6 +181,13 @@ class AMQPContext(OSContextGenerator):
                 if context_complete(ctxt):
                     # Sufficient information found = break out!
                     break
+            # Used for active/active rabbitmq >= grizzly
+            if relation_get('vip', rid=rid, unit=unit) is None:
+                rabbitmq_hosts = []
+                for unit in related_units(rid):
+                    rabbitmq_hosts.append(relation_get('private-address',
+                                                           rid=rid, unit=unit))
+                ctxt['rabbitmq_hosts'] = ','.join(rabbitmq_hosts)
         if not context_complete(ctxt):
             return {}
         else:
