@@ -115,3 +115,6 @@ options:
     ssl_key:
         type: string
         description: SSL key to use with certificate specified as ssl_cert.
+    config-flags:
+        type: string
+        description: Comma separated list of key=value config flags to be set in cinder.conf.
