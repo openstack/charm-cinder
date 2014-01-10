@@ -100,6 +100,7 @@ CONFIG_FILES = OrderedDict([
         'hook_contexts': [context.SharedDBContext(),
                           context.AMQPContext(),
                           context.ImageServiceContext(),
+                          context.OSConfigFlagContext(),
                           cinder_contexts.CephContext(),
                           cinder_contexts.HAProxyContext(),
                           cinder_contexts.ImageServiceContext()],
