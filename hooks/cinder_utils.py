@@ -21,6 +21,7 @@ from charmhelpers.fetch import (
 from charmhelpers.core.host import (
     mounts,
     umount,
+    mkdir
 )
 
 from charmhelpers.contrib.storage.linux.ceph import (
@@ -160,12 +161,14 @@ def register_configs():
         # registration # before they've run the ceph hooks to create the
         # directory.
         if not os.path.isdir(os.path.dirname(CEPH_CONF)):
-            os.mkdir(os.path.dirname(CEPH_CONF))
+            mkdir(os.path.dirname(CEPH_CONF))
+        if not os.path.isdir(os.path.dirname(ceph_config_file())):
+            mkdir(os.path.dirname(ceph_config_file()))
 
         # Install ceph config as an alternative for co-location with
         # ceph and ceph-osd charm - cinder ceph.conf will be
         # lower priority than both of these but thats OK
-        if not os.path.isdir(ceph_config_file()):
+        if not os.path.exists(ceph_config_file()):
             # touch file for pre-templated generation
             open(ceph_config_file(), 'w').close()
         install_alternative(os.path.basename(CEPH_CONF),

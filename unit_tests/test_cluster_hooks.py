@@ -64,7 +64,7 @@ class TestClusterHooks(CharmTestCase):
     @patch('charmhelpers.core.host.service')
     @patch('charmhelpers.core.host.file_hash')
     def test_cluster_hook(self, file_hash, service):
-        '''Ensure API restart before haproxy on cluster changed'''
+        'Ensure API restart before haproxy on cluster changed'
         # set first hash lookup on all files
         side_effects = []
         # set first hash lookup on all configs in restart_on_change
@@ -82,7 +82,7 @@ class TestClusterHooks(CharmTestCase):
         self.assertEquals(ex, service.call_args_list)
 
     def test_ha_joined_complete_config(self):
-        '''Ensure hacluster subordinate receives all relevant config'''
+        'Ensure hacluster subordinate receives all relevant config'
         conf = {
             'ha-bindiface': 'eth100',
             'ha-mcastport': '37373',
@@ -111,7 +111,7 @@ class TestClusterHooks(CharmTestCase):
 
     @patch.object(hooks, 'identity_joined')
     def test_ha_changed_clustered_not_leader(self, joined):
-        ''' Skip keystone notification if not cluster leader '''
+        'Skip keystone notification if not cluster leader'
         self.relation_get.return_value = True
         self.is_leader.return_value = False
         hooks.hooks.execute(['hooks/ha-relation-changed'])
@@ -119,7 +119,7 @@ class TestClusterHooks(CharmTestCase):
 
     @patch.object(hooks, 'identity_joined')
     def test_ha_changed_clustered_leader(self, joined):
-        ''' Notify keystone if cluster leader '''
+        'Notify keystone if cluster leader'
         self.relation_get.return_value = True
         self.is_leader.return_value = True
         self.relation_ids.return_value = ['identity:0']
@@ -127,7 +127,7 @@ class TestClusterHooks(CharmTestCase):
         joined.assert_called_with(rid='identity:0')
 
     def test_ha_changed_not_clustered(self):
-        ''' Ensure ha_changed exits early if not yet clustered '''
+        'Ensure ha_changed exits early if not yet clustered'
         self.relation_get.return_value = None
         hooks.hooks.execute(['hooks/ha-relation-changed'])
         self.assertTrue(self.juju_log.called)
