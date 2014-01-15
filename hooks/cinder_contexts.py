@@ -28,11 +28,10 @@ class CephContext(OSContextGenerator):
     interfaces = ['ceph-cinder']
 
     def __call__(self):
-        """
-        Used to generate template context to be added to cinder.conf in the
+        """Used to generate template context to be added to cinder.conf in the
         presence of a ceph relation.
         """
-        # TODO: this should call is_relation_made
+        # TODO(this should call is_relation_made)
         if not relation_ids('ceph'):
             return {}
         service = service_name()
@@ -49,8 +48,7 @@ class HAProxyContext(OSContextGenerator):
     interfaces = ['cinder-haproxy']
 
     def __call__(self):
-        '''
-        Extends the main charmhelpers HAProxyContext with a port mapping
+        '''Extends the main charmhelpers HAProxyContext with a port mapping
         specific to this charm.
         Also used to extend cinder.conf context with correct api_listening_port
         '''
