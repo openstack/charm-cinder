@@ -22,6 +22,9 @@ requires:
   ha:
     interface: hacluster
     scope: container
+  storage-backend:
+    interface: cinder-backend
+    scope: container
 peers:
   cluster:
     interface: cinder-ha
