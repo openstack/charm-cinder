@@ -569,7 +569,10 @@ class SubordinateConfigContext(OSContextGenerator):
 
                     sub_config = sub_config[self.config_file]
                     for k, v in sub_config.iteritems():
-                        ctxt[k] = v
+                        if k in ctxt:
+                            ctxt[k].update(v)
+                        else:
+                            ctxt[k] = v
 
         if not ctxt:
             ctxt['sections'] = {}
