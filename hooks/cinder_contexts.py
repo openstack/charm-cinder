@@ -2,6 +2,8 @@ from charmhelpers.core.hookenv import (
     config,
     relation_ids,
     service_name,
+    related_units,
+    relation_get,
 )
 
 from charmhelpers.contrib.openstack.context import (
@@ -75,3 +77,20 @@ class ApacheSSLContext(SSLContext):
         if not service_enabled('cinder-api'):
             return {}
         return super(ApacheSSLContext, self).__call__()
+
+
+class StorageBackendContext(OSContextGenerator):
+    interfaces = ['storage-backend']
+
+    def __call__(self):
+        backends = []
+        for rid in relation_ids('storage-backend'):
+            for unit in related_units(rid):
+                backend_name = relation_get('backend_name',
+                                            unit, rid)
+                if backend_name:
+                    backends.append(backend_name)
+        if len(backends) > 0:
+            return {'backends': ",".join(backends)}
+        else:
+            return {}

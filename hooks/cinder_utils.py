@@ -107,7 +107,8 @@ CONFIG_FILES = OrderedDict([
                           context.SubordinateConfigContext(
                           interface='storage-backend',
                           service='cinder',
-                          config_file=CINDER_CONF)],
+                          config_file=CINDER_CONF),
+                          cinder_contexts.StorageBackendContext()],
         'services': ['cinder-api', 'cinder-volume',
                      'cinder-scheduler', 'haproxy']
     }),
