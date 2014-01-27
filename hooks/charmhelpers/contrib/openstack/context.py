@@ -23,7 +23,6 @@ from charmhelpers.core.hookenv import (
     unit_get,
     unit_private_ip,
     ERROR,
-    WARNING,
 )
 
 from charmhelpers.contrib.hahelpers.cluster import (
@@ -177,14 +176,12 @@ class AMQPContext(OSContextGenerator):
                     'rabbitmq_password': relation_get('password', rid=rid,
                                                       unit=unit),
                     'rabbitmq_virtual_host': vhost,
-                    'rabbitmq_ha_queues': relation_get('ha_queues', rid=rid,
-                                                       unit=unit),
                 })
                 if context_complete(ctxt):
                     # Sufficient information found = break out!
                     break
             # Used for active/active rabbitmq >= grizzly
-            if 'clustered' not in ctxt and len(related_units(rid))>1:
+            if 'clustered' not in ctxt and len(related_units(rid)) > 1:
                 rabbitmq_hosts = []
                 for unit in related_units(rid):
                     rabbitmq_hosts.append(relation_get('private-address',
@@ -290,6 +287,7 @@ class ImageServiceContext(OSContextGenerator):
 
 
 class ApacheSSLContext(OSContextGenerator):
+
     """
     Generates a context for an apache vhost configuration that configures
     HTTPS reverse proxying for one or many endpoints.  Generated context
@@ -437,6 +435,7 @@ class NeutronContext(object):
 
 
 class OSConfigFlagContext(OSContextGenerator):
+
         """
         Responsible for adding user-defined config-flags in charm config to a
         template context.
@@ -445,6 +444,7 @@ class OSConfigFlagContext(OSContextGenerator):
               key=value pairs and some Openstack config files support
               comma-separated lists as values.
         """
+
         def __call__(self):
             config_flags = config('config-flags')
             if not config_flags:
@@ -489,6 +489,7 @@ class OSConfigFlagContext(OSContextGenerator):
 
 
 class SubordinateConfigContext(OSContextGenerator):
+
     """
     Responsible for inspecting relations to subordinates that
     may be exporting required config via a json blob.
@@ -529,6 +530,7 @@ class SubordinateConfigContext(OSContextGenerator):
         }
 
     """
+
     def __init__(self, service, config_file, interface):
         """
         :param service     : Service name key to query in any subordinate
