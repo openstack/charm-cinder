@@ -177,6 +177,8 @@ class AMQPContext(OSContextGenerator):
                     'rabbitmq_password': relation_get('password', rid=rid,
                                                       unit=unit),
                     'rabbitmq_virtual_host': vhost,
+                    'rabbitmq_ha_queues': relation_get('ha_queues', rid=rid,
+                                                       unit=unit),
                 })
                 if context_complete(ctxt):
                     # Sufficient information found = break out!
