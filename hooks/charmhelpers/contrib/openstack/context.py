@@ -181,7 +181,7 @@ class AMQPContext(OSContextGenerator):
                     # Sufficient information found = break out!
                     break
             # Used for active/active rabbitmq >= grizzly
-            if ('clustered' not in ctxt or conf['ha-vip-only'] == True) and
+            if ('clustered' not in ctxt or conf['ha-vip-only'] is True) and \
                len(related_units(rid)) > 1:
                 rabbitmq_hosts = []
                 for unit in related_units(rid):
