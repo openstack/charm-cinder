@@ -42,6 +42,7 @@ class CephContext(OSContextGenerator):
             'rbd_pool': service,
             'rbd_user': service,
             'host': service,
+            'use_syslog': config('use-syslog')
         }
 
 

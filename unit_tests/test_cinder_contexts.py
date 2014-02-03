@@ -43,12 +43,14 @@ class TestCinderContext(CharmTestCase):
         self.relation_ids.return_value = ['ceph:0']
         service = 'mycinder'
         self.service_name.return_value = service
+        self.config.return_value = False
         self.assertEquals(
             contexts.CephContext()(),
             {'volume_driver': 'cinder.volume.driver.RBDDriver',
              'rbd_pool': service,
              'rbd_user': service,
-             'host': service})
+             'host': service,
+             'use_syslog': False})
 
     def test_haproxy_configuration(self):
         self.determine_haproxy_port.return_value = 8080
