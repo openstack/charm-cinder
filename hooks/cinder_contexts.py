@@ -41,8 +41,7 @@ class CephContext(OSContextGenerator):
             # ensure_ceph_pool() creates pool based on service name.
             'rbd_pool': service,
             'rbd_user': service,
-            'host': service,
-            'use_syslog': config('use-syslog')
+            'host': service
         }
 
 
@@ -76,3 +75,11 @@ class ApacheSSLContext(SSLContext):
         if not service_enabled('cinder-api'):
             return {}
         return super(ApacheSSLContext, self).__call__()
+
+
+class CinderContext(OSContextGenerator):
+    def __call__(self):
+        ctxt = {
+            'use_syslog': config('use-syslog')
+        }
+        return ctxt
