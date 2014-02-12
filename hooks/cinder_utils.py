@@ -160,10 +160,8 @@ def register_configs():
         # need to create this early, new peers will have a relation during
         # registration # before they've run the ceph hooks to create the
         # directory.
-        if not os.path.isdir(os.path.dirname(CEPH_CONF)):
-            mkdir(os.path.dirname(CEPH_CONF))
-        if not os.path.isdir(os.path.dirname(ceph_config_file())):
-            mkdir(os.path.dirname(ceph_config_file()))
+        mkdir(os.path.dirname(CEPH_CONF))
+        mkdir(os.path.dirname(ceph_config_file()))
 
         # Install ceph config as an alternative for co-location with
         # ceph and ceph-osd charm - cinder ceph.conf will be
