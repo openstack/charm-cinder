@@ -1,8 +1,7 @@
-
 from mock import MagicMock, patch, call
 
-
 import cinder_utils as utils
+import os
 
 from test_utils import (
     CharmTestCase,

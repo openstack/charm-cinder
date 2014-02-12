@@ -98,6 +98,10 @@ APACHE_SITE_24_CONF = '/etc/apache2/sites-available/' \
     'openstack_https_frontend.conf'
 
 TEMPLATES = 'templates/'
+
+def ceph_config_file():
+    return CHARM_CEPH_CONF.format(service_name())
+
 # Map config files to hook contexts and services that will be associated
 # with file in restart_on_changes()'s service map.
 CONFIG_FILES = OrderedDict([
@@ -116,7 +120,7 @@ CONFIG_FILES = OrderedDict([
         'hook_contexts': [context.IdentityServiceContext()],
         'services': ['cinder-api'],
     }),
-    (CEPH_CONF, {
+    (ceph_config_file(), {
         'hook_contexts': [context.CephContext()],
         'services': ['cinder-volume']
     }),
@@ -134,10 +138,6 @@ CONFIG_FILES = OrderedDict([
         'services': ['apache2'],
     }),
 ])
-
-
-def ceph_config_file():
-    return CHARM_CEPH_CONF.format(service_name())
 
 
 def register_configs():
@@ -173,7 +173,7 @@ def register_configs():
             open(ceph_config_file(), 'w').close()
         install_alternative(os.path.basename(CEPH_CONF),
                             CEPH_CONF, ceph_config_file())
-        confs.append(CEPH_CONF)
+        confs.append(ceph_config_file())
 
     for conf in confs:
         configs.register(conf, CONFIG_FILES[conf]['hook_contexts'])

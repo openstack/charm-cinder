@@ -1,6 +1,7 @@
-
+import os
 from mock import MagicMock, patch, call
 
+os.environ['JUJU_UNIT_NAME'] = 'cinder'
 import cinder_utils as utils
 
 # Need to do some early patching to get the module loaded.

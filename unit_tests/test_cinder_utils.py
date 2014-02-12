@@ -1,7 +1,9 @@
 from mock import patch, call, MagicMock
 
 from collections import OrderedDict
+import os
 
+os.environ['JUJU_UNIT_NAME'] = 'cinder'
 import cinder_utils as cinder_utils
 
 from test_utils import (
@@ -113,7 +115,7 @@ class TestCinderUtils(CharmTestCase):
             ('/etc/cinder/cinder.conf', ['cinder-api', 'cinder-volume',
                                          'cinder-scheduler', 'haproxy']),
             ('/etc/cinder/api-paste.ini', ['cinder-api']),
-            ('/etc/ceph/ceph.conf', ['cinder-volume']),
+            ('/var/lib/charm/cinder/ceph.conf', ['cinder-volume']),
             ('/etc/haproxy/haproxy.cfg', ['haproxy']),
             ('/etc/apache2/sites-available/openstack_https_frontend',
              ['apache2']),
@@ -130,7 +132,7 @@ class TestCinderUtils(CharmTestCase):
         ex_map = OrderedDict([
             ('/etc/cinder/cinder.conf', ['cinder-volume', 'cinder-scheduler',
                                          'haproxy']),
-            ('/etc/ceph/ceph.conf', ['cinder-volume']),
+            ('/var/lib/charm/cinder/ceph.conf', ['cinder-volume']),
             ('/etc/haproxy/haproxy.cfg', ['haproxy']),
             ('/etc/apache2/sites-available/openstack_https_frontend',
              ['apache2']),
@@ -299,7 +301,7 @@ class TestCinderUtils(CharmTestCase):
         for conf in [cinder_utils.CINDER_API_CONF,
                      cinder_utils.CINDER_CONF,
                      cinder_utils.HAPROXY_CONF,
-                     cinder_utils.CEPH_CONF]:
+                     cinder_utils.ceph_config_file()]:
             calls.append(
                 call(conf,
                      cinder_utils.CONFIG_FILES[conf]['hook_contexts'])
