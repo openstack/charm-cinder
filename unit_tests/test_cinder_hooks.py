@@ -229,6 +229,14 @@ class TestChangedHooks(CharmTestCase):
         hooks.hooks.execute(['hooks/image-service-relation-broken'])
         self.assertTrue(self.CONFIGS.write_all.called)
 
+    def test_storage_backend_changed(self):
+        hooks.hooks.execute(['hooks/storage-backend-relation-changed'])
+        self.CONFIGS.write.assert_called_with(utils.CINDER_CONF)
+
+    def test_storage_backend_broken(self):
+        hooks.hooks.execute(['hooks/storage-backend-relation-broken'])
+        self.CONFIGS.write.assert_called_with(utils.CINDER_CONF)
+
 
 class TestJoinedHooks(CharmTestCase):
     def setUp(self):
