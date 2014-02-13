@@ -101,6 +101,7 @@ CONFIG_FILES = OrderedDict([
                           context.AMQPContext(),
                           context.ImageServiceContext(),
                           context.OSConfigFlagContext(),
+                          context.SyslogContext(),
                           cinder_contexts.CephContext(),
                           cinder_contexts.HAProxyContext(),
                           cinder_contexts.ImageServiceContext(),

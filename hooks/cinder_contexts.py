@@ -75,11 +75,3 @@ class ApacheSSLContext(SSLContext):
         if not service_enabled('cinder-api'):
             return {}
         return super(ApacheSSLContext, self).__call__()
-
-
-class CinderContext(OSContextGenerator):
-    def __call__(self):
-        ctxt = {
-            'use_syslog': config('use-syslog')
-        }
-        return ctxt
