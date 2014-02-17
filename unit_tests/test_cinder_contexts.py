@@ -10,7 +10,7 @@ TO_PATCH = [
     'config',
     'relation_ids',
     'service_name',
-    'determine_haproxy_port',
+    'determine_apache_port',
     'determine_api_port',
 ]
 
@@ -50,23 +50,35 @@ class TestCinderContext(CharmTestCase):
              'rbd_user': service,
              'host': service})
 
-    def test_haproxy_configuration(self):
-        self.determine_haproxy_port.return_value = 8080
-        self.determine_api_port.return_value = 8090
-        self.assertEquals(
-            contexts.HAProxyContext()(),
-            {'service_ports': {'cinder_api': [8080, 8090]},
-             'osapi_volume_listen_port': 8090})
-
     @patch.object(utils, 'service_enabled')
     def test_apache_ssl_context_service_disabled(self, service_enabled):
         service_enabled.return_value = False
         self.assertEquals(contexts.ApacheSSLContext()(), {})
 
+    @patch('charmhelpers.contrib.openstack.context.determine_apache_port')
+    @patch('charmhelpers.contrib.openstack.context.determine_api_port')
+    @patch('charmhelpers.contrib.openstack.context.unit_get')
     @patch('charmhelpers.contrib.openstack.context.https')
     @patch.object(utils, 'service_enabled')
     def test_apache_ssl_context_service_enabled(self, service_enabled,
-                                                https):
-        service_enabled.return_value = True
-        https.return_value = False
-        self.assertEquals(contexts.ApacheSSLContext()(), {})
+                                                mock_https, mock_unit_get,
+                                                mock_determine_api_port,
+                                                mock_determine_apache_port):
+        mock_https.return_value = True
+        mock_unit_get.return_value = '1.2.3.4'
+        mock_determine_api_port.return_value = '12'
+        mock_determine_apache_port.return_value = '34'
+
+        ctxt = contexts.ApacheSSLContext()
+        with patch.object(ctxt, 'enable_modules') as mock_enable_modules:
+            with patch.object(ctxt, 'configure_cert') as mock_configure_cert:
+                service_enabled.return_value = False
+                self.assertEquals(ctxt(), {})
+                self.assertFalse(mock_https.called)
+
+                service_enabled.return_value = True
+                self.assertEquals(ctxt(), {'endpoints': [(34, 12)],
+                                           'private_address': '1.2.3.4',
+                                           'namespace': 'cinder'})
+                self.assertTrue(mock_https.called)
+                mock_unit_get.assert_called_with('private-address')
