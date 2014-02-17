@@ -10,7 +10,7 @@ TO_PATCH = [
     'config',
     'relation_ids',
     'service_name',
-    'determine_haproxy_port',
+    'determine_apache_port',
     'determine_api_port',
 ]
 
@@ -49,14 +49,6 @@ class TestCinderContext(CharmTestCase):
              'rbd_pool': service,
              'rbd_user': service,
              'host': service})
-
-    def test_haproxy_configuration(self):
-        self.determine_haproxy_port.return_value = 8080
-        self.determine_api_port.return_value = 8090
-        self.assertEquals(
-            contexts.HAProxyContext()(),
-            {'service_ports': {'cinder_api': [8080, 8090]},
-             'osapi_volume_listen_port': 8090})
 
     @patch.object(utils, 'service_enabled')
     def test_apache_ssl_context_service_disabled(self, service_enabled):
