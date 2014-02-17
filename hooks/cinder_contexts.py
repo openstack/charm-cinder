@@ -41,7 +41,7 @@ class CephContext(OSContextGenerator):
             # ensure_ceph_pool() creates pool based on service name.
             'rbd_pool': service,
             'rbd_user': service,
-            'host': service,
+            'host': service
         }
 
 
