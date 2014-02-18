@@ -4,8 +4,6 @@ import subprocess
 from collections import OrderedDict
 from copy import copy
 
-import cinder_contexts
-
 from charmhelpers.core.hookenv import (
     config,
     relation_ids,
@@ -62,6 +60,7 @@ from charmhelpers.contrib.openstack.utils import (
     get_os_codename_install_source,
 )
 
+import cinder_contexts
 
 COMMON_PACKAGES = [
     'apache2',
@@ -110,6 +109,7 @@ CONFIG_FILES = OrderedDict([
                           context.AMQPContext(),
                           context.ImageServiceContext(),
                           context.OSConfigFlagContext(),
+                          context.SyslogContext(),
                           cinder_contexts.CephContext(),
                           cinder_contexts.HAProxyContext(),
                           cinder_contexts.ImageServiceContext()],
