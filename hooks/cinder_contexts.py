@@ -10,8 +10,8 @@ from charmhelpers.contrib.openstack.context import (
 )
 
 from charmhelpers.contrib.hahelpers.cluster import (
+    determine_apache_port,
     determine_api_port,
-    determine_haproxy_port,
 )
 
 
@@ -54,11 +54,12 @@ class HAProxyContext(OSContextGenerator):
         specific to this charm.
         Also used to extend cinder.conf context with correct api_listening_port
         '''
-        haproxy_port = determine_haproxy_port(config('api-listening-port'))
+        haproxy_port = config('api-listening-port')
         api_port = determine_api_port(config('api-listening-port'))
+        apache_port = determine_apache_port(config('api-listening-port'))
 
         ctxt = {
-            'service_ports': {'cinder_api': [haproxy_port, api_port]},
+            'service_ports': {'cinder_api': [haproxy_port, apache_port]},
             'osapi_volume_listen_port': api_port,
         }
         return ctxt

@@ -74,11 +74,16 @@ class TestClusterHooks(CharmTestCase):
         file_hash.side_effect = side_effects
         hooks.hooks.execute(['hooks/cluster-relation-changed'])
         ex = [
-            call('restart', 'cinder-api'),
-            call('restart', 'cinder-volume'),
-            call('restart', 'cinder-scheduler'),
-            call('restart', 'haproxy'),
-            call('restart', 'apache2')]
+            call('stop', 'cinder-api'),
+            call('stop', 'cinder-volume'),
+            call('stop', 'cinder-scheduler'),
+            call('stop', 'haproxy'),
+            call('stop', 'apache2'),
+            call('start', 'cinder-api'),
+            call('start', 'cinder-volume'),
+            call('start', 'cinder-scheduler'),
+            call('start', 'haproxy'),
+            call('start', 'apache2')]
         self.assertEquals(ex, service.call_args_list)
 
     def test_ha_joined_complete_config(self):
