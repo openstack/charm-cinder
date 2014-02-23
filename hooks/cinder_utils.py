@@ -99,7 +99,7 @@ TEMPLATES = 'templates/'
 CONFIG_FILES = OrderedDict([
     (CINDER_CONF, {
         'hook_contexts': [context.SharedDBContext(ssl_dir=CINDER_CONF_DIR),
-                          context.AMQPContext(),
+                          context.AMQPContext(ssl_dir=CINDER_CONF_DIR),
                           context.ImageServiceContext(),
                           context.OSConfigFlagContext(),
                           cinder_contexts.CephContext(),
