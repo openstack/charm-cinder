@@ -80,6 +80,12 @@ options:
           actions e.g. the RBD driver requires requires this to support COW
           cloning of images. This option will default to v1 for backwards
           compatibility older glance services.
+    use-syslog:
+        type: boolean
+        default: False
+        description: |
+          By default, all services will log into their corresponding log files.
+          Setting this to True will force all services to log to the syslog.
     # HA configuration settings
     vip:
         type: string
