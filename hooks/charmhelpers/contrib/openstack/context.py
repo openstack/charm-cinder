@@ -27,11 +27,10 @@ from charmhelpers.core.hookenv import (
 )
 
 from charmhelpers.contrib.hahelpers.cluster import (
+    determine_apache_port,
     determine_api_port,
-    determine_haproxy_port,
     https,
-    is_clustered,
-    peer_units,
+    is_clustered
 )
 
 from charmhelpers.contrib.hahelpers.apache import (
@@ -190,22 +189,19 @@ class IdentityServiceContext(OSContextGenerator):
 
         for rid in relation_ids('identity-service'):
             for unit in related_units(rid):
+                rdata = relation_get(rid=rid, unit=unit)
                 ctxt = {
-                    'service_port': relation_get('service_port', rid=rid,
-                                                 unit=unit),
-                    'service_host': relation_get('service_host', rid=rid,
-                                                 unit=unit),
-                    'auth_host': relation_get('auth_host', rid=rid, unit=unit),
-                    'auth_port': relation_get('auth_port', rid=rid, unit=unit),
-                    'admin_tenant_name': relation_get('service_tenant',
-                                                      rid=rid, unit=unit),
-                    'admin_user': relation_get('service_username', rid=rid,
-                                               unit=unit),
-                    'admin_password': relation_get('service_password', rid=rid,
-                                                   unit=unit),
-                    # XXX: Hard-coded http.
-                    'service_protocol': 'http',
-                    'auth_protocol': 'http',
+                    'service_port': rdata.get('service_port'),
+                    'service_host': rdata.get('service_host'),
+                    'auth_host': rdata.get('auth_host'),
+                    'auth_port': rdata.get('auth_port'),
+                    'admin_tenant_name': rdata.get('service_tenant'),
+                    'admin_user': rdata.get('service_username'),
+                    'admin_password': rdata.get('service_password'),
+                    'service_protocol':
+                    rdata.get('service_protocol') or 'http',
+                    'auth_protocol':
+                    rdata.get('auth_protocol') or 'http',
                 }
                 if context_complete(ctxt):
                     return ctxt
@@ -265,7 +261,12 @@ class AMQPContext(OSContextGenerator):
                     # Sufficient information found = break out!
                     break
             # Used for active/active rabbitmq >= grizzly
-            if 'clustered' not in ctxt and len(related_units(rid)) > 1:
+            if ('clustered' not in ctxt or relation_get('ha-vip-only') == 'True') and \
+               len(related_units(rid)) > 1:
+                if relation_get('ha_queues'):
+                    ctxt['rabbitmq_ha_queues'] = relation_get('ha_queues')
+                else:
+                    ctxt['rabbitmq_ha_queues'] = False
                 rabbitmq_hosts = []
                 for unit in related_units(rid):
                     rabbitmq_hosts.append(relation_get('private-address',
@@ -284,10 +285,13 @@ class CephContext(OSContextGenerator):
         '''This generates context for /etc/ceph/ceph.conf templates'''
         if not relation_ids('ceph'):
             return {}
+
         log('Generating template context for ceph')
+
         mon_hosts = []
         auth = None
         key = None
+        use_syslog = str(config('use-syslog')).lower()
         for rid in relation_ids('ceph'):
             for unit in related_units(rid):
                 mon_hosts.append(relation_get('private-address', rid=rid,
@@ -299,6 +303,7 @@ class CephContext(OSContextGenerator):
             'mon_hosts': ' '.join(mon_hosts),
             'auth': auth,
             'key': key,
+            'use_syslog': use_syslog
         }
 
         if not os.path.isdir('/etc/ceph'):
@@ -427,17 +432,15 @@ class ApacheSSLContext(OSContextGenerator):
             'private_address': unit_get('private-address'),
             'endpoints': []
         }
-        for ext_port in self.external_ports:
-            if peer_units() or is_clustered():
-                int_port = determine_haproxy_port(ext_port)
-            else:
-                int_port = determine_api_port(ext_port)
+        for api_port in self.external_ports:
+            ext_port = determine_apache_port(api_port)
+            int_port = determine_api_port(api_port)
             portmap = (int(ext_port), int(int_port))
             ctxt['endpoints'].append(portmap)
         return ctxt
 
 
-class NeutronContext(object):
+class NeutronContext(OSContextGenerator):
     interfaces = []
 
     @property
@@ -498,6 +501,22 @@ class NeutronContext(object):
 
         return nvp_ctxt
 
+    def neutron_ctxt(self):
+        if https():
+            proto = 'https'
+        else:
+            proto = 'http'
+        if is_clustered():
+            host = config('vip')
+        else:
+            host = unit_get('private-address')
+        url = '%s://%s:%s' % (proto, host, '9292')
+        ctxt = {
+            'network_manager': self.network_manager,
+            'neutron_url': url,
+        }
+        return ctxt
+
     def __call__(self):
         self._ensure_packages()
 
@@ -507,7 +526,7 @@ class NeutronContext(object):
         if not self.plugin:
             return {}
 
-        ctxt = {'network_manager': self.network_manager}
+        ctxt = self.neutron_ctxt()
 
         if self.plugin == 'ovs':
             ctxt.update(self.ovs_ctxt())
@@ -633,6 +652,7 @@ class SubordinateConfigContext(OSContextGenerator):
 
 
 class SyslogContext(OSContextGenerator):
+
     def __call__(self):
         ctxt = {
             'use_syslog': config('use-syslog')

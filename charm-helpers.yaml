@@ -1,4 +1,4 @@
-branch: lp:~hazmat/charm-helpers/ssl-everywhere
+branch: lp:~openstack-charmers/charm-helpers/ssl-everywhere
 destination: hooks/charmhelpers
 include:
     - core
