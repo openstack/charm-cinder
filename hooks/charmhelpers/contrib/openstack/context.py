@@ -26,11 +26,10 @@ from charmhelpers.core.hookenv import (
 )
 
 from charmhelpers.contrib.hahelpers.cluster import (
+    determine_apache_port,
     determine_api_port,
-    determine_haproxy_port,
     https,
-    is_clustered,
-    peer_units,
+    is_clustered
 )
 
 from charmhelpers.contrib.hahelpers.apache import (
@@ -65,6 +64,43 @@ def context_complete(ctxt):
         log('Missing required data: %s' % ' '.join(_missing), level='INFO')
         return False
     return True
+
+
+def config_flags_parser(config_flags):
+    if config_flags.find('==') >= 0:
+        log("config_flags is not in expected format (key=value)",
+            level=ERROR)
+        raise OSContextError
+    # strip the following from each value.
+    post_strippers = ' ,'
+    # we strip any leading/trailing '=' or ' ' from the string then
+    # split on '='.
+    split = config_flags.strip(' =').split('=')
+    limit = len(split)
+    flags = {}
+    for i in xrange(0, limit - 1):
+        current = split[i]
+        next = split[i + 1]
+        vindex = next.rfind(',')
+        if (i == limit - 2) or (vindex < 0):
+            value = next
+        else:
+            value = next[:vindex]
+
+        if i == 0:
+            key = current
+        else:
+            # if this not the first entry, expect an embedded key.
+            index = current.rfind(',')
+            if index < 0:
+                log("invalid config value(s) at index %s" % (i),
+                    level=ERROR)
+                raise OSContextError
+            key = current[index + 1:]
+
+        # Add to collection.
+        flags[key.strip(post_strippers)] = value.rstrip(post_strippers)
+    return flags
 
 
 class OSContextGenerator(object):
@@ -186,7 +222,7 @@ class AMQPContext(OSContextGenerator):
                 if relation_get('ha_queues'):
                     ctxt['rabbitmq_ha_queues'] = relation_get('ha_queues')
                 else:
-                    ctxt['rabbitmq_ha_queues'] = 'False'
+                    ctxt['rabbitmq_ha_queues'] = False
                 rabbitmq_hosts = []
                 for unit in related_units(rid):
                     rabbitmq_hosts.append(relation_get('private-address',
@@ -205,10 +241,13 @@ class CephContext(OSContextGenerator):
         '''This generates context for /etc/ceph/ceph.conf templates'''
         if not relation_ids('ceph'):
             return {}
+
         log('Generating template context for ceph')
+
         mon_hosts = []
         auth = None
         key = None
+        use_syslog = str(config('use-syslog')).lower()
         for rid in relation_ids('ceph'):
             for unit in related_units(rid):
                 mon_hosts.append(relation_get('private-address', rid=rid,
@@ -220,6 +259,7 @@ class CephContext(OSContextGenerator):
             'mon_hosts': ' '.join(mon_hosts),
             'auth': auth,
             'key': key,
+            'use_syslog': use_syslog
         }
 
         if not os.path.isdir('/etc/ceph'):
@@ -348,17 +388,15 @@ class ApacheSSLContext(OSContextGenerator):
             'private_address': unit_get('private-address'),
             'endpoints': []
         }
-        for ext_port in self.external_ports:
-            if peer_units() or is_clustered():
-                int_port = determine_haproxy_port(ext_port)
-            else:
-                int_port = determine_api_port(ext_port)
+        for api_port in self.external_ports:
+            ext_port = determine_apache_port(api_port)
+            int_port = determine_api_port(api_port)
             portmap = (int(ext_port), int(int_port))
             ctxt['endpoints'].append(portmap)
         return ctxt
 
 
-class NeutronContext(object):
+class NeutronContext(OSContextGenerator):
     interfaces = []
 
     @property
@@ -419,6 +457,22 @@ class NeutronContext(object):
 
         return nvp_ctxt
 
+    def neutron_ctxt(self):
+        if https():
+            proto = 'https'
+        else:
+            proto = 'http'
+        if is_clustered():
+            host = config('vip')
+        else:
+            host = unit_get('private-address')
+        url = '%s://%s:%s' % (proto, host, '9696')
+        ctxt = {
+            'network_manager': self.network_manager,
+            'neutron_url': url,
+        }
+        return ctxt
+
     def __call__(self):
         self._ensure_packages()
 
@@ -428,12 +482,17 @@ class NeutronContext(object):
         if not self.plugin:
             return {}
 
-        ctxt = {'network_manager': self.network_manager}
+        ctxt = self.neutron_ctxt()
 
         if self.plugin == 'ovs':
             ctxt.update(self.ovs_ctxt())
         elif self.plugin == 'nvp':
             ctxt.update(self.nvp_ctxt())
+
+        alchemy_flags = config('neutron-alchemy-flags')
+        if alchemy_flags:
+            flags = config_flags_parser(alchemy_flags)
+            ctxt['neutron_alchemy_flags'] = flags
 
         self._save_flag_file()
         return ctxt
@@ -455,41 +514,7 @@ class OSConfigFlagContext(OSContextGenerator):
             if not config_flags:
                 return {}
 
-            if config_flags.find('==') >= 0:
-                log("config_flags is not in expected format (key=value)",
-                    level=ERROR)
-                raise OSContextError
-
-            # strip the following from each value.
-            post_strippers = ' ,'
-            # we strip any leading/trailing '=' or ' ' from the string then
-            # split on '='.
-            split = config_flags.strip(' =').split('=')
-            limit = len(split)
-            flags = {}
-            for i in xrange(0, limit - 1):
-                current = split[i]
-                next = split[i + 1]
-                vindex = next.rfind(',')
-                if (i == limit - 2) or (vindex < 0):
-                    value = next
-                else:
-                    value = next[:vindex]
-
-                if i == 0:
-                    key = current
-                else:
-                    # if this not the first entry, expect an embedded key.
-                    index = current.rfind(',')
-                    if index < 0:
-                        log("invalid config value(s) at index %s" % (i),
-                            level=ERROR)
-                        raise OSContextError
-                    key = current[index + 1:]
-
-                # Add to collection.
-                flags[key.strip(post_strippers)] = value.rstrip(post_strippers)
-
+            flags = config_flags_parser(config_flags)
             return {'user_config_flags': flags}
 
 
@@ -579,4 +604,13 @@ class SubordinateConfigContext(OSContextGenerator):
         if not ctxt:
             ctxt['sections'] = {}
 
+        return ctxt
+
+
+class SyslogContext(OSContextGenerator):
+
+    def __call__(self):
+        ctxt = {
+            'use_syslog': config('use-syslog')
+        }
         return ctxt

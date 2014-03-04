@@ -80,7 +80,7 @@ def install():
 
 
 @hooks.hook('config-changed')
-@restart_on_change(restart_map())
+@restart_on_change(restart_map(), stopstart=True)
 def config_changed():
     if openstack_upgrade_available('cinder-common'):
         do_openstack_upgrade(configs=CONFIGS)
@@ -191,7 +191,7 @@ def ceph_changed():
 
 @hooks.hook('cluster-relation-changed',
             'cluster-relation-departed')
-@restart_on_change(restart_map())
+@restart_on_change(restart_map(), stopstart=True)
 def cluster_changed():
     CONFIGS.write_all()
 
@@ -250,7 +250,7 @@ def image_service_changed():
             'identity-service-relation-broken',
             'image-service-relation-broken',
             'shared-db-relation-broken')
-@restart_on_change(restart_map())
+@restart_on_change(restart_map(), stopstart=True)
 def relation_broken():
     CONFIGS.write_all()
 
