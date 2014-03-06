@@ -35,7 +35,7 @@ TO_PATCH = [
     'templating',
     # fetch
     'apt_update',
-    'apt_install'
+    'apt_upgrade'
 ]
 
 
