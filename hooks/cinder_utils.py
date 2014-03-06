@@ -230,7 +230,7 @@ def services():
     ''' Returns a list of services associate with this charm '''
     services = []
     for v in restart_map().values():
-        services.append(v)
+        services = services + v
     services = list(set(services))
     return services
 
