@@ -231,7 +231,7 @@ def services():
     services = []
     for v in restart_map().values():
         services.append(v)
-    services = set(services)
+    services = list(set(services))
     return services
 
 
