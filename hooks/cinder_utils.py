@@ -18,6 +18,8 @@ from charmhelpers.fetch import (
 from charmhelpers.core.host import (
     mounts,
     umount,
+    service_stop,
+    service_start
 )
 
 from charmhelpers.contrib.storage.linux.ceph import (
@@ -224,6 +226,15 @@ def restart_map():
     return OrderedDict(_map)
 
 
+def services():
+    ''' Returns a list of services associate with this charm '''
+    services = []
+    for v in restart_map().values():
+        services.append(v)
+    services = set(services)
+    return services
+
+
 def prepare_lvm_storage(block_device, volume_group):
     '''
     Ensures block_device is initialized as a LVM PV and creates volume_group.
@@ -358,5 +369,8 @@ def do_openstack_upgrade(configs):
     configs.set_release(openstack_release=new_os_rel)
     configs.write_all()
 
+    # Stop/start services and migrate DB if leader
+    [service_stop(s) for s in services()]
     if eligible_leader(CLUSTER_RES):
         migrate_database()
+    [service_start(s) for s in services()]
