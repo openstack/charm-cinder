@@ -35,7 +35,9 @@ TO_PATCH = [
     'templating',
     # fetch
     'apt_update',
-    'apt_upgrade'
+    'apt_upgrade',
+    'service_stop',
+    'service_start'
 ]
 
 
@@ -102,6 +104,11 @@ class TestCinderUtils(CharmTestCase):
         self.assertEquals(sorted(pkgs),
                           sorted(common + cinder_utils.API_PACKAGES +
                                  cinder_utils.SCHEDULER_PACKAGES))
+
+    def test_services(self):
+        self.assertEquals(cinder_utils.services(),
+                          ['haproxy', 'apache2', 'cinder-api',
+                           'cinder-volume', 'cinder-scheduler'])
 
     def test_creates_restart_map_all_enabled(self):
         '''It creates correct restart map when all services enabled'''
@@ -318,12 +325,14 @@ class TestCinderUtils(CharmTestCase):
                     out.write('env CEPH_ARGS="--id %s"\n' % service)
         """
 
+    @patch.object(cinder_utils, 'services')
     @patch.object(cinder_utils, 'migrate_database')
     @patch.object(cinder_utils, 'determine_packages')
-    def test_openstack_upgrade_leader(self, pkgs, migrate):
+    def test_openstack_upgrade_leader(self, pkgs, migrate, services):
         pkgs.return_value = ['mypackage']
         self.config.side_effect = None
         self.config.return_value = 'cloud:precise-havana'
+        services.return_value = ['cinder-api', 'cinder-volume']
         self.eligible_leader.return_value = True
         self.get_os_codename_install_source.return_value = 'havana'
         configs = MagicMock()
@@ -332,12 +341,14 @@ class TestCinderUtils(CharmTestCase):
         configs.set_release.assert_called_with(openstack_release='havana')
         self.assertTrue(migrate.called)
 
+    @patch.object(cinder_utils, 'services')
     @patch.object(cinder_utils, 'migrate_database')
     @patch.object(cinder_utils, 'determine_packages')
-    def test_openstack_upgrade_not_leader(self, pkgs, migrate):
+    def test_openstack_upgrade_not_leader(self, pkgs, migrate, services):
         pkgs.return_value = ['mypackage']
         self.config.side_effect = None
         self.config.return_value = 'cloud:precise-havana'
+        services.return_value = ['cinder-api', 'cinder-volume']
         self.eligible_leader.return_value = False
         self.get_os_codename_install_source.return_value = 'havana'
         configs = MagicMock()
