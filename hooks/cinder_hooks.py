@@ -21,7 +21,7 @@ from cinder_utils import (
     CLUSTER_RES,
     CINDER_CONF,
     CINDER_API_CONF,
-    CEPH_CONF,
+    ceph_config_file
 )
 
 from charmhelpers.core.hookenv import (
@@ -171,8 +171,8 @@ def ceph_changed():
                                user='cinder', group='cinder'):
         juju_log('Could not create ceph keyring: peer not ready?')
         return
-    CONFIGS.write(CEPH_CONF)
     CONFIGS.write(CINDER_CONF)
+    CONFIGS.write(ceph_config_file())
     set_ceph_env_variables(service=svc)
 
     if eligible_leader(CLUSTER_RES):
@@ -248,8 +248,7 @@ def relation_broken():
 
 
 def configure_https():
-    '''
-    Enables SSL API Apache config if appropriate and kicks identity-service
+    '''Enables SSL API Apache config if appropriate and kicks identity-service
     with any required api updates.
     '''
     # need to write all to ensure changes to the entire request pipeline

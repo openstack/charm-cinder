@@ -1,6 +1,10 @@
-from mock import patch
 import cinder_contexts as contexts
+import os
+
+os.environ['JUJU_UNIT_NAME'] = 'cinder'
 import cinder_utils as utils
+
+from mock import patch
 
 from test_utils import (
     CharmTestCase
