@@ -9,6 +9,10 @@ from charmhelpers.contrib.openstack.context import (
     ApacheSSLContext as SSLContext,
 )
 
+from charmhelpers.contrib.openstack.utils import (
+    get_os_codename_install_source
+)
+
 from charmhelpers.contrib.hahelpers.cluster import (
     determine_apache_port,
     determine_api_port,
@@ -35,8 +39,13 @@ class CephContext(OSContextGenerator):
         if not relation_ids('ceph'):
             return {}
         service = service_name()
+        if get_os_codename_install_source(config('openstack-origin')) \
+                >= "icehouse":
+            volume_driver = 'cinder.volume.drivers.rbd.RBDDriver'
+        else:
+            volume_driver = 'cinder.volume.driver.RBDDriver'
         return {
-            'volume_driver': 'cinder.volume.driver.RBDDriver',
+            'volume_driver': volume_driver,
             # ensure_ceph_pool() creates pool based on service name.
             'rbd_pool': service,
             'rbd_user': service,
