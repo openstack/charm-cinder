@@ -40,6 +40,7 @@ TO_PATCH = [
     # fetch
     'apt_update',
     'apt_upgrade',
+    'apt_install',
     'service_stop',
     'service_start',
     # cinder
@@ -49,6 +50,11 @@ TO_PATCH = [
 
 MOUNTS = [
     ['/mnt', '/dev/vdb']
+]
+
+DPKG_OPTIONS = [
+    '--option', 'Dpkg::Options::=--force-confnew',
+    '--option', 'Dpkg::Options::=--force-confdef',
 ]
 
 
@@ -342,6 +348,9 @@ class TestCinderUtils(CharmTestCase):
         configs = MagicMock()
         cinder_utils.do_openstack_upgrade(configs)
         self.assertTrue(configs.write_all.called)
+        self.apt_upgrade.assert_called_with(options=DPKG_OPTIONS,
+                                            fatal=True, dist=True)
+        self.apt_install.assert_called_with(['mypackage'], fatal=True)
         configs.set_release.assert_called_with(openstack_release='havana')
         self.assertTrue(migrate.called)
 
@@ -358,5 +367,8 @@ class TestCinderUtils(CharmTestCase):
         configs = MagicMock()
         cinder_utils.do_openstack_upgrade(configs)
         self.assertTrue(configs.write_all.called)
+        self.apt_upgrade.assert_called_with(options=DPKG_OPTIONS,
+                                            fatal=True, dist=True)
+        self.apt_install.assert_called_with(['mypackage'], fatal=True)
         configs.set_release.assert_called_with(openstack_release='havana')
         self.assertFalse(migrate.called)
