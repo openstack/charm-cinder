@@ -12,8 +12,8 @@ from charmhelpers.contrib.openstack.context import (
 )
 
 from charmhelpers.contrib.hahelpers.cluster import (
+    determine_apache_port,
     determine_api_port,
-    determine_haproxy_port,
 )
 
 
@@ -30,11 +30,10 @@ class CephContext(OSContextGenerator):
     interfaces = ['ceph-cinder']
 
     def __call__(self):
-        """
-        Used to generate template context to be added to cinder.conf in the
+        """Used to generate template context to be added to cinder.conf in the
         presence of a ceph relation.
         """
-        # TODO: this should call is_relation_made
+        # TODO(this should call is_relation_made)
         if not relation_ids('ceph'):
             return {}
         service = service_name()
@@ -43,7 +42,7 @@ class CephContext(OSContextGenerator):
             # ensure_ceph_pool() creates pool based on service name.
             'rbd_pool': service,
             'rbd_user': service,
-            'host': service,
+            'host': service
         }
 
 
@@ -51,16 +50,16 @@ class HAProxyContext(OSContextGenerator):
     interfaces = ['cinder-haproxy']
 
     def __call__(self):
-        '''
-        Extends the main charmhelpers HAProxyContext with a port mapping
+        '''Extends the main charmhelpers HAProxyContext with a port mapping
         specific to this charm.
         Also used to extend cinder.conf context with correct api_listening_port
         '''
-        haproxy_port = determine_haproxy_port(config('api-listening-port'))
+        haproxy_port = config('api-listening-port')
         api_port = determine_api_port(config('api-listening-port'))
+        apache_port = determine_apache_port(config('api-listening-port'))
 
         ctxt = {
-            'service_ports': {'cinder_api': [haproxy_port, api_port]},
+            'service_ports': {'cinder_api': [haproxy_port, apache_port]},
             'osapi_volume_listen_port': api_port,
         }
         return ctxt

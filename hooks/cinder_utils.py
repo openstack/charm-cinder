@@ -4,12 +4,11 @@ import subprocess
 from collections import OrderedDict
 from copy import copy
 
-import cinder_contexts
-
 from charmhelpers.core.hookenv import (
     config,
     relation_ids,
     log,
+    service_name
 )
 
 from charmhelpers.fetch import (
@@ -20,6 +19,7 @@ from charmhelpers.fetch import (
 from charmhelpers.core.host import (
     mounts,
     umount,
+    mkdir
 )
 
 from charmhelpers.contrib.storage.linux.ceph import (
@@ -27,6 +27,7 @@ from charmhelpers.contrib.storage.linux.ceph import (
     pool_exists as ceph_pool_exists,
 )
 
+from charmhelpers.contrib.openstack.alternatives import install_alternative
 from charmhelpers.contrib.hahelpers.cluster import (
     eligible_leader,
 )
@@ -59,6 +60,7 @@ from charmhelpers.contrib.openstack.utils import (
     get_os_codename_install_source,
 )
 
+import cinder_contexts
 
 COMMON_PACKAGES = [
     'apache2',
@@ -87,12 +89,19 @@ class CinderCharmError(Exception):
 CINDER_CONF = '/etc/cinder/cinder.conf'
 CINDER_API_CONF = '/etc/cinder/api-paste.ini'
 CEPH_CONF = '/etc/ceph/ceph.conf'
+CHARM_CEPH_CONF = '/var/lib/charm/{}/ceph.conf'
+
 HAPROXY_CONF = '/etc/haproxy/haproxy.cfg'
 APACHE_SITE_CONF = '/etc/apache2/sites-available/openstack_https_frontend'
 APACHE_SITE_24_CONF = '/etc/apache2/sites-available/' \
     'openstack_https_frontend.conf'
 
 TEMPLATES = 'templates/'
+
+
+def ceph_config_file():
+    return CHARM_CEPH_CONF.format(service_name())
+
 # Map config files to hook contexts and services that will be associated
 # with file in restart_on_changes()'s service map.
 CONFIG_FILES = OrderedDict([
@@ -101,6 +110,7 @@ CONFIG_FILES = OrderedDict([
                           context.AMQPContext(),
                           context.ImageServiceContext(),
                           context.OSConfigFlagContext(),
+                          context.SyslogContext(),
                           cinder_contexts.CephContext(),
                           cinder_contexts.HAProxyContext(),
                           cinder_contexts.ImageServiceContext(),
@@ -116,7 +126,7 @@ CONFIG_FILES = OrderedDict([
         'hook_contexts': [context.IdentityServiceContext()],
         'services': ['cinder-api'],
     }),
-    (CEPH_CONF, {
+    (ceph_config_file(), {
         'hook_contexts': [context.CephContext()],
         'services': ['cinder-volume']
     }),
@@ -137,8 +147,7 @@ CONFIG_FILES = OrderedDict([
 
 
 def register_configs():
-    """
-    Register config files with their respective contexts.
+    """Register config files with their respective contexts.
     Regstration of some configs may not be required depending on
     existing of certain relations.
     """
@@ -157,9 +166,18 @@ def register_configs():
         # need to create this early, new peers will have a relation during
         # registration # before they've run the ceph hooks to create the
         # directory.
-        if not os.path.isdir(os.path.dirname(CEPH_CONF)):
-            os.mkdir(os.path.dirname(CEPH_CONF))
-        confs.append(CEPH_CONF)
+        mkdir(os.path.dirname(CEPH_CONF))
+        mkdir(os.path.dirname(ceph_config_file()))
+
+        # Install ceph config as an alternative for co-location with
+        # ceph and ceph-osd charm - cinder ceph.conf will be
+        # lower priority than both of these but thats OK
+        if not os.path.exists(ceph_config_file()):
+            # touch file for pre-templated generation
+            open(ceph_config_file(), 'w').close()
+        install_alternative(os.path.basename(CEPH_CONF),
+                            CEPH_CONF, ceph_config_file())
+        confs.append(ceph_config_file())
 
     for conf in confs:
         configs.register(conf, CONFIG_FILES[conf]['hook_contexts'])
@@ -178,8 +196,7 @@ def juju_log(msg):
 
 
 def determine_packages():
-    '''
-    Determine list of packages required for the currently enabled services.
+    '''Determine list of packages required for the currently enabled services.
 
     :returns: list of package names
     '''
@@ -193,8 +210,8 @@ def determine_packages():
 
 
 def service_enabled(service):
-    '''
-    Determine if a specific cinder service is enabled in charm configuration.
+    '''Determine if a specific cinder service is enabled in
+    charm configuration.
 
     :param service: str: cinder service name to query (volume, scheduler, api,
                          all)
@@ -208,8 +225,7 @@ def service_enabled(service):
 
 
 def restart_map():
-    '''
-    Determine the correct resource map to be passed to
+    '''Determine the correct resource map to be passed to
     charmhelpers.core.restart_on_change() based on the services configured.
 
     :returns: dict: A dictionary mapping config file to lists of services
@@ -230,8 +246,8 @@ def restart_map():
 
 
 def prepare_lvm_storage(block_device, volume_group):
-    '''
-    Ensures block_device is initialized as a LVM PV and creates volume_group.
+    '''Ensures block_device is initialized as a LVM PV
+    and creates volume_group.
     Assumes block device is clean and will raise if storage is already
     initialized as a PV.
 
@@ -257,8 +273,7 @@ def prepare_lvm_storage(block_device, volume_group):
 
 
 def clean_storage(block_device):
-    '''
-    Ensures a block device is clean.  That is:
+    '''Ensures a block device is clean.  That is:
         - unmounted
         - any lvm volume groups are deactivated
         - any lvm physical device signatures removed
@@ -280,8 +295,7 @@ def clean_storage(block_device):
 
 
 def ensure_block_device(block_device):
-    '''
-    Confirm block_device, create as loopback if necessary.
+    '''Confirm block_device, create as loopback if necessary.
 
     :param block_device: str: Full path of block device to ensure.
 
@@ -314,14 +328,14 @@ def ensure_block_device(block_device):
 
 
 def migrate_database():
-    '''Runs cinder-manage to initialize a new database or migrate existing'''
+    'Runs cinder-manage to initialize a new database or migrate existing'
     cmd = ['cinder-manage', 'db', 'sync']
     subprocess.check_call(cmd)
 
 
 def ensure_ceph_pool(service, replicas):
-    '''Creates a ceph pool for service if one does not exist'''
-    # TODO: Ditto about moving somewhere sharable.
+    'Creates a ceph pool for service if one does not exist'
+    # TODO(Ditto about moving somewhere sharable)
     if not ceph_pool_exists(service=service, name=service):
         ceph_create_pool(service=service, name=service, replicas=replicas)
 
@@ -338,10 +352,9 @@ def set_ceph_env_variables(service):
 
 
 def do_openstack_upgrade(configs):
-    """
-    Perform an uprade of cinder.  Takes care of upgrading packages, rewriting
-    configs + database migration and potentially any other post-upgrade
-    actions.
+    """Perform an uprade of cinder. Takes care of upgrading
+    packages, rewriting configs + database migration and
+    potentially any other post-upgrade actions.
 
     :param configs: The charms main OSConfigRenderer object.
 

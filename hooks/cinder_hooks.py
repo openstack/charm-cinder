@@ -21,7 +21,7 @@ from cinder_utils import (
     CLUSTER_RES,
     CINDER_CONF,
     CINDER_API_CONF,
-    CEPH_CONF,
+    ceph_config_file
 )
 
 from charmhelpers.core.hookenv import (
@@ -80,7 +80,7 @@ def install():
 
 
 @hooks.hook('config-changed')
-@restart_on_change(restart_map())
+@restart_on_change(restart_map(), stopstart=True)
 def config_changed():
     if openstack_upgrade_available('cinder-common'):
         do_openstack_upgrade(configs=CONFIGS)
@@ -171,8 +171,8 @@ def ceph_changed():
                                user='cinder', group='cinder'):
         juju_log('Could not create ceph keyring: peer not ready?')
         return
-    CONFIGS.write(CEPH_CONF)
     CONFIGS.write(CINDER_CONF)
+    CONFIGS.write(ceph_config_file())
     set_ceph_env_variables(service=svc)
 
     if eligible_leader(CLUSTER_RES):
@@ -183,7 +183,7 @@ def ceph_changed():
 
 @hooks.hook('cluster-relation-changed',
             'cluster-relation-departed')
-@restart_on_change(restart_map())
+@restart_on_change(restart_map(), stopstart=True)
 def cluster_changed():
     CONFIGS.write_all()
 
@@ -242,14 +242,13 @@ def image_service_changed():
             'identity-service-relation-broken',
             'image-service-relation-broken',
             'shared-db-relation-broken')
-@restart_on_change(restart_map())
+@restart_on_change(restart_map(), stopstart=True)
 def relation_broken():
     CONFIGS.write_all()
 
 
 def configure_https():
-    '''
-    Enables SSL API Apache config if appropriate and kicks identity-service
+    '''Enables SSL API Apache config if appropriate and kicks identity-service
     with any required api updates.
     '''
     # need to write all to ensure changes to the entire request pipeline

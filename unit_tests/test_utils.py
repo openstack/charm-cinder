@@ -1,6 +1,6 @@
 import logging
-import unittest
 import os
+import unittest
 import yaml
 
 from collections import OrderedDict
@@ -20,9 +20,8 @@ RESTART_MAP = OrderedDict([
 
 
 def load_config():
-    '''
-    Walk backwords from __file__ looking for config.yaml, load and return the
-    'options' section'
+    '''Walk backwords from __file__ looking for config.yaml,
+    load and return the 'options' section'
     '''
     config = None
     f = __file__
@@ -42,8 +41,7 @@ def load_config():
 
 
 def get_default_config():
-    '''
-    Load default charm config from config.yaml return as a dict.
+    '''Load default charm config from config.yaml return as a dict.
     If no default is set in config.yaml, its value is None.
     '''
     default_config = {}
@@ -57,6 +55,7 @@ def get_default_config():
 
 
 class CharmTestCase(unittest.TestCase):
+
     def setUp(self, obj, patches):
         super(CharmTestCase, self).setUp()
         self.patches = patches
@@ -77,6 +76,7 @@ class CharmTestCase(unittest.TestCase):
 
 
 class TestConfig(object):
+
     def __init__(self):
         self.config = get_default_config()
 
@@ -96,6 +96,7 @@ class TestConfig(object):
 
 
 class TestRelation(object):
+
     def __init__(self, relation_data={}):
         self.relation_data = relation_data
 
