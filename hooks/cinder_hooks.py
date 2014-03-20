@@ -122,6 +122,14 @@ def amqp_changed():
         return
     CONFIGS.write(CINDER_CONF)
 
+@hooks.hook('amqp-relation-departed')
+@restart_on_change(restart_map())
+def amqp_departed():
+    if 'amqp' not in CONFIGS.complete_contexts():
+        juju_log('amqp relation incomplete. Peer not ready?')
+        return
+    CONFIGS.write(CINDER_CONF)
+
 
 @hooks.hook('identity-service-relation-joined')
 def identity_joined(rid=None):
