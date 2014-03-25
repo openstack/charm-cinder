@@ -73,6 +73,7 @@ COMMON_PACKAGES = [
     'python-jinja2',
     'python-keystoneclient',
     'python-mysqldb',
+    'python-psycopg2',
     'qemu-utils',
 ]
 
@@ -109,6 +110,7 @@ def ceph_config_file():
 CONFIG_FILES = OrderedDict([
     (CINDER_CONF, {
         'hook_contexts': [context.SharedDBContext(),
+                          context.PostgresqlDBContext(),
                           context.AMQPContext(),
                           context.ImageServiceContext(),
                           context.OSConfigFlagContext(),
