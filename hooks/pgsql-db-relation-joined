@@ -113,7 +113,9 @@ def pgsql_db_joined():
              'associated a mysql one')
         log(e, level=ERROR)
         raise Exception(e)
-    relation_set(database=config('database'))
+
+    conf = config()
+    relation_set(database=conf['database'])
 
 
 @hooks.hook('shared-db-relation-changed')
