@@ -73,6 +73,7 @@ class TestCinderContext(CharmTestCase):
         service_enabled.return_value = False
         self.assertEquals(contexts.ApacheSSLContext()(), {})
 
+    @patch('charmhelpers.contrib.openstack.context.is_clustered')
     @patch('charmhelpers.contrib.openstack.context.determine_apache_port')
     @patch('charmhelpers.contrib.openstack.context.determine_api_port')
     @patch('charmhelpers.contrib.openstack.context.unit_get')
@@ -81,11 +82,13 @@ class TestCinderContext(CharmTestCase):
     def test_apache_ssl_context_service_enabled(self, service_enabled,
                                                 mock_https, mock_unit_get,
                                                 mock_determine_api_port,
-                                                mock_determine_apache_port):
+                                                mock_determine_apache_port,
+                                                mock_is_clustered):
         mock_https.return_value = True
         mock_unit_get.return_value = '1.2.3.4'
         mock_determine_api_port.return_value = '12'
         mock_determine_apache_port.return_value = '34'
+        mock_is_clustered.return_value = False
 
         ctxt = contexts.ApacheSSLContext()
         with patch.object(ctxt, 'enable_modules') as mock_enable_modules:
