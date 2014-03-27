@@ -89,8 +89,9 @@ CLUSTER_RES = 'res_cinder_vip'
 class CinderCharmError(Exception):
     pass
 
-CINDER_CONF = '/etc/cinder/cinder.conf'
-CINDER_API_CONF = '/etc/cinder/api-paste.ini'
+CINDER_CONF_DIR = "/etc/cinder"
+CINDER_CONF = '%s/cinder.conf' % CINDER_CONF_DIR
+CINDER_API_CONF = '%s/api-paste.ini' % CINDER_CONF_DIR
 CEPH_CONF = '/etc/ceph/ceph.conf'
 CHARM_CEPH_CONF = '/var/lib/charm/{}/ceph.conf'
 
@@ -108,8 +109,8 @@ def ceph_config_file():
 # with file in restart_on_changes()'s service map.
 CONFIG_FILES = OrderedDict([
     (CINDER_CONF, {
-        'hook_contexts': [context.SharedDBContext(),
-                          context.AMQPContext(),
+        'hook_contexts': [context.SharedDBContext(ssl_dir=CINDER_CONF_DIR),
+                          context.AMQPContext(ssl_dir=CINDER_CONF_DIR),
                           context.ImageServiceContext(),
                           context.OSConfigFlagContext(),
                           context.SyslogContext(),
