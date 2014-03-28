@@ -180,7 +180,6 @@ class PostgresqlDBContext(OSContextGenerator):
                     'database_type': 'postgresql',
                 }
                 if context_complete(ctxt):
-                    db_ssl(rdata, ctxt, self.ssl_dir)
                     return ctxt
         return {}
 
