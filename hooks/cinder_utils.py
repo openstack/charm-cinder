@@ -73,6 +73,7 @@ COMMON_PACKAGES = [
     'python-jinja2',
     'python-keystoneclient',
     'python-mysqldb',
+    'python-psycopg2',
     'qemu-utils',
 ]
 
@@ -102,6 +103,7 @@ APACHE_SITE_24_CONF = '/etc/apache2/sites-available/' \
 
 TEMPLATES = 'templates/'
 
+
 def ceph_config_file():
     return CHARM_CEPH_CONF.format(service_name())
 
@@ -110,6 +112,7 @@ def ceph_config_file():
 CONFIG_FILES = OrderedDict([
     (CINDER_CONF, {
         'hook_contexts': [context.SharedDBContext(ssl_dir=CINDER_CONF_DIR),
+                          context.PostgresqlDBContext(),
                           context.AMQPContext(ssl_dir=CINDER_CONF_DIR),
                           context.ImageServiceContext(),
                           context.OSConfigFlagContext(),

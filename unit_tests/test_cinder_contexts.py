@@ -21,6 +21,7 @@ TO_PATCH = [
 
 
 class TestCinderContext(CharmTestCase):
+
     def setUp(self):
         super(TestCinderContext, self).setUp(contexts, TO_PATCH)
 

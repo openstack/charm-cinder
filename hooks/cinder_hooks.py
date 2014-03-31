@@ -28,11 +28,14 @@ from charmhelpers.core.hookenv import (
     Hooks,
     UnregisteredHookError,
     config,
+    is_relation_made,
     relation_get,
     relation_ids,
     relation_set,
     service_name,
     unit_get,
+    log,
+    ERROR
 )
 
 from charmhelpers.fetch import apt_install, apt_update
@@ -90,9 +93,29 @@ def config_changed():
 
 @hooks.hook('shared-db-relation-joined')
 def db_joined():
+    if is_relation_made('pgsql-db'):
+        # error, postgresql is used
+        e = ('Attempting to associate a mysql database when there is already '
+             'associated a postgresql one')
+        log(e, level=ERROR)
+        raise Exception(e)
+
     conf = config()
     relation_set(database=conf['database'], username=conf['database-user'],
                  hostname=unit_get('private-address'))
+
+
+@hooks.hook('pgsql-db-relation-joined')
+def pgsql_db_joined():
+    if is_relation_made('shared-db'):
+        # raise error
+        e = ('Attempting to associate a postgresql database when there is already '
+             'associated a mysql one')
+        log(e, level=ERROR)
+        raise Exception(e)
+
+    conf = config()
+    relation_set(database=conf['database'])
 
 
 @hooks.hook('shared-db-relation-changed')
@@ -100,6 +123,18 @@ def db_joined():
 def db_changed():
     if 'shared-db' not in CONFIGS.complete_contexts():
         juju_log('shared-db relation incomplete. Peer not ready?')
+        return
+    CONFIGS.write(CINDER_CONF)
+    if eligible_leader(CLUSTER_RES):
+        juju_log('Cluster leader, performing db sync')
+        migrate_database()
+
+
+@hooks.hook('pgsql-db-relation-changed')
+@restart_on_change(restart_map())
+def pgsql_db_changed():
+    if 'pgsql-db' not in CONFIGS.complete_contexts():
+        juju_log('pgsql-db relation incomplete. Peer not ready?')
         return
     CONFIGS.write(CINDER_CONF)
     if eligible_leader(CLUSTER_RES):
@@ -121,6 +156,7 @@ def amqp_changed():
         juju_log('amqp relation incomplete. Peer not ready?')
         return
     CONFIGS.write(CINDER_CONF)
+
 
 @hooks.hook('amqp-relation-departed')
 @restart_on_change(restart_map())
@@ -249,7 +285,8 @@ def image_service_changed():
             'ceph-relation-broken',
             'identity-service-relation-broken',
             'image-service-relation-broken',
-            'shared-db-relation-broken')
+            'shared-db-relation-broken',
+            'pgsql-db-relation-broken')
 @restart_on_change(restart_map(), stopstart=True)
 def relation_broken():
     CONFIGS.write_all()

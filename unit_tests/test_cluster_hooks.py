@@ -58,6 +58,7 @@ TO_PATCH = [
 
 
 class TestClusterHooks(CharmTestCase):
+
     def setUp(self):
         super(TestClusterHooks, self).setUp(hooks, TO_PATCH)
         self.config.side_effect = self.test_config.get_all

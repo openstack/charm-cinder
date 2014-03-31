@@ -59,6 +59,7 @@ DPKG_OPTIONS = [
 
 
 class TestCinderUtils(CharmTestCase):
+
     def setUp(self):
         super(TestCinderUtils, self).setUp(cinder_utils, TO_PATCH)
         self.config.side_effect = self.test_config.get_all
