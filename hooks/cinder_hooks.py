@@ -316,6 +316,13 @@ def upgrade_charm():
         amqp_joined(relation_id=rel_id)
 
 
+@hooks.hook('storage-backend-relation-changed')
+@hooks.hook('storage-backend-relation-broken')
+@restart_on_change(restart_map())
+def storage_backend():
+    CONFIGS.write(CINDER_CONF)
+
+
 if __name__ == '__main__':
     try:
         hooks.execute(sys.argv)

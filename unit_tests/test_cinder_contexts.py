@@ -16,7 +16,9 @@ TO_PATCH = [
     'service_name',
     'determine_apache_port',
     'determine_api_port',
-    'get_os_codename_install_source'
+    'get_os_codename_install_source',
+    'related_units',
+    'relation_get'
 ]
 
 
@@ -73,6 +75,25 @@ class TestCinderContext(CharmTestCase):
     def test_apache_ssl_context_service_disabled(self, service_enabled):
         service_enabled.return_value = False
         self.assertEquals(contexts.ApacheSSLContext()(), {})
+
+    def test_storage_backend_no_backends(self):
+        self.relation_ids.return_value = []
+        self.assertEquals(contexts.StorageBackendContext()(), {})
+
+    def test_storage_backend_single_backend(self):
+        self.relation_ids.return_value = ['cinder-ceph:0']
+        self.related_units.return_value = ['cinder-ceph/0']
+        self.relation_get.return_value = 'cinder-ceph'
+        self.assertEquals(contexts.StorageBackendContext()(),
+                          {'backends': 'cinder-ceph'})
+
+    def test_storage_backend_multi_backend(self):
+        self.relation_ids.return_value = ['cinder-ceph:0', 'cinder-vmware:0']
+        self.related_units.side_effect = [['cinder-ceph/0'],
+                                          ['cinder-vmware/0']]
+        self.relation_get.side_effect = ['cinder-ceph', 'cinder-vmware']
+        self.assertEquals(contexts.StorageBackendContext()(),
+                          {'backends': 'cinder-ceph,cinder-vmware'})
 
     @patch('charmhelpers.contrib.openstack.context.is_clustered')
     @patch('charmhelpers.contrib.openstack.context.determine_apache_port')

@@ -119,7 +119,12 @@ CONFIG_FILES = OrderedDict([
                           context.SyslogContext(),
                           cinder_contexts.CephContext(),
                           cinder_contexts.HAProxyContext(),
-                          cinder_contexts.ImageServiceContext()],
+                          cinder_contexts.ImageServiceContext(),
+                          context.SubordinateConfigContext(
+                              interface='storage-backend',
+                              service='cinder',
+                              config_file=CINDER_CONF),
+                          cinder_contexts.StorageBackendContext()],
         'services': ['cinder-api', 'cinder-volume',
                      'cinder-scheduler', 'haproxy']
     }),
