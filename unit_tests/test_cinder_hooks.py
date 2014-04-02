@@ -390,3 +390,21 @@ class TestJoinedHooks(CharmTestCase):
         self.ensure_ceph_keyring.return_value = True
         hooks.hooks.execute(['hooks/ceph-relation-changed'])
         self.assertFalse(self.ensure_ceph_pool.called)
+
+
+class TestDepartedHooks(CharmTestCase):
+
+    def setUp(self):
+        super(TestDepartedHooks, self).setUp(hooks, TO_PATCH)
+        self.config.side_effect = self.test_config.get_all
+
+    def test_amqp_departed(self):
+        self.CONFIGS.complete_contexts.return_value = ['amqp']
+        hooks.hooks.execute(['hooks/amqp-relation-departed'])
+        self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
+
+    def test_amqp_departed_incomplete(self):
+        self.CONFIGS.complete_contexts.return_value = []
+        hooks.hooks.execute(['hooks/amqp-relation-departed'])
+        assert not self.CONFIGS.write.called
+        assert self.juju_log.called
