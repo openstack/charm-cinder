@@ -1,131 +1,132 @@
 options:
-    openstack-origin:
-        default: distro
-        type: string
-        description: |
-          Repository from which to install.  May be one of the following:
-          distro (default), ppa:somecustom/ppa, a deb url sources entry,
-          or a supported Cloud Archive release pocket.
+  openstack-origin:
+    default: distro
+    type: string
+    description: |
+      Repository from which to install.  May be one of the following:
+      distro (default), ppa:somecustom/ppa, a deb url sources entry,
+      or a supported Cloud Archive release pocket.
 
-          Supported Cloud Archive sources include: cloud:precise-folsom,
-          cloud:precise-folsom/updates, cloud:precise-folsom/staging,
-          cloud:precise-folsom/proposed.
+      Supported Cloud Archive sources include: cloud:precise-folsom,
+      cloud:precise-folsom/updates, cloud:precise-folsom/staging,
+      cloud:precise-folsom/proposed.
 
-          When deploying to Precise, the default distro option will use
-          the cloud:precise-folsom/updates repository instead, since Cinder
-          was not available in the Ubuntu archive for Precise and is only
-          available via the Ubuntu Cloud Archive.
-    enabled-services:
-        default: all
-        type: string
-        description: |
-            If splitting cinder services between units, define which services
-            to install and configure.
-    block-device:
-        default: sdb
-        type: string
-        description: |
-            The *available* block device on which to create LVM volume group.
-            May also be set to None for deployments that will not need local
-            storage (eg, Ceph/RBD-backed volumes).
-    ceph-osd-replication-count:
-        default: 2
-        type: int
-        description: |
-            This value dictates the number of replicas ceph must make of any
-            object it stores withing the cinder rbd pool. Of course, this only
-            applies if using Ceph as a backend store. Note that once the cinder
-            rbd pool has been created, changing this value will not have any
-            effect (although it can be changed in ceph by manually configuring
-            your ceph cluster).
-    volume-group:
-        default: cinder-volumes
-        type: string
-        description: Name of volume group to create and store Cinder volumes.
-    overwrite:
-        default: "false"
-        type: string
-        description: |
-            If true, charm will attempt to overwrite block devices containin
-            previous filesystems or LVM, assuming it is not in use.
-    database-user:
-        default: cinder
-        type: string
-        description: Username to request database access.
-    database:
-        default: cinder
-        type: string
-        description: Database to request access.
-    rabbit-user:
-        default: cinder
-        type: string
-        description: Username to request access on rabbitmq-server.
-    rabbit-vhost:
-        default: openstack
-        type: string
-        description: RabbitMQ virtual host to request access on rabbitmq-server.
-    api-listening-port:
-        default: 8776
-        type: int
-        description: OpenStack Volume API listening port.
-    region:
-        default: RegionOne
-        type: string
-        description: OpenStack Region
-    glance-api-version:
-        default: 1
-        type: int
-        description: |
-          Newer storage drivers may require the v2 Glance API to perform certain
-          actions e.g. the RBD driver requires requires this to support COW
-          cloning of images. This option will default to v1 for backwards
-          compatibility older glance services.
-    use-syslog:
-        type: boolean
-        default: False
-        description: |
-          By default, all services will log into their corresponding log files.
-          Setting this to True will force all services to log to the syslog.
-    # HA configuration settings
-    vip:
-        type: string
-        description: "Virtual IP to use to front cinder API in ha configuration"
-    vip_iface:
-        type: string
-        default: eth0
-        description: "Network Interface where to place the Virtual IP"
-    vip_cidr:
-        type: int
-        default: 24
-        description: "Netmask that will be used for the Virtual IP"
-    ha-bindiface:
-        type: string
-        default: eth0
-        description: |
-          Default network interface on which HA cluster will bind to communication
-          with the other members of the HA Cluster.
-    ha-mcastport:
-        type: int
-        default: 5401
-        description: |
-          Default multicast port number that will be used to communicate between
-          HA Cluster nodes.
-    # Per-service HTTPS configuration.
-    ssl_cert:
-        type: string
-        description: |
-          SSL certificate to install and use for API ports.  Setting this value
-          and ssl_key will enable reverse proxying, point Glance's entry in the
-          Keystone catalog to use https, and override any certficiate and key
-          issued by Keystone (if it is configured to do so).
-    ssl_key:
-        type: string
-        description: SSL key to use with certificate specified as ssl_cert.
-    ssl_ca:
-        type: string
-        description: |
-          SSL CA to use with the certificate and key provided - this is only
-          required if you are providing a privately signed ssl_cert and ssl_key.
-    config-flags:
-        type: string
-        description: Comma separated list of key=value config flags to be set in cinder.conf.
+      When deploying to Precise, the default distro option will use
+      the cloud:precise-folsom/updates repository instead, since Cinder
+      was not available in the Ubuntu archive for Precise and is only
+      available via the Ubuntu Cloud Archive.
+  enabled-services:
+    default: all
+    type: string
+    description: |
+      If splitting cinder services between units, define which services
+      to install and configure.
+  block-device:
+    default: sdb
+    type: string
+    description: |
+      The *available* block device on which to create LVM volume group.
+      May also be set to None for deployments that will not need local
+      storage (eg, Ceph/RBD-backed volumes).
+  ceph-osd-replication-count:
+    default: 2
+    type: int
+    description: |
+      This value dictates the number of replicas ceph must make of any
+      object it stores withing the cinder rbd pool. Of course, this only
+      applies if using Ceph as a backend store. Note that once the cinder
+      rbd pool has been created, changing this value will not have any
+      effect (although it can be changed in ceph by manually configuring
+      your ceph cluster).
+  volume-group:
+    default: cinder-volumes
+    type: string
+    description: Name of volume group to create and store Cinder volumes.
+  overwrite:
+    default: "false"
+    type: string
+    description: |
+      If true, charm will attempt to overwrite block devices containin
+      previous filesystems or LVM, assuming it is not in use.
+  database-user:
+    default: cinder
+    type: string
+    description: Username to request database access.
+  database:
+    default: cinder
+    type: string
+    description: Database to request access.
+  rabbit-user:
+    default: cinder
+    type: string
+    description: Username to request access on rabbitmq-server.
+  rabbit-vhost:
+    default: openstack
+    type: string
+    description: RabbitMQ virtual host to request access on rabbitmq-server.
+  api-listening-port:
+    default: 8776
+    type: int
+    description: OpenStack Volume API listening port.
+  region:
+    default: RegionOne
+    type: string
+    description: OpenStack Region
+  glance-api-version:
+    default: 1
+    type: int
+    description: |
+      Newer storage drivers may require the v2 Glance API to perform certain
+      actions e.g. the RBD driver requires requires this to support COW
+      cloning of images. This option will default to v1 for backwards
+      compatibility older glance services.
+  use-syslog:
+    type: boolean
+    default: False
+    description: |
+      By default, all services will log into their corresponding log files.
+      Setting this to True will force all services to log to the syslog.
+  # HA configuration settings
+  vip:
+    type: string
+    description: "Virtual IP to use to front cinder API in ha configuration"
+  vip_iface:
+    type: string
+    default: eth0
+    description: "Network Interface where to place the Virtual IP"
+  vip_cidr:
+    type: int
+    default: 24
+    description: "Netmask that will be used for the Virtual IP"
+  ha-bindiface:
+    type: string
+    default: eth0
+    description: |
+      Default network interface on which HA cluster will bind to communication
+      with the other members of the HA Cluster.
+  ha-mcastport:
+    type: int
+    default: 5401
+    description: |
+      Default multicast port number that will be used to communicate between
+      HA Cluster nodes.
+  # Per-service HTTPS configuration.
+  ssl_cert:
+    type: string
+    description: |
+      SSL certificate to install and use for API ports.  Setting this value
+      and ssl_key will enable reverse proxying, point Glance's entry in the
+      Keystone catalog to use https, and override any certficiate and key
+      issued by Keystone (if it is configured to do so).
+  ssl_key:
+    type: string
+    description: SSL key to use with certificate specified as ssl_cert.
+  ssl_ca:
+    type: string
+    description: |
+      SSL CA to use with the certificate and key provided - this is only
+      required if you are providing a privately signed ssl_cert and ssl_key.
+  config-flags:
+    type: string
+    description: Comma separated list of key=value config flags to be set in cinder.conf.
+

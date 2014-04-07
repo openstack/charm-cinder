@@ -72,8 +72,13 @@ def install():
     apt_update()
     apt_install(determine_packages(), fatal=True)
 
+
+@hooks.hook('config-changed')
+@restart_on_change(restart_map(), stopstart=True)
+def config_changed():
+    conf = config()
     if (service_enabled('volume') and
-       conf['block-device'] not in [None, 'None', 'none']):
+            conf['block-device'] not in [None, 'None', 'none']):
         bdev = ensure_block_device(conf['block-device'])
         juju_log('Located valid block device: %s' % bdev)
         if conf['overwrite'] in ['true', 'True', True]:
@@ -81,12 +86,9 @@ def install():
             clean_storage(bdev)
         prepare_lvm_storage(bdev, conf['volume-group'])
 
-
-@hooks.hook('config-changed')
-@restart_on_change(restart_map(), stopstart=True)
-def config_changed():
     if openstack_upgrade_available('cinder-common'):
         do_openstack_upgrade(configs=CONFIGS)
+
     CONFIGS.write_all()
     configure_https()
 
