@@ -25,9 +25,14 @@ options:
     default: sdb
     type: string
     description: |
-      The *available* block device on which to create LVM volume group.
+      The block devices on which to create LVM volume group.
+
       May also be set to None for deployments that will not need local
       storage (eg, Ceph/RBD-backed volumes).
+
+      This can also be a space delimited list of block devices to attempt
+      to use in the cinder LVM volume group - each block device detected
+      will be added to the available physical volumes in the volume group.
   ceph-osd-replication-count:
     default: 2
     type: int
