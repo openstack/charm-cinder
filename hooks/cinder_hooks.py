@@ -6,14 +6,12 @@ import sys
 from subprocess import check_call
 
 from cinder_utils import (
-    clean_storage,
     determine_packages,
     do_openstack_upgrade,
-    ensure_block_device,
     ensure_ceph_pool,
     juju_log,
     migrate_database,
-    prepare_lvm_storage,
+    configure_lvm_storage,
     register_configs,
     restart_map,
     service_enabled,
@@ -79,12 +77,10 @@ def config_changed():
     conf = config()
     if (service_enabled('volume') and
             conf['block-device'] not in [None, 'None', 'none']):
-        bdev = ensure_block_device(conf['block-device'])
-        juju_log('Located valid block device: %s' % bdev)
-        if conf['overwrite'] in ['true', 'True', True]:
-            juju_log('Ensuring block device is clean: %s' % bdev)
-            clean_storage(bdev)
-        prepare_lvm_storage(bdev, conf['volume-group'])
+        block_devices = conf['block-device'].split()
+        configure_lvm_storage(block_devices,
+                              conf['volume-group'],
+                              conf['overwrite'] in ['true', 'True', True])
 
     if openstack_upgrade_available('cinder-common'):
         do_openstack_upgrade(configs=CONFIGS)

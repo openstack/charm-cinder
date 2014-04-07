@@ -46,6 +46,7 @@ from charmhelpers.contrib.storage.linux.lvm import (
     deactivate_lvm_volume_group,
     is_lvm_physical_volume,
     remove_lvm_physical_volume,
+    list_lvm_volume_group
 )
 
 from charmhelpers.contrib.storage.linux.loopback import (
@@ -259,6 +260,62 @@ def services():
     return list(set(_services))
 
 
+def extend_lvm_volume_group(volume_group, block_device):
+    '''
+    Extend and LVM volume group onto a given block device.
+
+    Assumes block device has already been initialized as an LVM PV.
+
+    :param volume_group: str: Name of volume group to create.
+    :block_device: str: Full path of PV-initialized block device.
+    '''
+    subprocess.check_call(['vgextend', volume_group, block_device])
+
+
+def configure_lvm_storage(block_devices, volume_group, overwrite=False):
+    ''' Configure LVM storage on the list of block devices provided
+
+    :param block_devices: list: List of whitelisted block devices to detect
+                                and use if found
+    :param overwrite: bool: Scrub any existing block data if block device is
+                            not already in-use
+    '''
+    devices = []
+    for block_device in block_devices:
+        (block_device, size) = _parse_block_device(block_device)
+        if size == 0 and is_block_device(block_device):
+            devices.append(block_device)
+        elif size > 0:
+            devices.append(ensure_loopback_device(block_device, size))
+
+    # NOTE(jamespage)
+    # might need todo an initial on-time scrub on install if need be
+    vg_found = False
+    new_devices = []
+    for device in devices:
+        if (not is_lvm_physical_volume(device) or
+                (is_lvm_physical_volume(device) and
+                 list_lvm_volume_group(device) != volume_group)):
+            # Existing LVM but not part of required VG
+            # or new device
+            if overwrite is True:
+                clean_storage(device)
+                new_devices.append(device)
+                create_lvm_physical_volume(device)
+        elif (is_lvm_physical_volume(device) and
+                list_lvm_volume_group(device) == volume_group):
+            # Mark vg as found
+            vg_found = True
+
+    if vg_found is False and len(new_devices) > 0:
+        create_lvm_volume_group(volume_group, new_devices[0])
+        new_devices.remove(new_devices[0])
+
+    if len(new_devices) > 0:
+        for new_device in new_devices:
+            extend_lvm_volume_group(volume_group, new_device)
+
+
 def prepare_lvm_storage(block_device, volume_group):
     '''Ensures block_device is initialized as a LVM PV
     and creates volume_group.
@@ -306,6 +363,32 @@ def clean_storage(block_device):
         remove_lvm_physical_volume(block_device)
     else:
         zap_disk(block_device)
+
+
+def _parse_block_device(block_device):
+    ''' Parse a block device string and return either the full path
+    to the block device, or the path to a loopback device and its size
+
+    :param: block_device: str: Block device as provided in configuration
+
+    :returns: (str, int): Full path to block device and 0 OR
+                          Full path to loopback device and required size
+    '''
+    _none = ['None', 'none', None]
+    if block_device in _none:
+        return (None, 0)
+    if block_device.startswith('/dev/'):
+        return (block_device, 0)
+    elif block_device.startswith('/'):
+        _bd = block_device.split('|')
+        if len(_bd) == 2:
+            bdev, size = _bd
+        else:
+            bdev = block_device
+            size = DEFAULT_LOOPBACK_SIZE
+        return (bdev, size)
+    else:
+        return ('/dev/{}'.format(block_device), 0)
 
 
 def ensure_block_device(block_device):
