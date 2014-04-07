@@ -289,15 +289,14 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False):
             devices.append(ensure_loopback_device(block_device, size))
 
     # NOTE(jamespage)
-    # might need todo an initial on-time scrub on install if need be
+    # might need todo an initial one-time scrub on install if need be
     vg_found = False
     new_devices = []
     for device in devices:
         if (not is_lvm_physical_volume(device) or
                 (is_lvm_physical_volume(device) and
                  list_lvm_volume_group(device) != volume_group)):
-            # Existing LVM but not part of required VG
-            # or new device
+            # Existing LVM but not part of required VG or new device
             if overwrite is True:
                 clean_storage(device)
                 new_devices.append(device)
@@ -308,39 +307,14 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False):
             vg_found = True
 
     if vg_found is False and len(new_devices) > 0:
+        # Create new volume group from first device
         create_lvm_volume_group(volume_group, new_devices[0])
         new_devices.remove(new_devices[0])
 
     if len(new_devices) > 0:
+        # Extend the volume group as required
         for new_device in new_devices:
             extend_lvm_volume_group(volume_group, new_device)
-
-
-def prepare_lvm_storage(block_device, volume_group):
-    '''Ensures block_device is initialized as a LVM PV
-    and creates volume_group.
-    Assumes block device is clean and will raise if storage is already
-    initialized as a PV.
-
-    :param block_device: str: Full path to block device to be prepared.
-    :param volume_group: str: Name of volume group to be created with
-                              block_device as backing PV.
-
-    :returns: None or raises CinderCharmError if storage is unclean.
-    '''
-    e = None
-    if is_lvm_physical_volume(block_device):
-        juju_log('ERROR: Could not prepare LVM storage: %s is already '
-                 'initialized as LVM physical device.' % block_device)
-        raise CinderCharmError
-
-    try:
-        create_lvm_physical_volume(block_device)
-        create_lvm_volume_group(volume_group, block_device)
-    except Exception as e:
-        juju_log('Could not prepare LVM storage on %s.' % block_device)
-        juju_log(e)
-        raise CinderCharmError
 
 
 def clean_storage(block_device):
@@ -361,8 +335,8 @@ def clean_storage(block_device):
     if is_lvm_physical_volume(block_device):
         deactivate_lvm_volume_group(block_device)
         remove_lvm_physical_volume(block_device)
-    else:
-        zap_disk(block_device)
+
+    zap_disk(block_device)
 
 
 def _parse_block_device(block_device):
@@ -389,39 +363,6 @@ def _parse_block_device(block_device):
         return (bdev, size)
     else:
         return ('/dev/{}'.format(block_device), 0)
-
-
-def ensure_block_device(block_device):
-    '''Confirm block_device, create as loopback if necessary.
-
-    :param block_device: str: Full path of block device to ensure.
-
-    :returns: str: Full path of ensured block device.
-    '''
-    _none = ['None', 'none', None]
-    if (block_device in _none):
-        juju_log('prepare_storage(): Missing required input: '
-                 'block_device=%s.' % block_device)
-        raise CinderCharmError
-
-    if block_device.startswith('/dev/'):
-        bdev = block_device
-    elif block_device.startswith('/'):
-        _bd = block_device.split('|')
-        if len(_bd) == 2:
-            bdev, size = _bd
-        else:
-            bdev = block_device
-            size = DEFAULT_LOOPBACK_SIZE
-        bdev = ensure_loopback_device(bdev, size)
-    else:
-        bdev = '/dev/%s' % block_device
-
-    if not is_block_device(bdev):
-        juju_log('Failed to locate valid block device at %s' % bdev)
-        raise CinderCharmError
-
-    return bdev
 
 
 def migrate_database():

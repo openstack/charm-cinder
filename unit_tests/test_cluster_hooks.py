@@ -24,15 +24,13 @@ from test_utils import (
 
 TO_PATCH = [
     # cinder_utils
-    'clean_storage',
     'determine_packages',
-    'ensure_block_device',
     'ensure_ceph_keyring',
     'ensure_ceph_pool',
     'juju_log',
     'lsb_release',
     'migrate_database',
-    'prepare_lvm_storage',
+    'configure_lvm_storage',
     'register_configs',
     'service_enabled',
     'set_ceph_env_variables',

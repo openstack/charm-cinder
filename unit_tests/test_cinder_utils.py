@@ -26,6 +26,7 @@ TO_PATCH = [
     'create_lvm_volume_group',
     'deactivate_lvm_volume_group',
     'is_lvm_physical_volume',
+    'list_lvm_volume_group',
     'relation_ids',
     'remove_lvm_physical_volume',
     'ensure_loopback_device',
@@ -171,36 +172,6 @@ class TestCinderUtils(CharmTestCase):
         ])
         self.assertEquals(cinder_utils.restart_map(), ex_map)
 
-    def test_ensure_block_device_bad_config(self):
-        "It doesn't prepare storage with bad config"
-        for none in ['None', 'none', None]:
-            self.assertRaises(cinder_utils.CinderCharmError,
-                              cinder_utils.ensure_block_device,
-                              block_device=none)
-
-    def test_ensure_block_device_loopback(self):
-        'It ensures loopback device when checking block device'
-        cinder_utils.ensure_block_device('/tmp/cinder.img')
-        ex_size = cinder_utils.DEFAULT_LOOPBACK_SIZE
-        self.ensure_loopback_device.assert_called_with('/tmp/cinder.img',
-                                                       ex_size)
-
-        cinder_utils.ensure_block_device('/tmp/cinder-2.img|15G')
-        self.ensure_loopback_device.assert_called_with('/tmp/cinder-2.img',
-                                                       '15G')
-
-    def test_ensure_standard_block_device(self):
-        'It looks for storage at both relative and full device path'
-        for dev in ['vdb', '/dev/vdb']:
-            cinder_utils.ensure_block_device(dev)
-            self.is_block_device.assert_called_with('/dev/vdb')
-
-    def test_ensure_nonexistent_block_device(self):
-        'It will not ensure a non-existant block device'
-        self.is_block_device.return_value = False
-        self.assertRaises(cinder_utils.CinderCharmError,
-                          cinder_utils.ensure_block_device, 'foo')
-
     def test_clean_storage_unmount(self):
         'It unmounts block device when cleaning storage'
         self.is_lvm_physical_volume.return_value = False
@@ -216,6 +187,7 @@ class TestCinderUtils(CharmTestCase):
         cinder_utils.clean_storage('/dev/vdb')
         self.remove_lvm_physical_volume.assert_called_with('/dev/vdb')
         self.deactivate_lvm_volume_group.assert_called_with('/dev/vdb')
+        self.zap_disk.assert_called_with('/dev/vdb')
 
     def test_clean_storage_zap_disk(self):
         'It removes traces of LVM when cleaning storage'
@@ -224,31 +196,136 @@ class TestCinderUtils(CharmTestCase):
         cinder_utils.clean_storage('/dev/vdb')
         self.zap_disk.assert_called_with('/dev/vdb')
 
-    def test_prepare_lvm_storage_not_clean(self):
-        'It errors when prepping non-clean LVM storage'
-        self.is_lvm_physical_volume.return_value = True
-        self.assertRaises(cinder_utils.CinderCharmError,
-                          cinder_utils.prepare_lvm_storage,
-                          block_device='/dev/foobar',
-                          volume_group='bar-vg')
+    def test_parse_block_device(self):
+        self.assertTrue(cinder_utils._parse_block_device(None),
+                        (None, 0))
+        self.assertTrue(cinder_utils._parse_block_device('vdc'),
+                        ('/dev/vdc', 0))
+        self.assertTrue(cinder_utils._parse_block_device('/dev/vdc'),
+                        ('/dev/vdc', 0))
+        self.assertTrue(cinder_utils._parse_block_device('/dev/vdc'),
+                        ('/dev/vdc', 0))
+        self.assertTrue(cinder_utils._parse_block_device('/mnt/loop0|10'),
+                        ('/mnt/loop0', 10))
+        self.assertTrue(cinder_utils._parse_block_device('/mnt/loop0'),
+                        ('/mnt/loop0', cinder_utils.DEFAULT_LOOPBACK_SIZE))
 
-    def test_prepare_lvm_storage_clean(self):
+    @patch.object(cinder_utils, 'clean_storage')
+    @patch.object(cinder_utils, 'extend_lvm_volume_group')
+    def test_configure_lvm_storage(self, extend_lvm, clean_storage):
+        devices = ['/dev/vdb', '/dev/vdc']
         self.is_lvm_physical_volume.return_value = False
-        cinder_utils.prepare_lvm_storage(block_device='/dev/foobar',
-                                         volume_group='bar-vg')
-        self.create_lvm_physical_volume.assert_called_with('/dev/foobar')
-        self.create_lvm_volume_group.assert_called_with('bar-vg',
-                                                        '/dev/foobar')
+        cinder_utils.configure_lvm_storage(devices, 'test', True)
+        clean_storage.assert_has_calls(
+            [call('/dev/vdb'),
+             call('/dev/vdc')]
+        )
+        self.create_lvm_physical_volume.assert_has_calls(
+            [call('/dev/vdb'),
+             call('/dev/vdc')]
+        )
+        self.create_lvm_volume_group.assert_called_with('test', '/dev/vdb')
+        extend_lvm.assert_called_with('test', '/dev/vdc')
 
-    def test_prepare_lvm_storage_error(self):
+    @patch.object(cinder_utils, 'clean_storage')
+    @patch.object(cinder_utils, 'extend_lvm_volume_group')
+    def test_configure_lvm_storage_loopback(self, extend_lvm, clean_storage):
+        devices = ['/mnt/loop0|10']
+        self.ensure_loopback_device.return_value = '/dev/loop0'
         self.is_lvm_physical_volume.return_value = False
-        self.create_lvm_physical_volume.side_effect = Exception()
-        # NOTE(jamespage) ensure general Exceptions mapped
-        # to CinderCharmError's
-        self.assertRaises(cinder_utils.CinderCharmError,
-                          cinder_utils.prepare_lvm_storage,
-                          block_device='/dev/foobar',
-                          volume_group='bar-vg')
+        cinder_utils.configure_lvm_storage(devices, 'test', True)
+        clean_storage.assert_called_with('/dev/loop0')
+        self.ensure_loopback_device.assert_called_with('/mnt/loop0', '10')
+        self.create_lvm_physical_volume.assert_called_with('/dev/loop0')
+        self.create_lvm_volume_group.assert_called_with('test', '/dev/loop0')
+        self.assertFalse(extend_lvm.called)
+
+    @patch.object(cinder_utils, 'clean_storage')
+    @patch.object(cinder_utils, 'extend_lvm_volume_group')
+    def test_configure_lvm_storage_existing_vg(self, extend_lvm,
+                                               clean_storage):
+        def pv_lookup(device):
+            devices = {
+                '/dev/vdb': True,
+                '/dev/vdc': False
+            }
+            return devices[device]
+
+        def vg_lookup(device):
+            devices = {
+                '/dev/vdb': 'test',
+                '/dev/vdc': None
+            }
+            return devices[device]
+        devices = ['/dev/vdb', '/dev/vdc']
+        self.is_lvm_physical_volume.side_effect = pv_lookup
+        self.list_lvm_volume_group.side_effect = vg_lookup
+        cinder_utils.configure_lvm_storage(devices, 'test', True)
+        clean_storage.assert_has_calls(
+            [call('/dev/vdc')]
+        )
+        self.create_lvm_physical_volume.assert_has_calls(
+            [call('/dev/vdc')]
+        )
+        extend_lvm.assert_called_with('test', '/dev/vdc')
+        self.assertFalse(self.create_lvm_volume_group.called)
+
+    @patch.object(cinder_utils, 'clean_storage')
+    @patch.object(cinder_utils, 'extend_lvm_volume_group')
+    def test_configure_lvm_storage_different_vg(self, extend_lvm,
+                                                clean_storage):
+        def pv_lookup(device):
+            devices = {
+                '/dev/vdb': True,
+                '/dev/vdc': True
+            }
+            return devices[device]
+
+        def vg_lookup(device):
+            devices = {
+                '/dev/vdb': 'test',
+                '/dev/vdc': 'another'
+            }
+            return devices[device]
+        devices = ['/dev/vdb', '/dev/vdc']
+        self.is_lvm_physical_volume.side_effect = pv_lookup
+        self.list_lvm_volume_group.side_effect = vg_lookup
+        cinder_utils.configure_lvm_storage(devices, 'test', True)
+        clean_storage.assert_called_with('/dev/vdc')
+        self.create_lvm_physical_volume.assert_called_with('/dev/vdc')
+        extend_lvm.assert_called_with('test', '/dev/vdc')
+        self.assertFalse(self.create_lvm_volume_group.called)
+
+    @patch.object(cinder_utils, 'clean_storage')
+    @patch.object(cinder_utils, 'extend_lvm_volume_group')
+    def test_configure_lvm_storage_different_vg_ignore(self, extend_lvm,
+                                                       clean_storage):
+        def pv_lookup(device):
+            devices = {
+                '/dev/vdb': True,
+                '/dev/vdc': True
+            }
+            return devices[device]
+
+        def vg_lookup(device):
+            devices = {
+                '/dev/vdb': 'test',
+                '/dev/vdc': 'another'
+            }
+            return devices[device]
+        devices = ['/dev/vdb', '/dev/vdc']
+        self.is_lvm_physical_volume.side_effect = pv_lookup
+        self.list_lvm_volume_group.side_effect = vg_lookup
+        cinder_utils.configure_lvm_storage(devices, 'test', False)
+        self.assertFalse(clean_storage.called)
+        self.assertFalse(self.create_lvm_physical_volume.called)
+        self.assertFalse(extend_lvm.called)
+        self.assertFalse(self.create_lvm_volume_group.called)
+
+    @patch('subprocess.check_call')
+    def test_extend_lvm_volume_group(self, _call):
+        cinder_utils.extend_lvm_volume_group('test', '/dev/sdb')
+        _call.assert_called_with(['vgextend', 'test', '/dev/sdb'])
 
     def test_migrate_database(self):
         'It migrates database with cinder-manage'

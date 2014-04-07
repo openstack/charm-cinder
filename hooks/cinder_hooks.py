@@ -107,8 +107,8 @@ def db_joined():
 def pgsql_db_joined():
     if is_relation_made('shared-db'):
         # raise error
-        e = ('Attempting to associate a postgresql database when there is already '
-             'associated a mysql one')
+        e = ('Attempting to associate a postgresql database when there is'
+             ' already associated a mysql one')
         log(e, level=ERROR)
         raise Exception(e)
 
