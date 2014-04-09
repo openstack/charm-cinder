@@ -2,6 +2,7 @@
 
 import os
 import sys
+import uuid
 
 from subprocess import check_call
 
@@ -84,6 +85,10 @@ def config_changed():
 
     if openstack_upgrade_available('cinder-common'):
         do_openstack_upgrade(configs=CONFIGS)
+        # NOTE(jamespage) tell any storage-backends we just upgraded
+        for rid in relation_ids('storage-backend'):
+            relation_set(relation_id=rid,
+                         upgrade_nonce=uuid.uuid4())
 
     CONFIGS.write_all()
     configure_https()
