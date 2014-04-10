@@ -113,8 +113,8 @@ class TestCinderContext(CharmTestCase):
         mock_is_clustered.return_value = False
 
         ctxt = contexts.ApacheSSLContext()
-        with patch.object(ctxt, 'enable_modules') as mock_enable_modules:
-            with patch.object(ctxt, 'configure_cert') as mock_configure_cert:
+        with patch.object(ctxt, 'enable_modules'):
+            with patch.object(ctxt, 'configure_cert'):
                 service_enabled.return_value = False
                 self.assertEquals(ctxt(), {})
                 self.assertFalse(mock_https.called)
