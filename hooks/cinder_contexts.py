@@ -102,3 +102,8 @@ class StorageBackendContext(OSContextGenerator):
             return {'backends': ",".join(backends)}
         else:
             return {}
+
+
+class LoggingConfigContext(OSContextGenerator):
+    def __call__(self):
+        return {'debug': config('debug'), 'verbose': config('verbose')}
