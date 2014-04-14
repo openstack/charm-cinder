@@ -182,16 +182,6 @@ class TestCinderUtils(CharmTestCase):
         zap_disk.assert_called_with('/dev/vdb')
 
     @patch.object(cinder_utils, 'lvm_zap_disk')
-    def test_clean_storage_lvm_wipe(self, zap_disk):
-        'It removes traces of LVM when cleaning storage'
-        self.mounts.return_value = []
-        self.is_lvm_physical_volume.return_value = True
-        cinder_utils.clean_storage('/dev/vdb')
-        self.remove_lvm_physical_volume.assert_called_with('/dev/vdb')
-        self.deactivate_lvm_volume_group.assert_called_with('/dev/vdb')
-        zap_disk.assert_called_with('/dev/vdb')
-
-    @patch.object(cinder_utils, 'lvm_zap_disk')
     def test_clean_storage_zap_disk(self, zap_disk):
         'It removes traces of LVM when cleaning storage'
         self.mounts.return_value = []

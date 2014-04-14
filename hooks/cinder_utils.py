@@ -343,11 +343,6 @@ def clean_storage(block_device):
             juju_log('clean_storage(): Found %s mounted @ %s, unmounting.' %
                      (d, mp))
             umount(mp, persist=True)
-
-    if is_lvm_physical_volume(block_device):
-        deactivate_lvm_volume_group(block_device)
-        remove_lvm_physical_volume(block_device)
-
     lvm_zap_disk(block_device)
 
 
