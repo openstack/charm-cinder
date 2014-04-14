@@ -319,6 +319,16 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False):
             extend_lvm_volume_group(volume_group, new_device)
 
 
+def lvm_zap_disk(block_device):
+    '''
+    Clear a block device of partition table. Relies on sgdisk, which is
+    installed as pat of the 'gdisk' package in Ubuntu.
+
+    :param block_device: str: Full path of block device to clean.
+    '''
+    subprocess.check_call(['sgdisk', '--zap-all', block_device])
+
+
 def clean_storage(block_device):
     '''Ensures a block device is clean.  That is:
         - unmounted
@@ -338,7 +348,7 @@ def clean_storage(block_device):
         deactivate_lvm_volume_group(block_device)
         remove_lvm_physical_volume(block_device)
 
-    zap_disk(block_device)
+    lvm_zap_disk(block_device)
 
 
 def _parse_block_device(block_device):
