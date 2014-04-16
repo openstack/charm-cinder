@@ -2,18 +2,17 @@
 
 import os
 import sys
+import uuid
 
 from subprocess import check_call
 
 from cinder_utils import (
-    clean_storage,
     determine_packages,
     do_openstack_upgrade,
-    ensure_block_device,
     ensure_ceph_pool,
     juju_log,
     migrate_database,
-    prepare_lvm_storage,
+    configure_lvm_storage,
     register_configs,
     restart_map,
     service_enabled,
@@ -28,11 +27,14 @@ from charmhelpers.core.hookenv import (
     Hooks,
     UnregisteredHookError,
     config,
+    is_relation_made,
     relation_get,
     relation_ids,
     relation_set,
     service_name,
     unit_get,
+    log,
+    ERROR
 )
 
 from charmhelpers.fetch import apt_install, apt_update
@@ -69,30 +71,54 @@ def install():
     apt_update()
     apt_install(determine_packages(), fatal=True)
 
-    if (service_enabled('volume') and
-       conf['block-device'] not in [None, 'None', 'none']):
-        bdev = ensure_block_device(conf['block-device'])
-        juju_log('Located valid block device: %s' % bdev)
-        if conf['overwrite'] in ['true', 'True', True]:
-            juju_log('Ensuring block device is clean: %s' % bdev)
-            clean_storage(bdev)
-        prepare_lvm_storage(bdev, conf['volume-group'])
-
 
 @hooks.hook('config-changed')
 @restart_on_change(restart_map(), stopstart=True)
 def config_changed():
+    conf = config()
+    if (service_enabled('volume') and
+            conf['block-device'] not in [None, 'None', 'none']):
+        block_devices = conf['block-device'].split()
+        configure_lvm_storage(block_devices,
+                              conf['volume-group'],
+                              conf['overwrite'] in ['true', 'True', True])
+
     if openstack_upgrade_available('cinder-common'):
         do_openstack_upgrade(configs=CONFIGS)
+        # NOTE(jamespage) tell any storage-backends we just upgraded
+        for rid in relation_ids('storage-backend'):
+            relation_set(relation_id=rid,
+                         upgrade_nonce=uuid.uuid4())
+
     CONFIGS.write_all()
     configure_https()
 
 
 @hooks.hook('shared-db-relation-joined')
 def db_joined():
+    if is_relation_made('pgsql-db'):
+        # error, postgresql is used
+        e = ('Attempting to associate a mysql database when there is already '
+             'associated a postgresql one')
+        log(e, level=ERROR)
+        raise Exception(e)
+
     conf = config()
     relation_set(database=conf['database'], username=conf['database-user'],
                  hostname=unit_get('private-address'))
+
+
+@hooks.hook('pgsql-db-relation-joined')
+def pgsql_db_joined():
+    if is_relation_made('shared-db'):
+        # raise error
+        e = ('Attempting to associate a postgresql database when there is'
+             ' already associated a mysql one')
+        log(e, level=ERROR)
+        raise Exception(e)
+
+    conf = config()
+    relation_set(database=conf['database'])
 
 
 @hooks.hook('shared-db-relation-changed')
@@ -100,6 +126,18 @@ def db_joined():
 def db_changed():
     if 'shared-db' not in CONFIGS.complete_contexts():
         juju_log('shared-db relation incomplete. Peer not ready?')
+        return
+    CONFIGS.write(CINDER_CONF)
+    if eligible_leader(CLUSTER_RES):
+        juju_log('Cluster leader, performing db sync')
+        migrate_database()
+
+
+@hooks.hook('pgsql-db-relation-changed')
+@restart_on_change(restart_map())
+def pgsql_db_changed():
+    if 'pgsql-db' not in CONFIGS.complete_contexts():
+        juju_log('pgsql-db relation incomplete. Peer not ready?')
         return
     CONFIGS.write(CINDER_CONF)
     if eligible_leader(CLUSTER_RES):
@@ -117,6 +155,15 @@ def amqp_joined(relation_id=None):
 @hooks.hook('amqp-relation-changed')
 @restart_on_change(restart_map())
 def amqp_changed():
+    if 'amqp' not in CONFIGS.complete_contexts():
+        juju_log('amqp relation incomplete. Peer not ready?')
+        return
+    CONFIGS.write(CINDER_CONF)
+
+
+@hooks.hook('amqp-relation-departed')
+@restart_on_change(restart_map())
+def amqp_departed():
     if 'amqp' not in CONFIGS.complete_contexts():
         juju_log('amqp relation incomplete. Peer not ready?')
         return
@@ -241,7 +288,8 @@ def image_service_changed():
             'ceph-relation-broken',
             'identity-service-relation-broken',
             'image-service-relation-broken',
-            'shared-db-relation-broken')
+            'shared-db-relation-broken',
+            'pgsql-db-relation-broken')
 @restart_on_change(restart_map(), stopstart=True)
 def relation_broken():
     CONFIGS.write_all()
@@ -269,6 +317,13 @@ def configure_https():
 def upgrade_charm():
     for rel_id in relation_ids('amqp'):
         amqp_joined(relation_id=rel_id)
+
+
+@hooks.hook('storage-backend-relation-changed')
+@hooks.hook('storage-backend-relation-broken')
+@restart_on_change(restart_map())
+def storage_backend():
+    CONFIGS.write(CINDER_CONF)
 
 
 if __name__ == '__main__':

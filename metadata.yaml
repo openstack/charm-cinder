@@ -11,6 +11,8 @@ provides:
 requires:
   shared-db:
     interface: mysql-shared
+  pgsql-db:
+    interface: pgsql
   amqp:
     interface: rabbitmq
   identity-service:
@@ -21,6 +23,9 @@ requires:
     interface: glance
   ha:
     interface: hacluster
+    scope: container
+  storage-backend:
+    interface: cinder-backend
     scope: container
 peers:
   cluster:

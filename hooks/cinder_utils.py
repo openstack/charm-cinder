@@ -12,13 +12,16 @@ from charmhelpers.core.hookenv import (
 )
 
 from charmhelpers.fetch import (
-    apt_install,
+    apt_upgrade,
     apt_update,
+    apt_install
 )
 
 from charmhelpers.core.host import (
     mounts,
     umount,
+    service_stop,
+    service_start,
     mkdir
 )
 
@@ -43,6 +46,7 @@ from charmhelpers.contrib.storage.linux.lvm import (
     deactivate_lvm_volume_group,
     is_lvm_physical_volume,
     remove_lvm_physical_volume,
+    list_lvm_volume_group
 )
 
 from charmhelpers.contrib.storage.linux.loopback import (
@@ -70,6 +74,7 @@ COMMON_PACKAGES = [
     'python-jinja2',
     'python-keystoneclient',
     'python-mysqldb',
+    'python-psycopg2',
     'qemu-utils',
 ]
 
@@ -86,8 +91,9 @@ CLUSTER_RES = 'res_cinder_vip'
 class CinderCharmError(Exception):
     pass
 
-CINDER_CONF = '/etc/cinder/cinder.conf'
-CINDER_API_CONF = '/etc/cinder/api-paste.ini'
+CINDER_CONF_DIR = "/etc/cinder"
+CINDER_CONF = '%s/cinder.conf' % CINDER_CONF_DIR
+CINDER_API_CONF = '%s/api-paste.ini' % CINDER_CONF_DIR
 CEPH_CONF = '/etc/ceph/ceph.conf'
 CHARM_CEPH_CONF = '/var/lib/charm/{}/ceph.conf'
 
@@ -98,6 +104,7 @@ APACHE_SITE_24_CONF = '/etc/apache2/sites-available/' \
 
 TEMPLATES = 'templates/'
 
+
 def ceph_config_file():
     return CHARM_CEPH_CONF.format(service_name())
 
@@ -105,14 +112,22 @@ def ceph_config_file():
 # with file in restart_on_changes()'s service map.
 CONFIG_FILES = OrderedDict([
     (CINDER_CONF, {
-        'hook_contexts': [context.SharedDBContext(),
-                          context.AMQPContext(),
+        'hook_contexts': [context.SharedDBContext(ssl_dir=CINDER_CONF_DIR),
+                          context.PostgresqlDBContext(),
+                          context.AMQPContext(ssl_dir=CINDER_CONF_DIR),
                           context.ImageServiceContext(),
                           context.OSConfigFlagContext(),
                           context.SyslogContext(),
                           cinder_contexts.CephContext(),
                           cinder_contexts.HAProxyContext(),
-                          cinder_contexts.ImageServiceContext()],
+                          cinder_contexts.ImageServiceContext(),
+                          context.SubordinateConfigContext(
+                              interface='storage-backend',
+                              service='cinder',
+                              config_file=CINDER_CONF),
+                          cinder_contexts.StorageBackendContext(),
+                          cinder_contexts.LoggingConfigContext(),
+                          context.IdentityServiceContext()],
         'services': ['cinder-api', 'cinder-volume',
                      'cinder-scheduler', 'haproxy']
     }),
@@ -239,31 +254,69 @@ def restart_map():
     return OrderedDict(_map)
 
 
-def prepare_lvm_storage(block_device, volume_group):
-    '''Ensures block_device is initialized as a LVM PV
-    and creates volume_group.
-    Assumes block device is clean and will raise if storage is already
-    initialized as a PV.
+def services():
+    ''' Returns a list of services associate with this charm '''
+    _services = []
+    for v in restart_map().values():
+        _services = _services + v
+    return list(set(_services))
 
-    :param block_device: str: Full path to block device to be prepared.
-    :param volume_group: str: Name of volume group to be created with
-                              block_device as backing PV.
 
-    :returns: None or raises CinderCharmError if storage is unclean.
+def extend_lvm_volume_group(volume_group, block_device):
     '''
-    e = None
-    if is_lvm_physical_volume(block_device):
-        juju_log('ERROR: Could not prepare LVM storage: %s is already '
-                 'initialized as LVM physical device.' % block_device)
-        raise CinderCharmError
+    Extend and LVM volume group onto a given block device.
 
-    try:
-        create_lvm_physical_volume(block_device)
-        create_lvm_volume_group(volume_group, block_device)
-    except Exception as e:
-        juju_log('Could not prepare LVM storage on %s.' % block_device)
-        juju_log(e)
-        raise CinderCharmError
+    Assumes block device has already been initialized as an LVM PV.
+
+    :param volume_group: str: Name of volume group to create.
+    :block_device: str: Full path of PV-initialized block device.
+    '''
+    subprocess.check_call(['vgextend', volume_group, block_device])
+
+
+def configure_lvm_storage(block_devices, volume_group, overwrite=False):
+    ''' Configure LVM storage on the list of block devices provided
+
+    :param block_devices: list: List of whitelisted block devices to detect
+                                and use if found
+    :param overwrite: bool: Scrub any existing block data if block device is
+                            not already in-use
+    '''
+    devices = []
+    for block_device in block_devices:
+        (block_device, size) = _parse_block_device(block_device)
+        if size == 0 and is_block_device(block_device):
+            devices.append(block_device)
+        elif size > 0:
+            devices.append(ensure_loopback_device(block_device, size))
+
+    # NOTE(jamespage)
+    # might need todo an initial one-time scrub on install if need be
+    vg_found = False
+    new_devices = []
+    for device in devices:
+        if (not is_lvm_physical_volume(device) or
+                (is_lvm_physical_volume(device) and
+                 list_lvm_volume_group(device) != volume_group)):
+            # Existing LVM but not part of required VG or new device
+            if overwrite is True:
+                clean_storage(device)
+                new_devices.append(device)
+                create_lvm_physical_volume(device)
+        elif (is_lvm_physical_volume(device) and
+                list_lvm_volume_group(device) == volume_group):
+            # Mark vg as found
+            vg_found = True
+
+    if vg_found is False and len(new_devices) > 0:
+        # Create new volume group from first device
+        create_lvm_volume_group(volume_group, new_devices[0])
+        new_devices.remove(new_devices[0])
+
+    if len(new_devices) > 0:
+        # Extend the volume group as required
+        for new_device in new_devices:
+            extend_lvm_volume_group(volume_group, new_device)
 
 
 def clean_storage(block_device):
@@ -284,25 +337,24 @@ def clean_storage(block_device):
     if is_lvm_physical_volume(block_device):
         deactivate_lvm_volume_group(block_device)
         remove_lvm_physical_volume(block_device)
-    else:
-        zap_disk(block_device)
+
+    zap_disk(block_device)
 
 
-def ensure_block_device(block_device):
-    '''Confirm block_device, create as loopback if necessary.
+def _parse_block_device(block_device):
+    ''' Parse a block device string and return either the full path
+    to the block device, or the path to a loopback device and its size
 
-    :param block_device: str: Full path of block device to ensure.
+    :param: block_device: str: Block device as provided in configuration
 
-    :returns: str: Full path of ensured block device.
+    :returns: (str, int): Full path to block device and 0 OR
+                          Full path to loopback device and required size
     '''
     _none = ['None', 'none', None]
-    if (block_device in _none):
-        juju_log('prepare_storage(): Missing required input: '
-                 'block_device=%s.' % block_device)
-        raise CinderCharmError
-
+    if block_device in _none:
+        return (None, 0)
     if block_device.startswith('/dev/'):
-        bdev = block_device
+        return (block_device, 0)
     elif block_device.startswith('/'):
         _bd = block_device.split('|')
         if len(_bd) == 2:
@@ -310,15 +362,9 @@ def ensure_block_device(block_device):
         else:
             bdev = block_device
             size = DEFAULT_LOOPBACK_SIZE
-        bdev = ensure_loopback_device(bdev, size)
+        return (bdev, size)
     else:
-        bdev = '/dev/%s' % block_device
-
-    if not is_block_device(bdev):
-        juju_log('Failed to locate valid block device at %s' % bdev)
-        raise CinderCharmError
-
-    return bdev
+        return ('/dev/{}'.format(block_device), 0)
 
 
 def migrate_database():
@@ -364,11 +410,15 @@ def do_openstack_upgrade(configs):
         '--option', 'Dpkg::Options::=--force-confdef',
     ]
     apt_update()
-    apt_install(packages=determine_packages(), options=dpkg_opts, fatal=True)
+    apt_upgrade(options=dpkg_opts, fatal=True, dist=True)
+    apt_install(determine_packages(), fatal=True)
 
     # set CONFIGS to load templates from new release and regenerate config
     configs.set_release(openstack_release=new_os_rel)
     configs.write_all()
 
+    # Stop/start services and migrate DB if leader
+    [service_stop(s) for s in services()]
     if eligible_leader(CLUSTER_RES):
         migrate_database()
+    [service_start(s) for s in services()]

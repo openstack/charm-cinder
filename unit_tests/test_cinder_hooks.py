@@ -24,16 +24,15 @@ utils.register_configs = _register_configs
 TO_PATCH = [
     'check_call',
     # cinder_utils
-    'clean_storage',
+    'configure_lvm_storage',
     'determine_packages',
     'do_openstack_upgrade',
-    'ensure_block_device',
     'ensure_ceph_keyring',
     'ensure_ceph_pool',
     'juju_log',
+    'log',
     'lsb_release',
     'migrate_database',
-    'prepare_lvm_storage',
     'register_configs',
     'restart_map',
     'service_enabled',
@@ -43,6 +42,7 @@ TO_PATCH = [
     'ceph_config_file',
     # charmhelpers.core.hookenv
     'config',
+    'is_relation_made',
     'relation_get',
     'relation_ids',
     'relation_set',
@@ -64,6 +64,7 @@ TO_PATCH = [
 
 
 class TestInstallHook(CharmTestCase):
+
     def setUp(self):
         super(TestInstallHook, self).setUp(hooks, TO_PATCH)
         self.config.side_effect = self.test_config.get_all
@@ -81,46 +82,9 @@ class TestInstallHook(CharmTestCase):
         hooks.hooks.execute(['hooks/install'])
         self.apt_install.assert_called_with(['foo', 'bar', 'baz'], fatal=True)
 
-    def test_storage_prepared(self):
-        'It prepares local storage if volume service enabled'
-        self.test_config.set('block-device', 'vdb')
-        self.test_config.set('volume-group', 'cinder')
-        self.test_config.set('overwrite', 'true')
-        self.service_enabled.return_value = True
-        self.ensure_block_device.return_value = '/dev/vdb'
-        hooks.hooks.execute(['hooks/install'])
-        self.ensure_block_device.assert_called_with('vdb')
-        self.prepare_lvm_storage.assert_called_with('/dev/vdb', 'cinder')
-
-    def test_storage_not_prepared(self):
-        'It does not prepare storage when not necessary'
-        self.service_enabled.return_value = False
-        hooks.hooks.execute(['hooks/install'])
-        self.assertFalse(self.ensure_block_device.called)
-        self.service_enabled.return_value = True
-        for none in ['None', 'none', None]:
-            self.test_config.set('block-device', none)
-            hooks.hooks.execute(['hooks/install'])
-            self.assertFalse(self.ensure_block_device.called)
-
-    def test_storage_is_cleaned(self):
-        'It cleans storage when configured to do so'
-        self.ensure_block_device.return_value = '/dev/foo'
-        for true in ['True', 'true', True]:
-            self.test_config.set('overwrite', true)
-            hooks.hooks.execute(['hooks/install'])
-            self.clean_storage.assert_called_with('/dev/foo')
-
-    def test_storage_is_not_cleaned(self):
-        'It does not clean storage when not configured to'
-        self.ensure_block_device.return_value = '/dev/foo'
-        for true in ['False', 'false', False]:
-            self.test_config.set('overwrite', true)
-            hooks.hooks.execute(['hooks/install'])
-            self.assertFalse(self.clean_storage.called)
-
 
 class TestChangedHooks(CharmTestCase):
+
     def setUp(self):
         super(TestChangedHooks, self).setUp(hooks, TO_PATCH)
         self.config.side_effect = self.test_config.get_all
@@ -144,6 +108,24 @@ class TestChangedHooks(CharmTestCase):
         hooks.hooks.execute(['hooks/config-changed'])
         self.assertTrue(self.CONFIGS.write_all.called)
         self.assertTrue(conf_https.called)
+        self.configure_lvm_storage.assert_called_with(['sdb'],
+                                                      'cinder-volumes',
+                                                      False)
+
+    @patch.object(hooks, 'configure_https')
+    def test_config_changed_block_devices(self, conf_https):
+        'It writes out all config'
+        self.openstack_upgrade_available.return_value = False
+        self.test_config.set('block-device', 'sdb /dev/sdc sde')
+        self.test_config.set('volume-group', 'cinder-new')
+        self.test_config.set('overwrite', 'True')
+        hooks.hooks.execute(['hooks/config-changed'])
+        self.assertTrue(self.CONFIGS.write_all.called)
+        self.assertTrue(conf_https.called)
+        self.configure_lvm_storage.assert_called_with(
+            ['sdb', '/dev/sdc', 'sde'],
+            'cinder-new',
+            True)
 
     @patch.object(hooks, 'configure_https')
     def test_config_changed_upgrade_available(self, conf_https):
@@ -159,9 +141,22 @@ class TestChangedHooks(CharmTestCase):
         self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
         self.assertTrue(self.migrate_database.called)
 
+    def test_pgsql_db_changed(self):
+        'It writes out cinder.conf on db changed'
+        self.CONFIGS.complete_contexts.return_value = ['pgsql-db']
+        hooks.hooks.execute(['hooks/pgsql-db-relation-changed'])
+        self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
+        self.assertTrue(self.migrate_database.called)
+
     def test_db_changed_relation_incomplete(self):
         'It does not write out cinder.conf with incomplete shared-db rel'
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
+        self.assertFalse(self.CONFIGS.write.called)
+        self.assertFalse(self.migrate_database.called)
+
+    def test_pgsql_db_changed_relation_incomplete(self):
+        'It does not write out cinder.conf with incomplete pgsql-db rel'
+        hooks.hooks.execute(['hooks/pgsql-db-relation-changed'])
         self.assertFalse(self.CONFIGS.write.called)
         self.assertFalse(self.migrate_database.called)
 
@@ -170,6 +165,14 @@ class TestChangedHooks(CharmTestCase):
         self.eligible_leader.return_value = False
         self.CONFIGS.complete_contexts.return_value = ['shared-db']
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
+        self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
+        self.assertFalse(self.migrate_database.called)
+
+    def test_pgsql_db_changed_not_leader(self):
+        'It does not migrate database when not leader'
+        self.eligible_leader.return_value = False
+        self.CONFIGS.complete_contexts.return_value = ['pgsql-db']
+        hooks.hooks.execute(['hooks/pgsql-db-relation-changed'])
         self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
         self.assertFalse(self.migrate_database.called)
 
@@ -228,8 +231,17 @@ class TestChangedHooks(CharmTestCase):
         hooks.hooks.execute(['hooks/image-service-relation-broken'])
         self.assertTrue(self.CONFIGS.write_all.called)
 
+    def test_storage_backend_changed(self):
+        hooks.hooks.execute(['hooks/storage-backend-relation-changed'])
+        self.CONFIGS.write.assert_called_with(utils.CINDER_CONF)
+
+    def test_storage_backend_broken(self):
+        hooks.hooks.execute(['hooks/storage-backend-relation-broken'])
+        self.CONFIGS.write.assert_called_with(utils.CINDER_CONF)
+
 
 class TestJoinedHooks(CharmTestCase):
+
     def setUp(self):
         super(TestJoinedHooks, self).setUp(hooks, TO_PATCH)
         self.config.side_effect = self.test_config.get_all
@@ -237,10 +249,37 @@ class TestJoinedHooks(CharmTestCase):
     def test_db_joined(self):
         'It properly requests access to a shared-db service'
         self.unit_get.return_value = 'cindernode1'
+        self.is_relation_made.return_value = False
         hooks.hooks.execute(['hooks/shared-db-relation-joined'])
         expected = {'username': 'cinder',
                     'hostname': 'cindernode1', 'database': 'cinder'}
         self.relation_set.assert_called_with(**expected)
+
+    def test_db_joined_with_postgresql(self):
+        self.is_relation_made.return_value = True
+
+        with self.assertRaises(Exception) as context:
+            hooks.hooks.execute(['hooks/shared-db-relation-joined'])
+        self.assertEqual(context.exception.message,
+                         'Attempting to associate a mysql database when there '
+                         'is already associated a postgresql one')
+
+    def test_postgresql_db_joined(self):
+        'It properly requests access to a postgresql-db service'
+        self.unit_get.return_value = 'cindernode1'
+        self.is_relation_made.return_value = False
+        hooks.hooks.execute(['hooks/pgsql-db-relation-joined'])
+        expected = {'database': 'cinder'}
+        self.relation_set.assert_called_with(**expected)
+
+    def test_postgresql_joined_with_db(self):
+        self.is_relation_made.return_value = True
+
+        with self.assertRaises(Exception) as context:
+            hooks.hooks.execute(['hooks/pgsql-db-relation-joined'])
+        self.assertEqual(context.exception.message,
+                         'Attempting to associate a postgresql database when'
+                         ' there is already associated a mysql one')
 
     def test_amqp_joined(self):
         'It properly requests access to an amqp service'
@@ -329,3 +368,21 @@ class TestJoinedHooks(CharmTestCase):
         self.ensure_ceph_keyring.return_value = True
         hooks.hooks.execute(['hooks/ceph-relation-changed'])
         self.assertFalse(self.ensure_ceph_pool.called)
+
+
+class TestDepartedHooks(CharmTestCase):
+
+    def setUp(self):
+        super(TestDepartedHooks, self).setUp(hooks, TO_PATCH)
+        self.config.side_effect = self.test_config.get_all
+
+    def test_amqp_departed(self):
+        self.CONFIGS.complete_contexts.return_value = ['amqp']
+        hooks.hooks.execute(['hooks/amqp-relation-departed'])
+        self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
+
+    def test_amqp_departed_incomplete(self):
+        self.CONFIGS.complete_contexts.return_value = []
+        hooks.hooks.execute(['hooks/amqp-relation-departed'])
+        assert not self.CONFIGS.write.called
+        assert self.juju_log.called

@@ -2,11 +2,17 @@ from charmhelpers.core.hookenv import (
     config,
     relation_ids,
     service_name,
+    related_units,
+    relation_get,
 )
 
 from charmhelpers.contrib.openstack.context import (
     OSContextGenerator,
     ApacheSSLContext as SSLContext,
+)
+
+from charmhelpers.contrib.openstack.utils import (
+    get_os_codename_install_source
 )
 
 from charmhelpers.contrib.hahelpers.cluster import (
@@ -35,8 +41,13 @@ class CephContext(OSContextGenerator):
         if not relation_ids('ceph'):
             return {}
         service = service_name()
+        if get_os_codename_install_source(config('openstack-origin')) \
+                >= "icehouse":
+            volume_driver = 'cinder.volume.drivers.rbd.RBDDriver'
+        else:
+            volume_driver = 'cinder.volume.driver.RBDDriver'
         return {
-            'volume_driver': 'cinder.volume.driver.RBDDriver',
+            'volume_driver': volume_driver,
             # ensure_ceph_pool() creates pool based on service name.
             'rbd_pool': service,
             'rbd_user': service,
@@ -74,3 +85,25 @@ class ApacheSSLContext(SSLContext):
         if not service_enabled('cinder-api'):
             return {}
         return super(ApacheSSLContext, self).__call__()
+
+
+class StorageBackendContext(OSContextGenerator):
+    interfaces = ['storage-backend']
+
+    def __call__(self):
+        backends = []
+        for rid in relation_ids('storage-backend'):
+            for unit in related_units(rid):
+                backend_name = relation_get('backend_name',
+                                            unit, rid)
+                if backend_name:
+                    backends.append(backend_name)
+        if len(backends) > 0:
+            return {'backends': ",".join(backends)}
+        else:
+            return {}
+
+
+class LoggingConfigContext(OSContextGenerator):
+    def __call__(self):
+        return {'debug': config('debug'), 'verbose': config('verbose')}
