@@ -11,3 +11,7 @@ test:
 
 sync:
 	@charm-helper-sync -c charm-helpers.yaml
+
+publish:
+	bzr push lp:charms/cinder
+	bzr push lp:charms/trusty/cinder
