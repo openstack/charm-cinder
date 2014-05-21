@@ -38,6 +38,7 @@ from charmhelpers.contrib.hahelpers.cluster import (
 from charmhelpers.contrib.storage.linux.utils import (
     is_block_device,
     zap_disk,
+    is_device_mounted
 )
 
 from charmhelpers.contrib.storage.linux.lvm import (
@@ -285,10 +286,12 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False):
     devices = []
     for block_device in block_devices:
         (block_device, size) = _parse_block_device(block_device)
-        if size == 0 and is_block_device(block_device):
-            devices.append(block_device)
-        elif size > 0:
-            devices.append(ensure_loopback_device(block_device, size))
+
+        if not is_device_mounted(block_device):
+            if size == 0 and is_block_device(block_device):
+                devices.append(block_device)
+            elif size > 0:
+                devices.append(ensure_loopback_device(block_device, size))
 
     # NOTE(jamespage)
     # might need todo an initial one-time scrub on install if need be

@@ -5,7 +5,7 @@ os.environ['JUJU_UNIT_NAME'] = 'cinder'
 import cinder_utils as utils
 
 # Need to do some early patching to get the module loaded.
-#_restart_map = utils.restart_map
+# _restart_map = utils.restart_map
 _register_configs = utils.register_configs
 _service_enabled = utils.service_enabled
 utils.register_configs = MagicMock()
