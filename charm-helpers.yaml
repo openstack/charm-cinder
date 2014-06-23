@@ -1,4 +1,4 @@
-branch: lp:charm-helpers
+branch: lp:~james-page/charm-helpers/network-splits
 destination: hooks/charmhelpers
 include:
     - core
@@ -10,3 +10,4 @@ include:
         - cluster
     - fetch
     - payload.execd
+    - contrib.network.ip

@@ -53,6 +53,7 @@ from charmhelpers.contrib.hahelpers.cluster import (
 )
 
 from charmhelpers.payload.execd import execd_preinstall
+from charmhelpers.contrib.network.ip import get_address_in_network
 
 hooks = Hooks()
 
@@ -65,7 +66,7 @@ def install():
     conf = config()
     src = conf['openstack-origin']
     if (lsb_release()['DISTRIB_CODENAME'] == 'precise' and
-       src == 'distro'):
+            src == 'distro'):
         src = 'cloud:precise-folsom'
     configure_installation_source(src)
     apt_update()
@@ -105,7 +106,8 @@ def db_joined():
 
     conf = config()
     relation_set(database=conf['database'], username=conf['database-user'],
-                 hostname=unit_get('private-address'))
+                 hostname=get_address_in_network(config('database-network'),
+                                                 unit_get('private-address')))
 
 
 @hooks.hook('pgsql-db-relation-joined')
@@ -176,16 +178,28 @@ def identity_joined(rid=None):
         return
 
     conf = config()
-
     port = conf['api-listening-port']
-    url = canonical_url(CONFIGS) + ':%s/v1/$(tenant_id)s' % port
+    public_url = '{}:{}/v1/$(tenant_id)s'.format(
+        canonical_url(
+            CONFIGS,
+            address=get_address_in_network(conf.get('os-public-network'),
+                                           unit_get('public-address'))),
+        port
+    )
+    admin_internal_url = '{}:{}/v1/$(tenant_id)s'.format(
+        canonical_url(
+            CONFIGS,
+            address=get_address_in_network(conf.get('os-admin-network'),
+                                           unit_get('private-address'))),
+        port
+    )
 
     settings = {
         'region': conf['region'],
         'service': 'cinder',
-        'public_url': url,
-        'internal_url': url,
-        'admin_url': url,
+        'public_url': public_url,
+        'internal_url': admin_internal_url,
+        'admin_url': admin_internal_url,
     }
     relation_set(relation_id=rid, **settings)
 

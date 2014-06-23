@@ -142,4 +142,21 @@ options:
   config-flags:
     type: string
     description: Comma separated list of key=value config flags to be set in cinder.conf.
+  # Network configuration options
+  # by default all access is over 'private-address'
+  os-admin-network:
+    type: string
+    description: |
+      The IP address and netmask of the OpenStack Administration network (e.g.,
+      192.168.0.0/24)
+  os-public-network:
+    type: string
+    description: |
+      The IP address and netmask of the OpenStack Public network (e.g.,
+      192.168.0.0/24)
+  database-network:
+    type: string
+    description: |
+      The IP address and netmask of the Database access network (e.g.,
+      192.168.0.0/24)
 
