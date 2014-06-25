@@ -189,7 +189,7 @@ def identity_joined(rid=None):
     admin_internal_url = '{}:{}/v1/$(tenant_id)s'.format(
         canonical_url(
             CONFIGS,
-            address=get_address_in_network(conf.get('os-admin-network'),
+            address=get_address_in_network(conf.get('os-internal-network'),
                                            unit_get('private-address'))),
         port
     )
