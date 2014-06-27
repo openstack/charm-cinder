@@ -106,7 +106,7 @@ def db_joined():
 
     conf = config()
     relation_set(database=conf['database'], username=conf['database-user'],
-                 hostname=get_address_in_network(config('database-network'),
+                 hostname=get_address_in_network(conf.get('database-network'),
                                                  unit_get('private-address')))
 
 
@@ -186,20 +186,26 @@ def identity_joined(rid=None):
                                            unit_get('public-address'))),
         port
     )
-    admin_internal_url = '{}:{}/v1/$(tenant_id)s'.format(
+    internal_url = '{}:{}/v1/$(tenant_id)s'.format(
         canonical_url(
             CONFIGS,
             address=get_address_in_network(conf.get('os-internal-network'),
                                            unit_get('private-address'))),
         port
     )
-
+    admin_url = '{}:{}/v1/$(tenant_id)s'.format(
+        canonical_url(
+            CONFIGS,
+            address=get_address_in_network(conf.get('os-admin-network'),
+                                           unit_get('private-address'))),
+        port
+    )
     settings = {
         'region': conf['region'],
         'service': 'cinder',
         'public_url': public_url,
-        'internal_url': admin_internal_url,
-        'admin_url': admin_internal_url,
+        'internal_url': internal_url,
+        'admin_url': admin_url,
     }
     relation_set(relation_id=rid, **settings)
 
