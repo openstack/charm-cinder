@@ -276,7 +276,7 @@ def ha_joined():
         iface = get_iface_for_address(vip)
         if iface is not None:
             vip_key = 'res_cinder_{}_vip'.format(iface)
-            resources[vip_key] =  'ocf:heartbeat:IPaddr2',
+            resources[vip_key] = 'ocf:heartbeat:IPaddr2'
             resource_params[vip_key] = (
                  'params ip="{vip}" cidr_netmask="{netmask}"'
                  ' nic="{iface}"'.format(vip=vip,
