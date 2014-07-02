@@ -34,7 +34,8 @@ from charmhelpers.core.hookenv import (
     service_name,
     unit_get,
     log,
-    ERROR
+    ERROR,
+    local_unit,
 )
 
 from charmhelpers.fetch import apt_install, apt_update
@@ -106,8 +107,7 @@ def db_joined():
 
     conf = config()
     relation_set(database=conf['database'], username=conf['database-user'],
-                 hostname=get_address_in_network(conf.get('database-network'),
-                                                 unit_get('private-address')))
+                 hostname=unit_get('private-address'))
 
 
 @hooks.hook('pgsql-db-relation-joined')

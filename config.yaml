@@ -165,9 +165,4 @@ options:
       192.168.0.0/24)
       .
       This network will be used for public endpoints.
-  database-network:
-    type: string
-    description: |
-      The IP address and netmask of the Database access network (e.g.,
-      192.168.0.0/24)
 
