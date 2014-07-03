@@ -249,9 +249,9 @@ def ceph_changed():
 @hooks.hook('cluster-relation-joined')
 def cluster_joined(relation_id=None):
     address = get_address_in_network(config('os-internal-network'),
-                                     unit_get('private-addresss'))
+                                     unit_get('private-address'))
     relation_set(relation_id=relation_id,
-                 relation_settings={'private-addresss': address})
+                 relation_settings={'private-address': address})
 
 
 @hooks.hook('cluster-relation-changed',
