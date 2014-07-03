@@ -55,6 +55,7 @@ from charmhelpers.payload.execd import execd_preinstall
 from charmhelpers.contrib.network.ip import (
     get_iface_for_address,
     get_netmask_for_address,
+    get_address_in_network
 )
 from charmhelpers.contrib.openstack.ip import (
     canonical_url,
@@ -99,6 +100,9 @@ def config_changed():
 
     CONFIGS.write_all()
     configure_https()
+
+    for rid in relation_ids('cluster'):
+        cluster_joined(relation_id=rid)    
 
 
 @hooks.hook('shared-db-relation-joined')
@@ -240,6 +244,14 @@ def ceph_changed():
         _config = config()
         ensure_ceph_pool(service=svc,
                          replicas=_config['ceph-osd-replication-count'])
+
+
+@hooks.hook('cluster-relation-joined')
+def cluster_joined(relation_id=None):
+    address = get_address_in_network(config('os-internal-network'),
+                                     unit_get('private-addresss'))
+    relation_set(relation_id=relation_id,
+                 relation_settings={'private-addresss': address})
 
 
 @hooks.hook('cluster-relation-changed',
