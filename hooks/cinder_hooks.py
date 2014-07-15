@@ -102,7 +102,7 @@ def config_changed():
     configure_https()
 
     for rid in relation_ids('cluster'):
-        cluster_joined(relation_id=rid)    
+        cluster_joined(relation_id=rid)
 
 
 @hooks.hook('shared-db-relation-joined')
@@ -272,7 +272,7 @@ def ha_joined():
     resource_params = {
         'res_cinder_haproxy': 'op monitor interval="5s"'
     }
-    
+
     vip_group = []
     for vip in config['vip'].split():
         iface = get_iface_for_address(vip)
@@ -280,10 +280,10 @@ def ha_joined():
             vip_key = 'res_cinder_{}_vip'.format(iface)
             resources[vip_key] = 'ocf:heartbeat:IPaddr2'
             resource_params[vip_key] = (
-                 'params ip="{vip}" cidr_netmask="{netmask}"'
-                 ' nic="{iface}"'.format(vip=vip,
-                                         iface=iface,
-                                         netmask=get_netmask_for_address(vip))
+                'params ip="{vip}" cidr_netmask="{netmask}"'
+                ' nic="{iface}"'.format(vip=vip,
+                                        iface=iface,
+                                        netmask=get_netmask_for_address(vip))
             )
             vip_group.append(vip_key)
 
