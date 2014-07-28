@@ -51,7 +51,10 @@ TO_PATCH = [
     # charmhelpers.contrib.hahelpers.cluster_utils
     'eligible_leader',
     'get_hacluster_config',
-    'is_leader'
+    'is_leader',
+    # charmhelpers.contrib.network.ip
+    'get_iface_for_address',
+    'get_netmask_for_address'
 ]
 
 
@@ -96,19 +99,22 @@ class TestClusterHooks(CharmTestCase):
             'vip_cidr': '19',
         }
         self.get_hacluster_config.return_value = conf
+        self.get_iface_for_address.return_value = 'eth101'
+        self.get_netmask_for_address.return_value = '255.255.224.0'
         hooks.hooks.execute(['hooks/ha-relation-joined'])
         ex_args = {
             'corosync_mcastport': '37373',
             'init_services': {'res_cinder_haproxy': 'haproxy'},
             'resource_params': {
-                'res_cinder_vip':
-                'params ip="192.168.25.163" cidr_netmask="19" nic="eth101"',
+                'res_cinder_eth101_vip':
+                'params ip="192.168.25.163" cidr_netmask="255.255.224.0"'
+                ' nic="eth101"',
                 'res_cinder_haproxy': 'op monitor interval="5s"'
             },
             'corosync_bindiface': 'eth100',
             'clones': {'cl_cinder_haproxy': 'res_cinder_haproxy'},
             'resources': {
-                'res_cinder_vip': 'ocf:heartbeat:IPaddr2',
+                'res_cinder_eth101_vip': 'ocf:heartbeat:IPaddr2',
                 'res_cinder_haproxy': 'lsb:haproxy'
             }
         }

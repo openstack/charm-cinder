@@ -86,7 +86,7 @@ SCHEDULER_PACKAGES = ['cinder-scheduler']
 DEFAULT_LOOPBACK_SIZE = '5G'
 
 # Cluster resource used to determine leadership when hacluster'd
-CLUSTER_RES = 'res_cinder_vip'
+CLUSTER_RES = 'grp_cinder_vips'
 
 
 class CinderCharmError(Exception):
@@ -391,7 +391,7 @@ def set_ceph_env_variables(service):
         with open('/etc/environment', 'a') as out:
             out.write('CEPH_ARGS="--id %s"\n' % service)
     with open('/etc/init/cinder-volume.override', 'w') as out:
-            out.write('env CEPH_ARGS="--id %s"\n' % service)
+        out.write('env CEPH_ARGS="--id %s"\n' % service)
 
 
 def do_openstack_upgrade(configs):

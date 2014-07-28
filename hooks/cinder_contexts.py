@@ -105,5 +105,6 @@ class StorageBackendContext(OSContextGenerator):
 
 
 class LoggingConfigContext(OSContextGenerator):
+
     def __call__(self):
         return {'debug': config('debug'), 'verbose': config('verbose')}
