@@ -10,3 +10,4 @@ include:
         - cluster
     - fetch
     - payload.execd
+    - contrib.network.ip

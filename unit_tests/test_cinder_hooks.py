@@ -300,6 +300,7 @@ class TestJoinedHooks(CharmTestCase):
     def test_identity_service_joined(self):
         'It properly requests unclustered endpoint via identity-service'
         self.unit_get.return_value = 'cindernode1'
+        self.config.side_effect = self.test_config.get
         self.canonical_url.return_value = 'http://cindernode1'
         hooks.hooks.execute(['hooks/identity-service-relation-joined'])
         expected = {

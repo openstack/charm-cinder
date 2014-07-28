@@ -34,7 +34,7 @@ from charmhelpers.core.hookenv import (
     service_name,
     unit_get,
     log,
-    ERROR
+    ERROR,
 )
 
 from charmhelpers.fetch import apt_install, apt_update
@@ -46,13 +46,21 @@ from charmhelpers.contrib.openstack.utils import (
 from charmhelpers.contrib.storage.linux.ceph import ensure_ceph_keyring
 
 from charmhelpers.contrib.hahelpers.cluster import (
-    canonical_url,
     eligible_leader,
     is_leader,
     get_hacluster_config,
 )
 
 from charmhelpers.payload.execd import execd_preinstall
+from charmhelpers.contrib.network.ip import (
+    get_iface_for_address,
+    get_netmask_for_address,
+    get_address_in_network
+)
+from charmhelpers.contrib.openstack.ip import (
+    canonical_url,
+    PUBLIC, INTERNAL, ADMIN
+)
 
 hooks = Hooks()
 
@@ -65,7 +73,7 @@ def install():
     conf = config()
     src = conf['openstack-origin']
     if (lsb_release()['DISTRIB_CODENAME'] == 'precise' and
-       src == 'distro'):
+            src == 'distro'):
         src = 'cloud:precise-folsom'
     configure_installation_source(src)
     apt_update()
@@ -92,6 +100,9 @@ def config_changed():
 
     CONFIGS.write_all()
     configure_https()
+
+    for rid in relation_ids('cluster'):
+        cluster_joined(relation_id=rid)
 
 
 @hooks.hook('shared-db-relation-joined')
@@ -175,17 +186,24 @@ def identity_joined(rid=None):
     if not eligible_leader(CLUSTER_RES):
         return
 
-    conf = config()
-
-    port = conf['api-listening-port']
-    url = canonical_url(CONFIGS) + ':%s/v1/$(tenant_id)s' % port
-
+    public_url = '{}:{}/v1/$(tenant_id)s'.format(
+        canonical_url(CONFIGS, PUBLIC),
+        config('api-listening-port')
+    )
+    internal_url = '{}:{}/v1/$(tenant_id)s'.format(
+        canonical_url(CONFIGS, INTERNAL),
+        config('api-listening-port')
+    )
+    admin_url = '{}:{}/v1/$(tenant_id)s'.format(
+        canonical_url(CONFIGS, ADMIN),
+        config('api-listening-port')
+    )
     settings = {
-        'region': conf['region'],
+        'region': config('region'),
         'service': 'cinder',
-        'public_url': url,
-        'internal_url': url,
-        'admin_url': url,
+        'public_url': public_url,
+        'internal_url': internal_url,
+        'admin_url': admin_url,
     }
     relation_set(relation_id=rid, **settings)
 
@@ -228,6 +246,14 @@ def ceph_changed():
                          replicas=_config['ceph-osd-replication-count'])
 
 
+@hooks.hook('cluster-relation-joined')
+def cluster_joined(relation_id=None):
+    address = get_address_in_network(config('os-internal-network'),
+                                     unit_get('private-address'))
+    relation_set(relation_id=relation_id,
+                 relation_settings={'private-address': address})
+
+
 @hooks.hook('cluster-relation-changed',
             'cluster-relation-departed')
 @restart_on_change(restart_map(), stopstart=True)
@@ -238,17 +264,32 @@ def cluster_changed():
 @hooks.hook('ha-relation-joined')
 def ha_joined():
     config = get_hacluster_config()
+
     resources = {
-        'res_cinder_vip': 'ocf:heartbeat:IPaddr2',
         'res_cinder_haproxy': 'lsb:haproxy'
     }
 
-    vip_params = 'params ip="%s" cidr_netmask="%s" nic="%s"' % \
-                 (config['vip'], config['vip_cidr'], config['vip_iface'])
     resource_params = {
-        'res_cinder_vip': vip_params,
         'res_cinder_haproxy': 'op monitor interval="5s"'
     }
+
+    vip_group = []
+    for vip in config['vip'].split():
+        iface = get_iface_for_address(vip)
+        if iface is not None:
+            vip_key = 'res_cinder_{}_vip'.format(iface)
+            resources[vip_key] = 'ocf:heartbeat:IPaddr2'
+            resource_params[vip_key] = (
+                'params ip="{vip}" cidr_netmask="{netmask}"'
+                ' nic="{iface}"'.format(vip=vip,
+                                        iface=iface,
+                                        netmask=get_netmask_for_address(vip))
+            )
+            vip_group.append(vip_key)
+
+    if len(vip_group) > 1:
+        relation_set(groups={'grp_cinder_vips': ' '.join(vip_group)})
+
     init_services = {
         'res_cinder_haproxy': 'haproxy'
     }
