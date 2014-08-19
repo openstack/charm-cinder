@@ -55,7 +55,8 @@ from charmhelpers.payload.execd import execd_preinstall
 from charmhelpers.contrib.network.ip import (
     get_iface_for_address,
     get_netmask_for_address,
-    get_address_in_network
+    get_address_in_network,
+    get_ipv6_addr,
 )
 from charmhelpers.contrib.openstack.ip import (
     canonical_url,
@@ -114,9 +115,14 @@ def db_joined():
         log(e, level=ERROR)
         raise Exception(e)
 
+    if config('prefer-ipv6'):
+        host = '%s' % get_ipv6_addr()
+    else:
+        host = unit_get('private-address')
+
     conf = config()
     relation_set(database=conf['database'], username=conf['database-user'],
-                 hostname=unit_get('private-address'))
+                 hostname=host)
 
 
 @hooks.hook('pgsql-db-relation-joined')
@@ -248,8 +254,12 @@ def ceph_changed():
 
 @hooks.hook('cluster-relation-joined')
 def cluster_joined(relation_id=None):
+    if config('prefer-ipv6'):
+        private_addr = get_ipv6_addr()
+    else:
+        private_addr = unit_get('private-address')
     address = get_address_in_network(config('os-internal-network'),
-                                     unit_get('private-address'))
+                                     private_addr)
     relation_set(relation_id=relation_id,
                  relation_settings={'private-address': address})
 
@@ -263,7 +273,7 @@ def cluster_changed():
 
 @hooks.hook('ha-relation-joined')
 def ha_joined():
-    config = get_hacluster_config()
+    cluster_config = get_hacluster_config()
 
     resources = {
         'res_cinder_haproxy': 'lsb:haproxy'
@@ -273,22 +283,29 @@ def ha_joined():
         'res_cinder_haproxy': 'op monitor interval="5s"'
     }
 
+    if config('prefer-ipv6'):
+        res_cinder_vip = 'ocf:heartbeat:IPv6addr'
+        vip_params = 'ipv6addr'
+    else:
+        res_cinder_vip = 'ocf:heartbeat:IPaddr2'
+        vip_params = 'ip'
+
     vip_group = []
-    for vip in config['vip'].split():
+    for vip in cluster_config['vip'].split():
         iface = get_iface_for_address(vip)
         if iface is not None:
             vip_key = 'res_cinder_{}_vip'.format(iface)
-            resources[vip_key] = 'ocf:heartbeat:IPaddr2'
+            resources[vip_key] = res_cinder_vip
             resource_params[vip_key] = (
-                'params ip="{vip}" cidr_netmask="{netmask}"'
-                ' nic="{iface}"'.format(vip=vip,
+                'params {ip}="{vip}" cidr_netmask="{netmask}"'
+                ' nic="{iface}"'.format(ip=vip_params,
+                                        vip=vip,
                                         iface=iface,
                                         netmask=get_netmask_for_address(vip))
             )
             vip_group.append(vip_key)
 
-    if len(vip_group) > 1:
-        relation_set(groups={'grp_cinder_vips': ' '.join(vip_group)})
+    relation_set(groups={'grp_cinder_vips': ' '.join(vip_group)})
 
     init_services = {
         'res_cinder_haproxy': 'haproxy'
@@ -297,8 +314,8 @@ def ha_joined():
         'cl_cinder_haproxy': 'res_cinder_haproxy'
     }
     relation_set(init_services=init_services,
-                 corosync_bindiface=config['ha-bindiface'],
-                 corosync_mcastport=config['ha-mcastport'],
+                 corosync_bindiface=cluster_config['ha-bindiface'],
+                 corosync_mcastport=cluster_config['ha-mcastport'],
                  resources=resources,
                  resource_params=resource_params,
                  clones=clones)

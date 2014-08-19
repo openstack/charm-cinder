@@ -162,3 +162,7 @@ options:
       .
       This network will be used for public endpoints.
 
+  prefer-ipv6:
+    type: boolean
+    default: false
+    description: "Enable IPv6."
