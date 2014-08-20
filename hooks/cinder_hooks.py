@@ -37,7 +37,12 @@ from charmhelpers.core.hookenv import (
     ERROR,
 )
 
-from charmhelpers.fetch import apt_install, apt_update
+from charmhelpers.fetch import (
+    apt_install,
+    apt_update,
+    add_source,
+)
+
 from charmhelpers.core.host import lsb_release, restart_on_change
 
 from charmhelpers.contrib.openstack.utils import (
@@ -77,8 +82,21 @@ def install():
             src == 'distro'):
         src = 'cloud:precise-folsom'
     configure_installation_source(src)
+
+    # Note(xianghui): Need to install haproxy(1.5.3) from trusty-backports
+    # to support ipv6 address, so check is required to make sure not
+    # breaking other versions.
+    trusty = lsb_release()['DISTRIB_CODENAME'] == 'trusty'
+    if config('prefer-ipv6') and trusty:
+        add_source('deb http://archive.ubuntu.com/ubuntu trusty-backports'
+                   ' main')
+        add_source('deb-src http://archive.ubuntu.com/ubuntu trusty-backports'
+                   ' main')
     apt_update()
     apt_install(determine_packages(), fatal=True)
+
+    if config('prefer-ipv6') and trusty:
+        apt_install('haproxy/trusty-backports', fatal=True)
 
 
 @hooks.hook('config-changed')
