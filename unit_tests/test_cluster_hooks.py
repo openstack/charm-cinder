@@ -118,7 +118,10 @@ class TestClusterHooks(CharmTestCase):
                 'res_cinder_haproxy': 'lsb:haproxy'
             }
         }
-        self.relation_set.assert_called_with(**ex_args)
+        self.relation_set.assert_has_calls([
+            call(groups={'grp_cinder_vips': 'res_cinder_eth101_vip'}),
+            call(**ex_args)
+        ])
 
     @patch.object(hooks, 'identity_joined')
     def test_ha_changed_clustered_not_leader(self, joined):
