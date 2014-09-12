@@ -43,6 +43,7 @@ TO_PATCH = [
     # charmhelpers.core.hookenv
     'config',
     'is_relation_made',
+    'local_unit',
     'relation_get',
     'relation_ids',
     'relation_set',
@@ -136,6 +137,8 @@ class TestChangedHooks(CharmTestCase):
 
     def test_db_changed(self):
         'It writes out cinder.conf on db changed'
+        self.relation_get.return_value = 'cinder/0 cinder/1'
+        self.local_unit.return_value = 'cinder/0'
         self.CONFIGS.complete_contexts.return_value = ['shared-db']
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
         self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
@@ -150,8 +153,19 @@ class TestChangedHooks(CharmTestCase):
 
     def test_db_changed_relation_incomplete(self):
         'It does not write out cinder.conf with incomplete shared-db rel'
+        self.relation_get.return_value = 'cinder/0 cinder/1'
+        self.local_unit.return_value = 'cinder/0'
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
         self.assertFalse(self.CONFIGS.write.called)
+        self.assertFalse(self.migrate_database.called)
+
+    def test_db_changed_relation_db_no_acl(self):
+        'It does not migration when acl entry not present'
+        self.relation_get.return_value = 'cinder/1 cinder/2'
+        self.local_unit.return_value = 'cinder/0'
+        self.CONFIGS.complete_contexts.return_value = ['shared-db']
+        self.eligible_leader.return_value = True
+        hooks.hooks.execute(['hooks/shared-db-relation-changed'])
         self.assertFalse(self.migrate_database.called)
 
     def test_pgsql_db_changed_relation_incomplete(self):
@@ -162,6 +176,8 @@ class TestChangedHooks(CharmTestCase):
 
     def test_db_changed_not_leader(self):
         'It does not migrate database when not leader'
+        self.relation_get.return_value = 'cinder/0 cinder/1'
+        self.local_unit.return_value = 'cinder/0'
         self.eligible_leader.return_value = False
         self.CONFIGS.complete_contexts.return_value = ['shared-db']
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
