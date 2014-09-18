@@ -29,6 +29,7 @@ from charmhelpers.core.hookenv import (
     UnregisteredHookError,
     config,
     is_relation_made,
+    local_unit,
     relation_get,
     relation_ids,
     relation_set,
@@ -40,8 +41,7 @@ from charmhelpers.core.hookenv import (
 
 from charmhelpers.fetch import (
     apt_install,
-    apt_update,
-    add_source,
+    apt_update
 )
 
 from charmhelpers.core.host import lsb_release, restart_on_change
@@ -87,7 +87,6 @@ def install():
     if config('prefer-ipv6'):
         setup_ipv6()
 
-    trusty = lsb_release()['DISTRIB_CODENAME'] == 'trusty'
     apt_update()
     apt_install(determine_packages(), fatal=True)
 
@@ -95,10 +94,11 @@ def install():
 @hooks.hook('config-changed')
 @restart_on_change(restart_map(), stopstart=True)
 def config_changed():
-    if config('prefer-ipv6'):
+    conf = config()
+
+    if conf['prefer-ipv6']:
         setup_ipv6()
 
-    conf = config()
     if (service_enabled('volume') and
             conf['block-device'] not in [None, 'None', 'none']):
         block_devices = conf['block-device'].split()
@@ -160,6 +160,13 @@ def db_changed():
         return
     CONFIGS.write(CINDER_CONF)
     if eligible_leader(CLUSTER_RES):
+        # Bugs 1353135 & 1187508. Dbs can appear to be ready before the units
+        # acl entry has been added. So, if the db supports passing a list of
+        # permitted units then check if we're in the list.
+        allowed_units = relation_get('allowed_units')
+        if allowed_units and local_unit() not in allowed_units.split():
+            juju_log('Allowed_units list provided and this unit not present')
+            return
         juju_log('Cluster leader, performing db sync')
         migrate_database()
 
