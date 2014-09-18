@@ -90,8 +90,6 @@ def install():
     if config('prefer-ipv6') and trusty:
         add_source('deb http://archive.ubuntu.com/ubuntu trusty-backports'
                    ' main')
-        add_source('deb-src http://archive.ubuntu.com/ubuntu trusty-backports'
-                   ' main')
     apt_update()
     apt_install(determine_packages(), fatal=True)
 
