@@ -20,7 +20,8 @@ from cinder_utils import (
     CLUSTER_RES,
     CINDER_CONF,
     CINDER_API_CONF,
-    ceph_config_file
+    ceph_config_file,
+    setup_ipv6
 )
 
 from charmhelpers.core.hookenv import (
@@ -61,7 +62,7 @@ from charmhelpers.contrib.network.ip import (
     get_iface_for_address,
     get_netmask_for_address,
     get_address_in_network,
-    get_ipv6_addr,
+    get_ipv6_addr
 )
 from charmhelpers.contrib.openstack.ip import (
     canonical_url,
@@ -83,23 +84,20 @@ def install():
         src = 'cloud:precise-folsom'
     configure_installation_source(src)
 
-    # Note(xianghui): Need to install haproxy(1.5.3) from trusty-backports
-    # to support ipv6 address, so check is required to make sure not
-    # breaking other versions.
+    if config('prefer-ipv6'):
+        setup_ipv6()
+
     trusty = lsb_release()['DISTRIB_CODENAME'] == 'trusty'
-    if config('prefer-ipv6') and trusty:
-        add_source('deb http://archive.ubuntu.com/ubuntu trusty-backports'
-                   ' main')
     apt_update()
     apt_install(determine_packages(), fatal=True)
-
-    if config('prefer-ipv6') and trusty:
-        apt_install('haproxy/trusty-backports', fatal=True)
 
 
 @hooks.hook('config-changed')
 @restart_on_change(restart_map(), stopstart=True)
 def config_changed():
+    if config('prefer-ipv6'):
+        setup_ipv6()
+
     conf = config()
     if (service_enabled('volume') and
             conf['block-device'] not in [None, 'None', 'none']):
@@ -274,6 +272,7 @@ def cluster_joined(relation_id=None):
         private_addr = get_ipv6_addr()
     else:
         private_addr = unit_get('private-address')
+
     address = get_address_in_network(config('os-internal-network'),
                                      private_addr)
     relation_set(relation_id=relation_id,

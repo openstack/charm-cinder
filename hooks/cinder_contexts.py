@@ -121,4 +121,5 @@ class CinderIPv6Context(OSContextGenerator):
             ctxt['osapi_volume_listen'] = '%s' % get_ipv6_addr()
         else:
             ctxt['osapi_volume_listen'] = '0.0.0.0'
+
         return ctxt
