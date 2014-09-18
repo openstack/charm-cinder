@@ -98,6 +98,10 @@ class TestClusterHooks(CharmTestCase):
             'vip_iface': 'eth101',
             'vip_cidr': '19',
         }
+
+        self.test_config.set('prefer-ipv6', 'False')
+        self.config.side_effect = [False,
+                                   False]
         self.get_hacluster_config.return_value = conf
         self.get_iface_for_address.return_value = 'eth101'
         self.get_netmask_for_address.return_value = '255.255.224.0'
@@ -115,6 +119,41 @@ class TestClusterHooks(CharmTestCase):
             'clones': {'cl_cinder_haproxy': 'res_cinder_haproxy'},
             'resources': {
                 'res_cinder_eth101_vip': 'ocf:heartbeat:IPaddr2',
+                'res_cinder_haproxy': 'lsb:haproxy'
+            }
+        }
+        self.relation_set.assert_called_with(**ex_args)
+
+    def test_ha_joined_complete_config_with_ipv6(self):
+        'Ensure hacluster subordinate receives all relevant config'
+        conf = {
+            'ha-bindiface': 'eth100',
+            'ha-mcastport': '37373',
+            'vip': '2001:db8:1::1',
+            'vip_iface': 'eth101',
+            'vip_cidr': '64',
+        }
+
+        self.test_config.set('prefer-ipv6', 'True')
+        self.config.side_effect = [True]
+        self.get_hacluster_config.return_value = conf
+        self.get_iface_for_address.return_value = 'eth101'
+        self.get_netmask_for_address.return_value = 'ffff.ffff.ffff.ffff'
+        hooks.hooks.execute(['hooks/ha-relation-joined'])
+        ex_args = {
+            'corosync_mcastport': '37373',
+            'init_services': {'res_cinder_haproxy': 'haproxy'},
+            'resource_params': {
+                'res_cinder_eth101_vip':
+                'params ipv6addr="2001:db8:1::1" '
+                'cidr_netmask="ffff.ffff.ffff.ffff" '
+                'nic="eth101"',
+                'res_cinder_haproxy': 'op monitor interval="5s"'
+            },
+            'corosync_bindiface': 'eth100',
+            'clones': {'cl_cinder_haproxy': 'res_cinder_haproxy'},
+            'resources': {
+                'res_cinder_eth101_vip': 'ocf:heartbeat:IPv6addr',
                 'res_cinder_haproxy': 'lsb:haproxy'
             }
         }
@@ -140,6 +179,7 @@ class TestClusterHooks(CharmTestCase):
     def test_ha_changed_not_clustered(self):
         'Ensure ha_changed exits early if not yet clustered'
         self.relation_get.return_value = None
+        self.config.side_effect = [True, True]
         hooks.hooks.execute(['hooks/ha-relation-changed'])
         self.assertTrue(self.juju_log.called)
         self.assertFalse(self.is_leader.called)

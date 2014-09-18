@@ -60,6 +60,7 @@ TO_PATCH = [
     'is_leader',
     'get_hacluster_config',
     'execd_preinstall',
+    'get_ipv6_addr',
 ]
 
 
@@ -71,6 +72,8 @@ class TestInstallHook(CharmTestCase):
 
     def test_install_precise_distro(self):
         'It redirects to cloud archive if setup to install precise+distro'
+        self.config.side_effect = [{'openstack-origin':
+                                    'cloud:precise-folsom'}, False, False]
         self.lsb_release.return_value = {'DISTRIB_CODENAME': 'precise'}
         hooks.hooks.execute(['hooks/install'])
         ca = 'cloud:precise-folsom'
@@ -78,6 +81,8 @@ class TestInstallHook(CharmTestCase):
 
     def test_correct_install_packages(self):
         'It installs the correct packages based on what is determined'
+        self.config.side_effect = [{'openstack-origin':
+                                    'cloud:precise-folsom'}, False, False]
         self.determine_packages.return_value = ['foo', 'bar', 'baz']
         hooks.hooks.execute(['hooks/install'])
         self.apt_install.assert_called_with(['foo', 'bar', 'baz'], fatal=True)
@@ -250,9 +255,25 @@ class TestJoinedHooks(CharmTestCase):
         'It properly requests access to a shared-db service'
         self.unit_get.return_value = 'cindernode1'
         self.is_relation_made.return_value = False
+        self.config.side_effect = [
+            False,
+            {'database': 'cinder', 'database-user': 'cinder'}]
         hooks.hooks.execute(['hooks/shared-db-relation-joined'])
         expected = {'username': 'cinder',
                     'hostname': 'cindernode1', 'database': 'cinder'}
+        self.relation_set.assert_called_with(**expected)
+
+    def test_db_joined_with_ipv6(self):
+        'It properly requests access to a shared-db service'
+        self.unit_get.return_value = 'cindernode1'
+        self.get_ipv6_addr.return_value = '2001:db8:1::1'
+        self.is_relation_made.return_value = False
+        self.config.side_effect = [
+            True,
+            {'database': 'cinder', 'database-user': 'cinder'}]
+        hooks.hooks.execute(['hooks/shared-db-relation-joined'])
+        expected = {'username': 'cinder',
+                    'hostname': '2001:db8:1::1', 'database': 'cinder'}
         self.relation_set.assert_called_with(**expected)
 
     def test_db_joined_with_postgresql(self):
