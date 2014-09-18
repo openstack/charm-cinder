@@ -122,7 +122,10 @@ class TestClusterHooks(CharmTestCase):
                 'res_cinder_haproxy': 'lsb:haproxy'
             }
         }
-        self.relation_set.assert_called_with(**ex_args)
+        self.relation_set.assert_has_calls([
+            call(groups={'grp_cinder_vips': 'res_cinder_eth101_vip'}),
+            call(**ex_args)
+        ])
 
     def test_ha_joined_complete_config_with_ipv6(self):
         'Ensure hacluster subordinate receives all relevant config'
