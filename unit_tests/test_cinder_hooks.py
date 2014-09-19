@@ -284,7 +284,7 @@ class TestJoinedHooks(CharmTestCase):
     def test_db_joined_with_ipv6(self, mock_config):
         'It properly requests access to a shared-db service'
         self.unit_get.return_value = 'cindernode1'
-        self.get_ipv6_addr.return_value = '2001:db8:1::1'
+        self.get_ipv6_addr.return_value = ['2001:db8:1::1']
         self.is_relation_made.return_value = False
         self.config.side_effect = [
             True,
