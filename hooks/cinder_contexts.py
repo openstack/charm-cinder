@@ -118,7 +118,7 @@ class CinderIPv6Context(OSContextGenerator):
     def __call__(self):
         ctxt = {}
         if config('prefer-ipv6'):
-            ctxt['osapi_volume_listen'] = '%s' % get_ipv6_addr()
+            ctxt['osapi_volume_listen'] = '%s' % get_ipv6_addr()[0]
         else:
             ctxt['osapi_volume_listen'] = '0.0.0.0'
 
