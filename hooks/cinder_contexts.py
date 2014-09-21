@@ -20,10 +20,6 @@ from charmhelpers.contrib.hahelpers.cluster import (
     determine_api_port,
 )
 
-from charmhelpers.contrib.network.ip import (
-    get_ipv6_addr
-)
-
 
 class ImageServiceContext(OSContextGenerator):
     interfaces = ['image-service']
@@ -118,7 +114,7 @@ class CinderIPv6Context(OSContextGenerator):
     def __call__(self):
         ctxt = {}
         if config('prefer-ipv6'):
-            ctxt['osapi_volume_listen'] = '%s' % get_ipv6_addr()[0]
+            ctxt['osapi_volume_listen'] = '::'
         else:
             ctxt['osapi_volume_listen'] = '0.0.0.0'
 
