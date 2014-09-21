@@ -287,7 +287,7 @@ class TestJoinedHooks(CharmTestCase):
         self.get_ipv6_addr.return_value = ['2001:db8:1::1']
         self.is_relation_made.return_value = False
         self.config.side_effect = [
-            True,
+            True, 'dummy_vip',
             {'database': 'cinder', 'database-user': 'cinder'}]
         hooks.hooks.execute(['hooks/shared-db-relation-joined'])
         expected = {'username': 'cinder',

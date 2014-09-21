@@ -130,7 +130,7 @@ def db_joined():
         raise Exception(e)
 
     if config('prefer-ipv6'):
-        host = '%s' % get_ipv6_addr()[0]
+        host = '%s' % get_ipv6_addr(exc_list=[config('vip')])[0]
     else:
         host = unit_get('private-address')
 
@@ -276,7 +276,7 @@ def ceph_changed():
 @hooks.hook('cluster-relation-joined')
 def cluster_joined(relation_id=None):
     if config('prefer-ipv6'):
-        private_addr = get_ipv6_addr()[0]
+        private_addr = get_ipv6_addr(exc_list=[config('vip')])[0]
     else:
         private_addr = unit_get('private-address')
 
