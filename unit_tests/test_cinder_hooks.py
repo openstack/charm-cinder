@@ -17,6 +17,8 @@ utils.register_configs = MagicMock()
 
 import cinder_hooks as hooks
 
+hooks.hooks._config_save = False
+
 # Unpatch it now that its loaded.
 utils.restart_map = _restart_map
 utils.register_configs = _register_configs
