@@ -282,8 +282,9 @@ def cluster_joined(relation_id=None):
 
     address = get_address_in_network(config('os-internal-network'),
                                      private_addr)
-    relation_set(relation_id=relation_id,
-                 relation_settings={'private-address': address})
+    for rid in relation_ids('cluster'):
+        relation_set(relation_id=relation_id,
+                     relation_settings={'private-address': address})
 
 
 @hooks.hook('cluster-relation-changed',
