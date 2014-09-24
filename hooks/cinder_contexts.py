@@ -108,14 +108,3 @@ class LoggingConfigContext(OSContextGenerator):
 
     def __call__(self):
         return {'debug': config('debug'), 'verbose': config('verbose')}
-
-
-class CinderIPv6Context(OSContextGenerator):
-    def __call__(self):
-        ctxt = {}
-        if config('prefer-ipv6'):
-            ctxt['osapi_volume_listen'] = '::'
-        else:
-            ctxt['osapi_volume_listen'] = '0.0.0.0'
-
-        return ctxt
