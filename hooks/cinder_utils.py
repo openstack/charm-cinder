@@ -131,7 +131,7 @@ CONFIG_FILES = OrderedDict([
                           cinder_contexts.StorageBackendContext(),
                           cinder_contexts.LoggingConfigContext(),
                           context.IdentityServiceContext(),
-                          cinder_contexts.CinderIPv6Context()],
+                          context.BindHostContext()],
         'services': ['cinder-api', 'cinder-volume',
                      'cinder-scheduler', 'haproxy']
     }),
