@@ -48,7 +48,6 @@ from charmhelpers.contrib.storage.linux.ceph import ensure_ceph_keyring
 
 from charmhelpers.contrib.hahelpers.cluster import (
     eligible_leader,
-    is_leader,
     get_hacluster_config,
 )
 
@@ -191,9 +190,6 @@ def amqp_departed():
 
 @hooks.hook('identity-service-relation-joined')
 def identity_joined(rid=None):
-    if not eligible_leader(CLUSTER_RES):
-        return
-
     public_url = '{}:{}/v1/$(tenant_id)s'.format(
         canonical_url(CONFIGS, PUBLIC),
         config('api-listening-port')
@@ -317,14 +313,11 @@ def ha_changed():
     clustered = relation_get('clustered')
     if not clustered or clustered in [None, 'None', '']:
         juju_log('ha_changed: hacluster subordinate not fully clustered.')
-        return
-    if not is_leader(CLUSTER_RES):
-        juju_log('ha_changed: hacluster complete but we are not leader.')
-        return
-    juju_log('Cluster configured, notifying other services and updating '
-             'keystone endpoint configuration')
-    for rid in relation_ids('identity-service'):
-        identity_joined(rid=rid)
+    else:
+        juju_log('Cluster configured, notifying other services and updating '
+                 'keystone endpoint configuration')
+        for rid in relation_ids('identity-service'):
+            identity_joined(rid=rid)
 
 
 @hooks.hook('image-service-relation-changed')

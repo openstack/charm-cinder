@@ -51,7 +51,6 @@ TO_PATCH = [
     # charmhelpers.contrib.hahelpers.cluster_utils
     'eligible_leader',
     'get_hacluster_config',
-    'is_leader',
     # charmhelpers.contrib.network.ip
     'get_iface_for_address',
     'get_netmask_for_address'
@@ -124,18 +123,8 @@ class TestClusterHooks(CharmTestCase):
         ])
 
     @patch.object(hooks, 'identity_joined')
-    def test_ha_changed_clustered_not_leader(self, joined):
-        'Skip keystone notification if not cluster leader'
+    def test_ha_changed_clustered(self, joined):
         self.relation_get.return_value = True
-        self.is_leader.return_value = False
-        hooks.hooks.execute(['hooks/ha-relation-changed'])
-        self.assertFalse(joined.called)
-
-    @patch.object(hooks, 'identity_joined')
-    def test_ha_changed_clustered_leader(self, joined):
-        'Notify keystone if cluster leader'
-        self.relation_get.return_value = True
-        self.is_leader.return_value = True
         self.relation_ids.return_value = ['identity:0']
         hooks.hooks.execute(['hooks/ha-relation-changed'])
         joined.assert_called_with(rid='identity:0')
@@ -145,4 +134,3 @@ class TestClusterHooks(CharmTestCase):
         self.relation_get.return_value = None
         hooks.hooks.execute(['hooks/ha-relation-changed'])
         self.assertTrue(self.juju_log.called)
-        self.assertFalse(self.is_leader.called)
