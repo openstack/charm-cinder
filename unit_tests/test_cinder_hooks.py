@@ -60,7 +60,6 @@ TO_PATCH = [
     # charmhelpers.contrib.hahelpers.cluster_utils
     'canonical_url',
     'eligible_leader',
-    'is_leader',
     'get_hacluster_config',
     'execd_preinstall',
 ]
@@ -330,12 +329,6 @@ class TestJoinedHooks(CharmTestCase):
             'relation_id': None,
         }
         self.relation_set.assert_called_with(**expected)
-
-    def test_identity_service_joined_no_leadership(self):
-        'It does nothing on identity-joined when not eligible leader'
-        self.eligible_leader.return_value = False
-        hooks.hooks.execute(['hooks/identity-service-relation-joined'])
-        self.assertFalse(self.relation_set.called)
 
     @patch('os.mkdir')
     def test_ceph_joined(self, mkdir):
