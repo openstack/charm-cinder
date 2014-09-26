@@ -2,7 +2,7 @@
 
 import amulet
 import types
-import inspect
+#import inspect
 from time import sleep
 import cinderclient.v1.client as cinder_client
 
@@ -10,14 +10,15 @@ from charmhelpers.contrib.openstack.amulet.deployment import (
     OpenStackAmuletDeployment
 )
 
-from charmhelpers.contrib.openstack.amulet.utils import (
+from charmhelpers.contrib.openstack.amulet.utils import (  # noqa
     OpenStackAmuletUtils,
-    DEBUG, # flake8: noqa
+    DEBUG,
     ERROR
 )
 
 # Use DEBUG to turn on debug logging
-u = OpenStackAmuletUtils(ERROR)
+u = OpenStackAmuletUtils(DEBUG)
+
 
 class CinderBasicDeployment(OpenStackAmuletDeployment):
     '''Amulet tests on a basic lvm-backed cinder deployment. Verify
@@ -50,14 +51,14 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
     def _add_relations(self):
         '''Add relations for the services.'''
         relations = {
-          'keystone:shared-db': 'mysql:shared-db',
-          'cinder:shared-db': 'mysql:shared-db',
-          'cinder:identity-service': 'keystone:identity-service',
-          'cinder:amqp': 'rabbitmq-server:amqp',
-          'cinder:image-service': 'glance:image-service',
-          'glance:identity-service': 'keystone:identity-service',
-          'glance:shared-db': 'mysql:shared-db',
-          'glance:amqp': 'rabbitmq-server:amqp'
+            'keystone:shared-db': 'mysql:shared-db',
+            'cinder:shared-db': 'mysql:shared-db',
+            'cinder:identity-service': 'keystone:identity-service',
+            'cinder:amqp': 'rabbitmq-server:amqp',
+            'cinder:image-service': 'glance:image-service',
+            'glance:identity-service': 'keystone:identity-service',
+            'glance:shared-db': 'mysql:shared-db',
+            'glance:amqp': 'rabbitmq-server:amqp'
         }
         super(CinderBasicDeployment, self)._add_relations(relations)
 
@@ -66,7 +67,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         keystone_config = {'admin-password': 'openstack',
                            'admin-token': 'ubuntutesting'}
         cinder_config = {'block-device': 'vdb',
-                         'glance-api-version': '2', 
+                         'glance-api-version': '2',
                          'overwrite': 'true'}
         mysql_config = {'dataset-size': '50%'}
         configs = {'cinder': cinder_config,
@@ -89,8 +90,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                                                       password='openstack',
                                                       tenant='admin')
         # Authenticate admin with cinder endpoint
-        self.cinder = self.authenticate_cinder_admin(self.keystone,
-                                                     username='admin', 
+        self.cinder = self.authenticate_cinder_admin(username='admin',
                                                      password='openstack',
                                                      tenant='admin')
         # Authenticate admin with glance endpoint
@@ -98,11 +98,11 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
         u.log.debug('openstack rel: {}'.format(self._get_openstack_release()))
 
-    def service_restarted(self, sentry_unit, service, filename,                                                                                                                   
+    def service_restarted(self, sentry_unit, service, filename,
                           pgrep_full=False, sleep_time=60):
         """Compare a service's start time vs a file's last modification time
-           (such as a config file for that service) to determine if the service 
-           has been restarted (within 60s by default).  Return when verified."""
+           (such as a config file for that service) to determine if the service
+           has been restarted (within 60s by default), return when verified."""
 
         # NOTE(beisner): prev rev utilized sleep_time as an arbitrary wait with
         # no debug feedback.  Added checking timeout loop logic & debug output.
@@ -112,42 +112,41 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         # It is backward compatible with prev rev by coreycb.
 
         proc_start_time = u._get_proc_start_time(sentry_unit,
-                                       service, pgrep_full)
+                                                 service, pgrep_full)
         file_mtime = u._get_file_mtime(sentry_unit, filename)
 
         tries = 0
         while proc_start_time < file_mtime and tries < (sleep_time/4):
             sleep(4)
             proc_start_time = u._get_proc_start_time(sentry_unit,
-                                       service, pgrep_full)
+                                                     service, pgrep_full)
             file_mtime = u._get_file_mtime(sentry_unit, filename)
             u.log.debug('proc restart wait: {} {}'.format(tries, service))
             tries += 1
 
         u.log.debug('proc-file time diff for {},{}: {}'.format(service,
-                                       filename,
-                                       proc_start_time - file_mtime))
+                    filename, proc_start_time - file_mtime))
 
         if proc_start_time >= file_mtime:
             return True
         else:
             u.log.debug('service not restarted within ()s: {}'.format(
-                                       service, sleep_time))
+                service, sleep_time))
             return False
 
-    def authenticate_cinder_admin(self, keystone, username, password, tenant):
+    def authenticate_cinder_admin(self, username, password, tenant):
         """Authenticates admin user with cinder."""
         # NOTE(beisner): need to move to charmhelpers, and adjust calls here.
         # Probably useful on other charm tests.
         service_ip = \
             self.keystone_sentry.relation('shared-db',
-                                     'mysql:shared-db')['private-address']
-        ep = "http://{}:5000/v2.0".format(service_ip.strip().decode('utf-8'))
-        return cinder_client.Client(username, password, tenant, ep)
+                                          'mysql:shared-db')['private-address']
+        ept = "http://{}:5000/v2.0".format(service_ip.strip().decode('utf-8'))
+        return cinder_client.Client(username, password, tenant, ept)
 
     def force_list(self, obj):
         '''Determine the object type and return a list.  Some Openstack
-           component API list methods return generators, some return lists.  
+           component API list methods return generators, some return lists.
            Where obj is cinder.volumes, cinder.volume_snapshots, glance.images,
            or other Openstack object with a list method.'''
         # NOTE(beisner): need to move to charmhelpers, and adjust calls here.
@@ -167,10 +166,10 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
            all images or all snapshots.  Waits and confirms deletion.'''
         # NOTE(beisner): need to move to charmhelpers, and adjust calls here.
         # Probably useful on other charm tests.
-      
+
         # Get list of objects to delete
         obj_list = self.force_list(obj)
-        if obj_list == False:
+        if obj_list is False:
             return '{} list failed'.format(item_desc)
 
         if len(obj_list) == 0:
@@ -184,23 +183,23 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                 obj_this.delete()
             except:
                 return '{} delete failed for {} with status {}'.format(
-                                       item_desc, obj_this.id, obj_this.status)
+                       item_desc, obj_this.id, obj_this.status)
 
         # Wait for objects to disappear
         obj_count = len(self.force_list(obj))
         tries = 0
         while obj_count != 0 and tries <= (max_wait/4):
-            u.log.debug('{} delete wait: {} {}'.format(item_desc, 
-                                              tries, obj_count))
+            u.log.debug('{} delete wait: {} {}'.format(item_desc,
+                                                       tries, obj_count))
             sleep(4)
             obj_count = len(self.force_list(obj))
             tries += 1
 
         if obj_count != 0:
-            return '{}(s) not deleted, {} remain.'.format(item_desc, 
+            return '{}(s) not deleted, {} remain.'.format(item_desc,
                                                           obj_count)
 
-    def obj_is_status(self, obj, id, stat='available',
+    def obj_is_status(self, obj, obj_id, stat='available',
                       msg='openstack object status check', max_wait=60):
         ''''Wait for an openstack object status to be as expected.
             By default, expect an available status within 60s.  Useful
@@ -209,13 +208,13 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         # NOTE(beisner): need to move to charmhelpers, and adjust calls here.
         # Probably useful on other charm tests.
 
-        obj_stat = obj.get(id).status
+        obj_stat = obj.get(obj_id).status
         tries = 0
         while obj_stat != stat and tries < (max_wait/4):
-            u.log.debug(msg + ': {} [{}:{}] {}'.format(tries, obj_stat, 
-                                                       stat, id))
+            u.log.debug(msg + ': {} [{}:{}] {}'.format(tries, obj_stat,
+                                                       stat, obj_id))
             sleep(4)
-            obj_stat = obj.get(id).status
+            obj_stat = obj.get(obj_id).status
             tries += 1
         if obj_stat == stat:
             return True
@@ -438,7 +437,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             conf = '/etc/cinder/cinder.conf'
             section = 'keystone_authtoken'
             auth_uri = 'http://' + rel_ks_ci['auth_host'] + \
-                   ':' + rel_ks_ci['service_port'] + '/'
+                       ':' + rel_ks_ci['service_port'] + '/'
             expected['auth_uri'] = auth_uri
         else:
             conf = '/etc/cinder/api-paste.ini'
@@ -446,8 +445,8 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
         ret = u.validate_config_data(unit_ci, conf, section, expected)
         if ret:
-                msg = "cinder auth config error: {}".format(ret)
-                amulet.raise_status(amulet.FAIL, msg=msg)
+            msg = "cinder auth config error: {}".format(ret)
+            amulet.raise_status(amulet.FAIL, msg=msg)
 
     def test_cinder_logging_config(self):
         ''' Inspect select sections and config pairs in logging.conf.'''
@@ -518,12 +517,13 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         self.d.configure('cinder', {'debug': 'True'})
 
         if not self.service_restarted(self.cinder_sentry, 'cinder-api',
-                                   '/etc/cinder/cinder.conf', sleep_time=30):
+                                      '/etc/cinder/cinder.conf',
+                                      sleep_time=30):
             msg = "cinder-api service didn't restart after config change"
             amulet.raise_status(amulet.FAIL, msg=msg)
 
         if not self.service_restarted(self.cinder_sentry, 'cinder-volume',
-                                   '/etc/cinder/cinder.conf', sleep_time=0):
+                                      '/etc/cinder/cinder.conf', sleep_time=0):
             msg = "cinder-volume service didn't restart after conf change"
             amulet.raise_status(amulet.FAIL, msg=msg)
 
@@ -570,9 +570,9 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         vol_id = vol_new.id
 
         # Wait for volume status to be available
-        ret = self.obj_is_status(self.cinder.volumes, id=vol_id,
-                                 stat = 'available',
-                                 msg = 'create vol status wait')
+        ret = self.obj_is_status(self.cinder.volumes, obj_id=vol_id,
+                                 stat='available',
+                                 msg='create vol status wait')
         if not ret:
             msg = 'volume create failed'
             amulet.raise_status(amulet.FAIL, msg=msg)
@@ -585,11 +585,11 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         # Extend volume size
         self.cinder.volumes.extend(vol_id, '2')
 
-        # Wait for extend 
+        # Wait for extend
         vol_size = self.cinder.volumes.get(vol_id).size
         tries = 0
         while vol_size != 2 and tries <= 15:
-            u.log.debug('volume extend size wait: {} {}'.format(tries, 
+            u.log.debug('volume extend size wait: {} {}'.format(tries,
                                                                 vol_id))
             sleep(4)
             vol_size = self.cinder.volumes.get(vol_id).size
@@ -612,7 +612,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         # Create a new image
         image_new = u.create_cirros_image(self.glance, 'cirros-image-1')
 
-        # Confirm image is created and has status of 'active' 
+        # Confirm image is created and has status of 'active'
         if not image_new:
             msg = 'image create failed'
             amulet.raise_status(amulet.FAIL, msg=msg)
@@ -621,7 +621,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         '''Create a new cinder volume, clone it to another cinder volume.'''
         # Get volume object and ID
         try:
-            vol = self.cinder.volumes.find(display_name = "demo-vol")
+            vol = self.cinder.volumes.find(display_name="demo-vol")
             vol_id = vol.id
             vol_size = vol.size
         except:
@@ -637,8 +637,8 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                                                size=vol_size,
                                                source_volid=vol_id)
 
-        ret = self.obj_is_status(self.cinder.volumes, id=vol_clone.id,
-                                 stat = 'available',
+        ret = self.obj_is_status(self.cinder.volumes, obj_id=vol_clone.id,
+                                 stat='available',
                                  msg='clone vol status wait')
         if not ret:
             msg = 'volume clone failed - from {}'.format(vol_id)
@@ -651,7 +651,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         # NOTE(beisner): Cinder create vol-from-img support for lvm and
         # rbd(ceph) exists only in Havana or later
         if self._get_openstack_release() < self.precise_havana:
-            u.log.debug('Skipping create vol from img due to openstack rel < H')
+            u.log.debug('Skipping create vol from img, openstack rel < H')
             return
 
         # Get image object and id
@@ -661,7 +661,6 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
         if img_count != 0:
             # NOTE(beisner): glance api has no find method, presume 1st image
-            img_name = img_list[0].name
             img_id = img_list[0].id
         else:
             msg = 'image not found'
@@ -678,7 +677,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         vol_id = vol_new.id
 
         # Wait for volume stat to be avail, check that it's flagged bootable
-        ret = self.obj_is_status(self.cinder.volumes, id=vol_id,
+        ret = self.obj_is_status(self.cinder.volumes, obj_id=vol_id,
                                  stat='available',
                                  msg='create vol from img status wait')
         vol_boot = self.cinder.volumes.get(vol_id).bootable
@@ -686,7 +685,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         if not ret or vol_boot != 'true':
             vol_stat = self.cinder.volumes.get(vol_id).status
             msg = ('vol create failed - from glance img:'
-                   ' id:{} stat:{} boot:{}'.format(vol_id, 
+                   ' id:{} stat:{} boot:{}'.format(vol_id,
                                                    vol_stat,
                                                    vol_boot))
             amulet.raise_status(amulet.FAIL, msg=msg)
@@ -703,33 +702,30 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
         u.log.debug('creating snapshot of volume: {}'.format(vol_src_name))
 
-        # Get volume object and id      
+        # Get volume object and id
         try:
-            vol_src = self.cinder.volumes.find(
-                                       display_name = vol_src_name)
+            vol_src = self.cinder.volumes.find(display_name=vol_src_name)
             vol_id = vol_src.id
         except:
             msg = ('volume not found while creating snapshot')
             amulet.raise_status(amulet.FAIL, msg=msg)
 
         if vol_src.status != 'available':
-            msg = ('volume status not == available: {}').format(
-                                       vol_src.status)
+            msg = ('volume status not == available: {}').format(vol_src.status)
             amulet.raise_status(amulet.FAIL, msg=msg)
 
         # Create new snapshot
         snap_new = self.cinder.volume_snapshots.create(
-                                       volume_id = vol_id,
-                                       display_name = 'demo-snapshot')
+            volume_id=vol_id, display_name='demo-snapshot')
         snap_id = snap_new.id
 
         # Wait for snapshot status to become available
-        ret = self.obj_is_status(self.cinder.volume_snapshots, id=snap_id,
+        ret = self.obj_is_status(self.cinder.volume_snapshots, obj_id=snap_id,
                                  stat='available',
                                  msg='snapshot create status wait')
         if not ret:
             snap_stat = self.cinder.volume_snapshots.get(snap_id).status
-            msg = 'volume snapshot failed: {} {}'.format(snap_id, 
+            msg = 'volume snapshot failed: {} {}'.format(snap_id,
                                                          snap_stat)
             amulet.raise_status(amulet.FAIL, msg=msg)
 
@@ -738,38 +734,36 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         # Get snapshot object and ID
         try:
             snap = self.cinder.volume_snapshots.find(
-                                       display_name = "demo-snapshot")
+                display_name="demo-snapshot")
             snap_id = snap.id
             snap_size = snap.size
-            snap_name = snap.display_name
         except:
-            msg = ('snapshot not found while creating volume')
+            msg = 'snapshot not found while creating volume'
             amulet.raise_status(amulet.FAIL, msg=msg)
 
         if snap.status != 'available':
-            msg = ('snapshot status not == available: {}').format(
-                                       snap.status)
+            msg = 'snapshot status not == available: {}'.format(snap.status)
             amulet.raise_status(amulet.FAIL, msg=msg)
 
         # Create new volume from snapshot
-        vol_new  = self.cinder.volumes.create(
-                                       display_name="demo-vol-from-snap",
-                                       snapshot_id=snap_id,
-                                       size=snap_size)
+        vol_new = self.cinder.volumes.create(
+            display_name="demo-vol-from-snap",
+            snapshot_id=snap_id,
+            size=snap_size)
         vol_id = vol_new.id
 
         # Wait for volume status to be == available
-        ret = self.obj_is_status(self.cinder.volumes, id=vol_id,
+        ret = self.obj_is_status(self.cinder.volumes, obj_id=vol_id,
                                  stat='available',
                                  msg='vol from snap create status wait')
         if not ret:
             vol_stat = self.cinder.volumes.get(vol_id).status
-            msg = 'volume create failed: {} {}'.format(vol_id, 
-                                                           vol_stat)
+            msg = 'volume create failed: {} {}'.format(vol_id,
+                                                       vol_stat)
             amulet.raise_status(amulet.FAIL, msg=msg)
 
     def test_900_confirm_lvm_volume_list(self):
-        '''Confirm cinder volume IDs with lvm logical volume IDs. 
+        '''Confirm cinder volume IDs with lvm logical volume IDs.
            Expect a 1:1 relationship of lvm:cinder volumes.'''
         commando = self.cinder_sentry.run('sudo lvs | grep cinder-volumes | '
                                           'awk \'{ print $1 }\'')
@@ -787,10 +781,10 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         # Expect all cinder vol IDs to exist in the LVM volume list
         for vol_this in vol_list:
             try:
-                id_index = lv_id_list.index('volume-' + vol_this.id)
+                lv_id_list.index('volume-' + vol_this.id)
             except:
                 msg = ('volume ID {} not found in '
-                           'LVM volume list.'.format(vol_this.id))
+                       'LVM volume list.'.format(vol_this.id))
                 amulet.raise_status(amulet.FAIL, msg=msg)
 
     def test_900_glance_delete_all_images(self):
@@ -801,7 +795,8 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def test_900_delete_all_snapshots(self):
         '''Delete all cinder volume snapshots and confirm deletion.'''
-        ret = self.delete_all_objs(self.cinder.volume_snapshots, item_desc='snapshot')
+        ret = self.delete_all_objs(self.cinder.volume_snapshots,
+                                   item_desc='snapshot')
         if ret:
             amulet.raise_status(amulet.FAIL, msg=ret)
 
@@ -811,3 +806,9 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         ret = self.delete_all_objs(self.cinder.volumes, item_desc='volume')
         if ret:
             amulet.raise_status(amulet.FAIL, msg=ret)
+
+    def test_zzzz_fake_fail(self):
+        '''Force a fake fail to keep juju environment after a successful test run'''
+        # Useful in test writing, when used with:   juju test --set-e
+        amulet.raise_status(amulet.FAIL, msg='using fake fail to keep juju environment')
+
