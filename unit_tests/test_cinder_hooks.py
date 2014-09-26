@@ -62,6 +62,7 @@ TO_PATCH = [
     'get_hacluster_config',
     'execd_preinstall',
     'get_ipv6_addr',
+    'sync_db_with_multi_ipv6_addresses'
 ]
 
 
@@ -285,14 +286,13 @@ class TestJoinedHooks(CharmTestCase):
         'It properly requests access to a shared-db service'
         self.unit_get.return_value = 'cindernode1'
         self.get_ipv6_addr.return_value = ['2001:db8:1::1']
+        self.sync_db_with_multi_ipv6_addresses.return_value = MagicMock()
         self.is_relation_made.return_value = False
         self.config.side_effect = [
             True, 'dummy_vip',
             {'database': 'cinder', 'database-user': 'cinder'}]
         hooks.hooks.execute(['hooks/shared-db-relation-joined'])
-        expected = {'username': 'cinder',
-                    'hostname': '2001:db8:1::1', 'database': 'cinder'}
-        self.relation_set.assert_called_with(**expected)
+        self.sync_db_with_multi_ipv6_addresses.assert_called_with_once()
 
     def test_db_joined_with_postgresql(self, mock_config):
         self.is_relation_made.return_value = True

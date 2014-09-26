@@ -47,7 +47,9 @@ from charmhelpers.fetch import (
 from charmhelpers.core.host import lsb_release, restart_on_change
 
 from charmhelpers.contrib.openstack.utils import (
-    configure_installation_source, openstack_upgrade_available)
+    configure_installation_source,
+    openstack_upgrade_available,
+    sync_db_with_multi_ipv6_addresses)
 
 from charmhelpers.contrib.storage.linux.ceph import ensure_ceph_keyring
 
@@ -98,6 +100,7 @@ def config_changed():
 
     if conf['prefer-ipv6']:
         setup_ipv6()
+        sync_db_with_multi_ipv6_addresses()
 
     if (service_enabled('volume') and
             conf['block-device'] not in [None, 'None', 'none']):
@@ -131,12 +134,13 @@ def db_joined():
 
     if config('prefer-ipv6'):
         host = '%s' % get_ipv6_addr(exc_list=[config('vip')])[0]
+        sync_db_with_multi_ipv6_addresses()
     else:
         host = unit_get('private-address')
-
-    conf = config()
-    relation_set(database=conf['database'], username=conf['database-user'],
-                 hostname=host)
+        conf = config()
+        relation_set(database=conf['database'],
+                     username=conf['database-user'],
+                     hostname=host)
 
 
 @hooks.hook('pgsql-db-relation-joined')
