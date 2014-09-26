@@ -292,7 +292,8 @@ class TestJoinedHooks(CharmTestCase):
             True, 'dummy_vip',
             {'database': 'cinder', 'database-user': 'cinder'}]
         hooks.hooks.execute(['hooks/shared-db-relation-joined'])
-        self.sync_db_with_multi_ipv6_addresses.assert_called_with_once()
+        self.sync_db_with_multi_ipv6_addresses.assert_called_with_once(
+            'cinder', 'cinder')
 
     def test_db_joined_with_postgresql(self, mock_config):
         self.is_relation_made.return_value = True
