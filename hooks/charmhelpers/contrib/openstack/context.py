@@ -52,7 +52,8 @@ from charmhelpers.contrib.openstack.neutron import (
 from charmhelpers.contrib.network.ip import (
     get_address_in_network,
     get_ipv6_addr,
-    is_address_in_network
+    is_address_in_network,
+    get_netmask_for_address
 )
 
 CA_CERT_PATH = '/usr/local/share/ca-certificates/keystone_juju_ca_cert.crt'
@@ -426,27 +427,37 @@ class HAProxyContext(OSContextGenerator):
                 config('os-{}-network'.format(addr_type)))
             if laddr:
                 cluster_hosts[laddr] = {}
-                cluster_hosts[laddr][l_unit] = laddr
+                cluster_hosts[laddr]['network'] = "{}/{}".format(
+                    laddr,
+                    get_netmask_for_address(laddr)
+                )
+                cluster_hosts[laddr]['backends'] = {}
+                cluster_hosts[laddr]['backends'][l_unit] = laddr
                 for rid in relation_ids('cluster'):
                     for unit in related_units(rid):
                         _unit = unit.replace('/', '-')
                         _laddr = relation_get('{}-address'.format(addr_type),
                                               rid=rid, unit=unit)
                         if _laddr:
-                            cluster_hosts[laddr][_unit] = _laddr
+                            cluster_hosts[laddr]['backends'][_unit] = _laddr
 
         # NOTE(jamespage) no split configurations found, just use
         # private addresses
         if len(cluster_hosts) < 1:
             cluster_hosts[addr] = {}
-            cluster_hosts[addr][l_unit] = addr
+            cluster_hosts[addr]['network'] = "{}/{}".format(
+                addr,
+                get_netmask_for_address(addr)
+            )
+            cluster_hosts[addr]['backends'] = {}
+            cluster_hosts[addr]['backends'][l_unit] = addr
             for rid in relation_ids('cluster'):
                 for unit in related_units(rid):
                     _unit = unit.replace('/', '-')
-                    laddr = relation_get('private-address',
-                                         rid=rid, unit=unit)
-                    if laddr:
-                        cluster_hosts[addr][_unit] = laddr
+                    _laddr = relation_get('private-address',
+                                          rid=rid, unit=unit)
+                    if _laddr:
+                        cluster_hosts[addr]['backends'][_unit] = _laddr
 
         ctxt = {
             'frontends': cluster_hosts,
@@ -462,7 +473,7 @@ class HAProxyContext(OSContextGenerator):
             ctxt['stat_port'] = ':8888'
 
         for frontend in cluster_hosts:
-            if len(cluster_hosts[frontend]) > 1:
+            if len(cluster_hosts[frontend]['backends']) > 1:
                 # Enable haproxy when we have enough peers.
                 log('Ensuring haproxy enabled in /etc/default/haproxy.')
                 with open('/etc/default/haproxy', 'w') as out:
