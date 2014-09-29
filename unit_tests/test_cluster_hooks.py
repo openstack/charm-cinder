@@ -53,7 +53,8 @@ TO_PATCH = [
     'get_hacluster_config',
     # charmhelpers.contrib.network.ip
     'get_iface_for_address',
-    'get_netmask_for_address'
+    'get_netmask_for_address',
+    'get_address_in_network',
 ]
 
 
@@ -87,6 +88,29 @@ class TestClusterHooks(CharmTestCase):
             call('start', 'haproxy'),
             call('start', 'apache2')]
         self.assertEquals(ex, service.call_args_list)
+
+    def test_cluster_joined_hook(self):
+        self.config.side_effect = self.test_config.get
+        self.get_address_in_network.return_value = None
+        hooks.hooks.execute(['hooks/cluster-relation-joined'])
+        self.assertFalse(self.relation_set.called)
+
+    def test_cluster_joined_hook_multinet(self):
+        self.config.side_effect = self.test_config.get
+        self.get_address_in_network.side_effect = [
+            '192.168.20.2',
+            '10.20.3.2',
+            '146.162.23.45'
+        ]
+        hooks.hooks.execute(['hooks/cluster-relation-joined'])
+        self.relation_set.assert_has_calls([
+            call(relation_id=None,
+                 relation_settings={'admin-address': '192.168.20.2'}),
+            call(relation_id=None,
+                 relation_settings={'internal-address': '10.20.3.2'}),
+            call(relation_id=None,
+                 relation_settings={'public-address': '146.162.23.45'}),
+        ])
 
     def test_ha_joined_complete_config(self):
         'Ensure hacluster subordinate receives all relevant config'

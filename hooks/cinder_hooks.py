@@ -61,6 +61,7 @@ from charmhelpers.contrib.openstack.ip import (
     canonical_url,
     PUBLIC, INTERNAL, ADMIN
 )
+from charmhelpers.contrib.openstack.context import ADDRESS_TYPES
 
 hooks = Hooks()
 
@@ -252,10 +253,15 @@ def ceph_changed():
 
 @hooks.hook('cluster-relation-joined')
 def cluster_joined(relation_id=None):
-    address = get_address_in_network(config('os-internal-network'),
-                                     unit_get('private-address'))
-    relation_set(relation_id=relation_id,
-                 relation_settings={'private-address': address})
+    for addr_type in ADDRESS_TYPES:
+        address = get_address_in_network(
+            config('os-{}-network'.format(addr_type))
+        )
+        if address:
+            relation_set(
+                relation_id=relation_id,
+                relation_settings={'{}-address'.format(addr_type): address}
+            )
 
 
 @hooks.hook('cluster-relation-changed',
