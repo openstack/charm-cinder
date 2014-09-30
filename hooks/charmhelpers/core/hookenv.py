@@ -500,6 +500,7 @@ class Hooks(object):
         hook_name = os.path.basename(args[0])
         if hook_name in self._hooks:
             self._hooks[hook_name]()
+            print "_config_save:%s" % self._config_save
             if self._config_save:
                 cfg = config()
                 if cfg.implicit_save:
