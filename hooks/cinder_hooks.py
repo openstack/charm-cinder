@@ -315,6 +315,7 @@ def ha_joined():
 
 
 @hooks.hook('ha-relation-changed')
+@restart_on_change(restart_map())
 def ha_changed():
     clustered = relation_get('clustered')
     if not clustered or clustered in [None, 'None', '']:
@@ -324,6 +325,7 @@ def ha_changed():
                  'keystone endpoint configuration')
         for rid in relation_ids('identity-service'):
             identity_joined(rid=rid)
+        CONFIGS.write_all()
 
 
 @hooks.hook('image-service-relation-changed')
