@@ -64,7 +64,8 @@ from charmhelpers.contrib.network.ip import (
     get_iface_for_address,
     get_netmask_for_address,
     get_address_in_network,
-    get_ipv6_addr
+    get_ipv6_addr,
+    is_ipv6
 )
 from charmhelpers.contrib.openstack.ip import (
     canonical_url,
@@ -85,10 +86,6 @@ def install():
             src == 'distro'):
         src = 'cloud:precise-folsom'
     configure_installation_source(src)
-
-    if config('prefer-ipv6'):
-        setup_ipv6()
-
     apt_update()
     apt_install(determine_packages(), fatal=True)
 
@@ -287,9 +284,8 @@ def cluster_joined(relation_id=None):
 
     address = get_address_in_network(config('os-internal-network'),
                                      private_addr)
-    for rid in relation_ids('cluster'):
-        relation_set(relation_id=relation_id,
-                     relation_settings={'private-address': address})
+    relation_set(relation_id=relation_id,
+                 relation_settings={'private-address': address})
 
 
 @hooks.hook('cluster-relation-changed',
@@ -311,15 +307,15 @@ def ha_joined():
         'res_cinder_haproxy': 'op monitor interval="5s"'
     }
 
-    if config('prefer-ipv6'):
-        res_cinder_vip = 'ocf:heartbeat:IPv6addr'
-        vip_params = 'ipv6addr'
-    else:
-        res_cinder_vip = 'ocf:heartbeat:IPaddr2'
-        vip_params = 'ip'
-
     vip_group = []
     for vip in cluster_config['vip'].split():
+        if is_ipv6(vip):
+            res_cinder_vip = 'ocf:heartbeat:IPv6addr'
+            vip_params = 'ipv6addr'
+        else:
+            res_cinder_vip = 'ocf:heartbeat:IPaddr2'
+            vip_params = 'ip'
+
         iface = get_iface_for_address(vip)
         if iface is not None:
             vip_key = 'res_cinder_{}_vip'.format(iface)
