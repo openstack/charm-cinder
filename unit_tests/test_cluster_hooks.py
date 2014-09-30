@@ -12,6 +12,7 @@ utils.register_configs = MagicMock()
 utils.service_enabled = MagicMock()
 
 import cinder_hooks as hooks
+hooks.hooks._config_save = False
 
 # Unpatch it now that its loaded.
 utils.register_configs = _register_configs
@@ -58,7 +59,6 @@ TO_PATCH = [
 ]
 
 
-@patch('charmhelpers.core.hookenv.config')
 class TestClusterHooks(CharmTestCase):
 
     def setUp(self):
@@ -67,7 +67,7 @@ class TestClusterHooks(CharmTestCase):
 
     @patch('charmhelpers.core.host.service')
     @patch('charmhelpers.core.host.file_hash')
-    def test_cluster_hook(self, file_hash, service, mock_config):
+    def test_cluster_hook(self, file_hash, service):
         'Ensure API restart before haproxy on cluster changed'
         # set first hash lookup on all files
         side_effects = []
@@ -90,7 +90,7 @@ class TestClusterHooks(CharmTestCase):
             call('start', 'apache2')]
         self.assertEquals(ex, service.call_args_list)
 
-    def test_ha_joined_complete_config(self, mock_config):
+    def test_ha_joined_complete_config(self):
         'Ensure hacluster subordinate receives all relevant config'
         conf = {
             'ha-bindiface': 'eth100',
@@ -128,7 +128,7 @@ class TestClusterHooks(CharmTestCase):
             call(**ex_args)
         ])
 
-    def test_ha_joined_complete_config_with_ipv6(self, mock_config):
+    def test_ha_joined_complete_config_with_ipv6(self):
         'Ensure hacluster subordinate receives all relevant config'
         conf = {
             'ha-bindiface': 'eth100',
@@ -164,7 +164,7 @@ class TestClusterHooks(CharmTestCase):
         self.relation_set.assert_called_with(**ex_args)
 
     @patch.object(hooks, 'identity_joined')
-    def test_ha_changed_clustered_not_leader(self, joined, mock_config):
+    def test_ha_changed_clustered_not_leader(self, joined):
         'Skip keystone notification if not cluster leader'
         self.relation_get.return_value = True
         self.is_leader.return_value = False
@@ -172,7 +172,7 @@ class TestClusterHooks(CharmTestCase):
         self.assertFalse(joined.called)
 
     @patch.object(hooks, 'identity_joined')
-    def test_ha_changed_clustered_leader(self, joined, mock_config):
+    def test_ha_changed_clustered_leader(self, joined):
         'Notify keystone if cluster leader'
         self.relation_get.return_value = True
         self.is_leader.return_value = True
@@ -180,7 +180,7 @@ class TestClusterHooks(CharmTestCase):
         hooks.hooks.execute(['hooks/ha-relation-changed'])
         joined.assert_called_with(rid='identity:0')
 
-    def test_ha_changed_not_clustered(self, mock_config):
+    def test_ha_changed_not_clustered(self):
         'Ensure ha_changed exits early if not yet clustered'
         self.relation_get.return_value = None
         self.config.side_effect = [True, True]

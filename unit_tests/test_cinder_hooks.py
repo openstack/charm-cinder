@@ -311,7 +311,6 @@ class TestJoinedHooks(CharmTestCase):
         self.relation_set.assert_called_with(**expected)
 
     def test_postgresql_joined_with_db(self):
-        print "test_postgresql_joined_with_db"
         self.is_relation_made.return_value = True
 
         with self.assertRaises(Exception) as context:
