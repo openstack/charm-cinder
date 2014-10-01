@@ -286,7 +286,7 @@ def cluster_joined(relation_id=None):
     if config('prefer-ipv6'):
         private_addr = get_ipv6_addr(exc_list=[config('vip')])[0]
         relation_set(relation_id=relation_id,
-                     relation_settings={'private-address': address})
+                     relation_settings={'private-address': private_addr})
 
 
 @hooks.hook('cluster-relation-changed',
