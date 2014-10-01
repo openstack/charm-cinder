@@ -14,7 +14,8 @@ from charmhelpers.core.hookenv import (
 from charmhelpers.fetch import (
     apt_upgrade,
     apt_update,
-    apt_install
+    apt_install,
+    add_source
 )
 
 from charmhelpers.core.host import (
@@ -22,7 +23,8 @@ from charmhelpers.core.host import (
     umount,
     service_stop,
     service_start,
-    mkdir
+    mkdir,
+    lsb_release
 )
 
 from charmhelpers.contrib.storage.linux.ceph import (
@@ -128,7 +130,8 @@ CONFIG_FILES = OrderedDict([
                               config_file=CINDER_CONF),
                           cinder_contexts.StorageBackendContext(),
                           cinder_contexts.LoggingConfigContext(),
-                          context.IdentityServiceContext()],
+                          context.IdentityServiceContext(),
+                          context.BindHostContext()],
         'services': ['cinder-api', 'cinder-volume',
                      'cinder-scheduler', 'haproxy']
     }),
@@ -425,3 +428,19 @@ def do_openstack_upgrade(configs):
     if eligible_leader(CLUSTER_RES):
         migrate_database()
     [service_start(s) for s in services()]
+
+
+def setup_ipv6():
+    ubuntu_rel = lsb_release()['DISTRIB_CODENAME'].lower()
+    if ubuntu_rel < "trusty":
+        raise Exception("IPv6 is not supported in the charms for Ubuntu "
+                        "versions less than Trusty 14.04")
+
+    # NOTE(xianghui): Need to install haproxy(1.5.3) from trusty-backports
+    # to support ipv6 address, so check is required to make sure not
+    # breaking other versions, IPv6 only support for >= Trusty
+    if ubuntu_rel == 'trusty':
+        add_source('deb http://archive.ubuntu.com/ubuntu trusty-backports'
+                   ' main')
+        apt_update()
+        apt_install('haproxy/trusty-backports', fatal=True)

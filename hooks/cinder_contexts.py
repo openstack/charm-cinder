@@ -3,7 +3,7 @@ from charmhelpers.core.hookenv import (
     relation_ids,
     service_name,
     related_units,
-    relation_get,
+    relation_get
 )
 
 from charmhelpers.contrib.openstack.context import (
