@@ -16,6 +16,7 @@ utils.restart_map.return_value = RESTART_MAP
 utils.register_configs = MagicMock()
 
 import cinder_hooks as hooks
+hooks.hooks._config_save = False
 
 # Unpatch it now that its loaded.
 utils.restart_map = _restart_map
@@ -61,6 +62,8 @@ TO_PATCH = [
     'is_leader',
     'get_hacluster_config',
     'execd_preinstall',
+    'get_ipv6_addr',
+    'sync_db_with_multi_ipv6_addresses'
 ]
 
 
@@ -260,7 +263,7 @@ class TestJoinedHooks(CharmTestCase):
 
     def setUp(self):
         super(TestJoinedHooks, self).setUp(hooks, TO_PATCH)
-        self.config.side_effect = self.test_config.get_all
+        self.config.side_effect = self.test_config.get
 
     def test_db_joined(self):
         'It properly requests access to a shared-db service'
@@ -270,6 +273,18 @@ class TestJoinedHooks(CharmTestCase):
         expected = {'username': 'cinder',
                     'hostname': 'cindernode1', 'database': 'cinder'}
         self.relation_set.assert_called_with(**expected)
+
+    def test_db_joined_with_ipv6(self):
+        'It properly requests access to a shared-db service'
+        self.unit_get.return_value = 'cindernode1'
+        self.get_ipv6_addr.return_value = ['2001:db8:1::1']
+        self.sync_db_with_multi_ipv6_addresses.return_value = MagicMock()
+        self.is_relation_made.return_value = False
+        self.test_config.set('prefer-ipv6', True)
+        self.test_config.set('vip', 'dummy_vip')
+        hooks.hooks.execute(['hooks/shared-db-relation-joined'])
+        self.sync_db_with_multi_ipv6_addresses.assert_called_with_once(
+            'cinder', 'cinder')
 
     def test_db_joined_with_postgresql(self):
         self.is_relation_made.return_value = True
