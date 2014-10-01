@@ -95,19 +95,25 @@ class TestCinderContext(CharmTestCase):
         self.assertEquals(contexts.StorageBackendContext()(),
                           {'backends': 'cinder-ceph,cinder-vmware'})
 
-    @patch('charmhelpers.contrib.openstack.context.config')
-    @patch('charmhelpers.contrib.openstack.context.is_clustered')
-    @patch('charmhelpers.contrib.openstack.context.determine_apache_port')
-    @patch('charmhelpers.contrib.openstack.context.determine_api_port')
-    @patch('charmhelpers.contrib.openstack.context.unit_get')
-    @patch('charmhelpers.contrib.openstack.context.https')
+    mod_ch_context = 'charmhelpers.contrib.openstack.context'
+
+    @patch('%s.ApacheSSLContext.canonical_names' % (mod_ch_context))
+    @patch('%s.ApacheSSLContext.configure_ca' % (mod_ch_context))
+    @patch('%s.config' % (mod_ch_context))
+    @patch('%s.is_clustered' % (mod_ch_context))
+    @patch('%s.determine_apache_port' % (mod_ch_context))
+    @patch('%s.determine_api_port' % (mod_ch_context))
+    @patch('%s.unit_get' % (mod_ch_context))
+    @patch('%s.https' % (mod_ch_context))
     @patch.object(utils, 'service_enabled')
     def test_apache_ssl_context_service_enabled(self, service_enabled,
                                                 mock_https, mock_unit_get,
                                                 mock_determine_api_port,
                                                 mock_determine_apache_port,
                                                 mock_is_clustered,
-                                                mock_config):
+                                                mock_hookenv,
+                                                mock_configure_ca,
+                                                mock_cfg_canonical_names):
         mock_https.return_value = True
         mock_unit_get.return_value = '1.2.3.4'
         mock_determine_api_port.return_value = '12'
@@ -122,7 +128,6 @@ class TestCinderContext(CharmTestCase):
         service_enabled.return_value = False
         self.assertEquals(ctxt(), {})
         self.assertFalse(mock_https.called)
-
         service_enabled.return_value = True
         self.assertEquals(ctxt(), {'endpoints': [('1.2.3.4', '1.2.3.4',
                                                   34, 12)],

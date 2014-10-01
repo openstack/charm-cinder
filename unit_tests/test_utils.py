@@ -64,6 +64,7 @@ class CharmTestCase(unittest.TestCase):
         self.test_relation = TestRelation()
         self.patch_all()
 
+    # FIXME: This is bad. These mocks will persist across all tests.
     def patch(self, method):
         _m = patch.object(self.obj, method)
         mock = _m.start()
@@ -80,7 +81,9 @@ class TestConfig(object):
     def __init__(self):
         self.config = get_default_config()
 
-    def get(self, attr):
+    def get(self, attr=None):
+        if not attr:
+            return self.config
         try:
             return self.config[attr]
         except KeyError:

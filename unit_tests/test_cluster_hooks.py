@@ -12,6 +12,7 @@ utils.register_configs = MagicMock()
 utils.service_enabled = MagicMock()
 
 import cinder_hooks as hooks
+hooks.hooks._config_save = False
 
 # Unpatch it now that its loaded.
 utils.register_configs = _register_configs
@@ -62,7 +63,7 @@ class TestClusterHooks(CharmTestCase):
 
     def setUp(self):
         super(TestClusterHooks, self).setUp(hooks, TO_PATCH)
-        self.config.side_effect = self.test_config.get_all
+        self.config.side_effect = self.test_config.get
 
     @patch('charmhelpers.core.host.service')
     @patch('charmhelpers.core.host.file_hash')
@@ -121,6 +122,8 @@ class TestClusterHooks(CharmTestCase):
             'vip_iface': 'eth101',
             'vip_cidr': '19',
         }
+
+        self.test_config.set('prefer-ipv6', 'False')
         self.get_hacluster_config.return_value = conf
         self.get_iface_for_address.return_value = 'eth101'
         self.get_netmask_for_address.return_value = '255.255.224.0'
@@ -145,6 +148,40 @@ class TestClusterHooks(CharmTestCase):
             call(groups={'grp_cinder_vips': 'res_cinder_eth101_vip'}),
             call(**ex_args)
         ])
+
+    def test_ha_joined_complete_config_with_ipv6(self):
+        'Ensure hacluster subordinate receives all relevant config'
+        conf = {
+            'ha-bindiface': 'eth100',
+            'ha-mcastport': '37373',
+            'vip': '2001:db8:1::1',
+            'vip_iface': 'eth101',
+            'vip_cidr': '64',
+        }
+
+        self.test_config.set('prefer-ipv6', 'True')
+        self.get_hacluster_config.return_value = conf
+        self.get_iface_for_address.return_value = 'eth101'
+        self.get_netmask_for_address.return_value = 'ffff.ffff.ffff.ffff'
+        hooks.hooks.execute(['hooks/ha-relation-joined'])
+        ex_args = {
+            'corosync_mcastport': '37373',
+            'init_services': {'res_cinder_haproxy': 'haproxy'},
+            'resource_params': {
+                'res_cinder_eth101_vip':
+                'params ipv6addr="2001:db8:1::1" '
+                'cidr_netmask="ffff.ffff.ffff.ffff" '
+                'nic="eth101"',
+                'res_cinder_haproxy': 'op monitor interval="5s"'
+            },
+            'corosync_bindiface': 'eth100',
+            'clones': {'cl_cinder_haproxy': 'res_cinder_haproxy'},
+            'resources': {
+                'res_cinder_eth101_vip': 'ocf:heartbeat:IPv6addr',
+                'res_cinder_haproxy': 'lsb:haproxy'
+            }
+        }
+        self.relation_set.assert_called_with(**ex_args)
 
     @patch.object(hooks, 'identity_joined')
     def test_ha_changed_clustered(self, joined):
