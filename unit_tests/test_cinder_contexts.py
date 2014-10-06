@@ -4,7 +4,7 @@ import os
 os.environ['JUJU_UNIT_NAME'] = 'cinder'
 import cinder_utils as utils
 
-from mock import patch
+from mock import patch, MagicMock
 
 from test_utils import (
     CharmTestCase
@@ -121,17 +121,17 @@ class TestCinderContext(CharmTestCase):
         mock_is_clustered.return_value = False
 
         ctxt = contexts.ApacheSSLContext()
-        with patch.object(ctxt, 'enable_modules'):
-            with patch.object(ctxt, 'configure_cert'):
-                service_enabled.return_value = False
-                self.assertEquals(ctxt(), {})
-                self.assertFalse(mock_https.called)
-
-                service_enabled.return_value = True
-                self.assertEquals(ctxt(), {'endpoints': [('1.2.3.4',
-                                                          '1.2.3.4',
-                                                          34, 12)],
-                                           'ext_ports': [34],
-                                           'namespace': 'cinder'})
-                self.assertTrue(mock_https.called)
-                mock_unit_get.assert_called_with('private-address')
+        ctxt.enable_modules = MagicMock()
+        ctxt.configure_cert = MagicMock()
+        ctxt.configure_ca = MagicMock()
+        ctxt.canonical_names = MagicMock()
+        service_enabled.return_value = False
+        self.assertEquals(ctxt(), {})
+        self.assertFalse(mock_https.called)
+        service_enabled.return_value = True
+        self.assertEquals(ctxt(), {'endpoints': [('1.2.3.4', '1.2.3.4',
+                                                  34, 12)],
+                                   'ext_ports': [34],
+                                   'namespace': 'cinder'})
+        self.assertTrue(mock_https.called)
+        mock_unit_get.assert_called_with('private-address')

@@ -55,7 +55,6 @@ from charmhelpers.contrib.storage.linux.ceph import ensure_ceph_keyring
 
 from charmhelpers.contrib.hahelpers.cluster import (
     eligible_leader,
-    is_leader,
     get_hacluster_config,
 )
 
@@ -71,6 +70,7 @@ from charmhelpers.contrib.openstack.ip import (
     canonical_url,
     PUBLIC, INTERNAL, ADMIN
 )
+from charmhelpers.contrib.openstack.context import ADDRESS_TYPES
 
 hooks = Hooks()
 
@@ -212,9 +212,6 @@ def amqp_departed():
 
 @hooks.hook('identity-service-relation-joined')
 def identity_joined(rid=None):
-    if not eligible_leader(CLUSTER_RES):
-        return
-
     public_url = '{}:{}/v1/$(tenant_id)s'.format(
         canonical_url(CONFIGS, PUBLIC),
         config('api-listening-port')
@@ -277,15 +274,19 @@ def ceph_changed():
 
 @hooks.hook('cluster-relation-joined')
 def cluster_joined(relation_id=None):
+    for addr_type in ADDRESS_TYPES:
+        address = get_address_in_network(
+            config('os-{}-network'.format(addr_type))
+        )
+        if address:
+            relation_set(
+                relation_id=relation_id,
+                relation_settings={'{}-address'.format(addr_type): address}
+            )
     if config('prefer-ipv6'):
         private_addr = get_ipv6_addr(exc_list=[config('vip')])[0]
-    else:
-        private_addr = unit_get('private-address')
-
-    address = get_address_in_network(config('os-internal-network'),
-                                     private_addr)
-    relation_set(relation_id=relation_id,
-                 relation_settings={'private-address': address})
+        relation_set(relation_id=relation_id,
+                     relation_settings={'private-address': private_addr})
 
 
 @hooks.hook('cluster-relation-changed',
@@ -351,14 +352,11 @@ def ha_changed():
     clustered = relation_get('clustered')
     if not clustered or clustered in [None, 'None', '']:
         juju_log('ha_changed: hacluster subordinate not fully clustered.')
-        return
-    if not is_leader(CLUSTER_RES):
-        juju_log('ha_changed: hacluster complete but we are not leader.')
-        return
-    juju_log('Cluster configured, notifying other services and updating '
-             'keystone endpoint configuration')
-    for rid in relation_ids('identity-service'):
-        identity_joined(rid=rid)
+    else:
+        juju_log('Cluster configured, notifying other services and updating '
+                 'keystone endpoint configuration')
+        for rid in relation_ids('identity-service'):
+            identity_joined(rid=rid)
 
 
 @hooks.hook('image-service-relation-changed')
