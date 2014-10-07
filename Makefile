@@ -2,17 +2,19 @@
 PYTHON := /usr/bin/env python
 
 lint:
-	@flake8 --exclude hooks/charmhelpers hooks unit_tests
+	@flake8 --exclude hooks/charmhelpers hooks unit_tests tests
 	@charm proof
 
 unit_test:
+	@echo Starting unit tests...
 	@$(PYTHON) /usr/bin/nosetests --nologcapture --with-coverage unit_tests
 
 test:
 	@echo Starting amulet deployment tests...
 	#NOTE(beisner): can remove -v after bug 1320357 is fixed
 	#   https://bugs.launchpad.net/amulet/+bug/1320357
-	@juju test -v -p AMULET_HTTP_PROXY
+	@juju test -v -p AMULET_HTTP_PROXY --timeout 900 \
+        00-setup 14-basic-precise-icehouse 15-basic-trusty-icehouse
 
 bin/charm_helpers_sync.py:
 	@mkdir -p bin
@@ -21,7 +23,7 @@ bin/charm_helpers_sync.py:
 
 sync: bin/charm_helpers_sync.py
 	@$(PYTHON) bin/charm_helpers_sync.py -c charm-helpers-hooks.yaml
-	@charm-helper-sync -c charm-helpers-tests.yaml
+	@$(PYTHON) bin/charm_helpers_sync.py -c charm-helpers-tests.yaml
 
 publish: lint unit_test
 	bzr push lp:charms/cinder
