@@ -17,7 +17,7 @@ from charmhelpers.contrib.openstack.amulet.utils import (  # noqa
 )
 
 # Use DEBUG to turn on debug logging
-u = OpenStackAmuletUtils(DEBUG)
+u = OpenStackAmuletUtils(ERROR)
 
 
 class CinderBasicDeployment(OpenStackAmuletDeployment):
@@ -29,9 +29,10 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
     # NOTE(beisner):  Features and tests vary across Openstack releases.
     # https://wiki.openstack.org/wiki/CinderSupportMatrix
 
-    def __init__(self, series=None, openstack=None, source=None):
+    def __init__(self, series=None, openstack=None, source=None, stable=False):
         '''Deploy the entire test environment.'''
-        super(CinderBasicDeployment, self).__init__(series, openstack, source)
+        super(CinderBasicDeployment, self).__init__(series, openstack, source,
+                                                    stable)
         self._add_services()
         self._add_relations()
         self._configure_services()
@@ -39,12 +40,15 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         self._initialize_tests()
 
     def _add_services(self):
-        '''Add the service that we're testing, including the number of units,
-           where this charm is local, and the other charms are from
-           the charm store.'''
-        this_service = ('cinder', 1)
-        other_services = [('mysql', 1), ('rabbitmq-server', 1),
-                          ('keystone', 1), ('glance', 1)]
+        """Add services
+
+           Add the services that we're testing, where cinder is local,
+           and the rest of the service are from lp branches that are
+           compatible with the local charm (e.g. stable or next).
+           """
+        this_service = {'name': 'cinder'}
+        other_services = [{'name': 'mysql'}, {'name': 'rabbitmq-server'},
+                          {'name': 'keystone'}, {'name': 'glance'}]
         super(CinderBasicDeployment, self)._add_services(this_service,
                                                          other_services)
 
@@ -508,10 +512,13 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             amulet.raise_status(amulet.FAIL,
                                 msg='glance endpoint: {}'.format(ret))
 
-    def test_cinder_restart_on_config_change(self):
-        '''Verify that cinder services are restarted when
-        the config is changed.'''
+    def test_z_cinder_restart_on_config_change(self):
+        '''Verify cinder services are restarted when the config is changed.
 
+           Note(coreycb): The method name with the _z_ is a little odd
+           but it forces the test to run last.  It just makes things
+           easier because restarting services requires re-authorization.
+           '''
         u.log.debug('making charm config change')
         self.d.configure('cinder', {'verbose': 'True'})
         self.d.configure('cinder', {'debug': 'True'})
@@ -519,11 +526,15 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         if not self.service_restarted(self.cinder_sentry, 'cinder-api',
                                       '/etc/cinder/cinder.conf',
                                       sleep_time=30):
+            self.d.configure('cinder', {'verbose': 'False'})
+            self.d.configure('cinder', {'debug': 'False'})
             msg = "cinder-api service didn't restart after config change"
             amulet.raise_status(amulet.FAIL, msg=msg)
 
         if not self.service_restarted(self.cinder_sentry, 'cinder-volume',
                                       '/etc/cinder/cinder.conf', sleep_time=0):
+            self.d.configure('cinder', {'verbose': 'False'})
+            self.d.configure('cinder', {'debug': 'False'})
             msg = "cinder-volume service didn't restart after conf change"
             amulet.raise_status(amulet.FAIL, msg=msg)
 
@@ -806,9 +817,3 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         ret = self.delete_all_objs(self.cinder.volumes, item_desc='volume')
         if ret:
             amulet.raise_status(amulet.FAIL, msg=ret)
-
-    def test_zzzz_fake_fail(self):
-        '''Force a fake fail to keep juju environment after a successful test run'''
-        # Useful in test writing, when used with:   juju test --set-e
-        amulet.raise_status(amulet.FAIL, msg='using fake fail to keep juju environment')
-
