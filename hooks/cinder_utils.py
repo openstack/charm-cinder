@@ -266,9 +266,19 @@ def services():
     return list(set(_services))
 
 
+def reduce_lvm_volume_group_missing(volume_group):
+    '''
+    Remove all missing physical volumes from the volume group, if there
+    are no logical volumes allocated on them.
+
+    :param volume_group: str: Name of volume group to reduce.
+    '''
+    subprocess.check_call(['vgreduce', '--removemissing', volume_group])
+
+
 def extend_lvm_volume_group(volume_group, block_device):
     '''
-    Extend and LVM volume group onto a given block device.
+    Extend an LVM volume group onto a given block device.
 
     Assumes block device has already been initialized as an LVM PV.
 
@@ -278,13 +288,16 @@ def extend_lvm_volume_group(volume_group, block_device):
     subprocess.check_call(['vgextend', volume_group, block_device])
 
 
-def configure_lvm_storage(block_devices, volume_group, overwrite=False):
+def configure_lvm_storage(block_devices, volume_group, overwrite=False,
+                          remove_missing=False):
     ''' Configure LVM storage on the list of block devices provided
 
     :param block_devices: list: List of whitelisted block devices to detect
                                 and use if found
     :param overwrite: bool: Scrub any existing block data if block device is
                             not already in-use
+    :param remove_missing: bool: Remove missing physical volumes from volume
+                           group if logical volume not allocated on them
     '''
     devices = []
     for block_device in block_devices:
@@ -318,6 +331,10 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False):
         # Create new volume group from first device
         create_lvm_volume_group(volume_group, new_devices[0])
         new_devices.remove(new_devices[0])
+
+    # Remove missing physical volumes from volume group
+    if remove_missing:
+        reduce_lvm_volume_group_missing(volume_group)
 
     if len(new_devices) > 0:
         # Extend the volume group as required
