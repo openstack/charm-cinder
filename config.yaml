@@ -34,7 +34,7 @@ options:
       to use in the cinder LVM volume group - each block device detected
       will be added to the available physical volumes in the volume group.
   ceph-osd-replication-count:
-    default: 2
+    default: 3
     type: int
     description: |
       This value dictates the number of replicas ceph must make of any
