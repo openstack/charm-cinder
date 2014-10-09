@@ -58,10 +58,10 @@ options:
       If true, charm will attempt to overwrite block devices containing
       previous filesystems or LVM, assuming it is not in use.
   remove-missing:
-    default: "false"
-    type: string
+    default: False
+    type: boolean
     description: |
-      If true, charm will attempt to remove missing physical volumes from
+      If True, charm will attempt to remove missing physical volumes from
       volume group, if logical volumes are not allocated on them.
   database-user:
     default: cinder
