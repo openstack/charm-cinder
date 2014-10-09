@@ -106,7 +106,7 @@ def config_changed():
         configure_lvm_storage(block_devices,
                               conf['volume-group'],
                               conf['overwrite'] in ['true', 'True', True],
-                              conf['remove-missing'] in ['true', 'True', True])
+                              conf['remove-missing'])
 
     if openstack_upgrade_available('cinder-common'):
         do_openstack_upgrade(configs=CONFIGS)
