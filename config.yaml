@@ -27,12 +27,16 @@ options:
     description: |
       The block devices on which to create LVM volume group.
 
-      May also be set to None for deployments that will not need local
+      May be set to None for deployments that will not need local
       storage (eg, Ceph/RBD-backed volumes).
 
       This can also be a space delimited list of block devices to attempt
       to use in the cinder LVM volume group - each block device detected
       will be added to the available physical volumes in the volume group.
+
+      May be set to the path and size of a local file
+      (/path/to/file.img|$sizeG), which will be created and used as a
+      loopback device (for testing only).  $sizeG defaults to 5G
   ceph-osd-replication-count:
     default: 3
     type: int
@@ -51,8 +55,14 @@ options:
     default: "false"
     type: string
     description: |
-      If true, charm will attempt to overwrite block devices containin
+      If true, charm will attempt to overwrite block devices containing
       previous filesystems or LVM, assuming it is not in use.
+  remove-missing:
+    default: False
+    type: boolean
+    description: |
+      If True, charm will attempt to remove missing physical volumes from
+      volume group, if logical volumes are not allocated on them.
   database-user:
     default: cinder
     type: string
