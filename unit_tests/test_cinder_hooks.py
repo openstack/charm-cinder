@@ -115,7 +115,7 @@ class TestChangedHooks(CharmTestCase):
         self.assertTrue(conf_https.called)
         self.configure_lvm_storage.assert_called_with(['sdb'],
                                                       'cinder-volumes',
-                                                      False)
+                                                      False, False)
 
     @patch.object(hooks, 'configure_https')
     def test_config_changed_block_devices(self, conf_https):
@@ -124,13 +124,14 @@ class TestChangedHooks(CharmTestCase):
         self.test_config.set('block-device', 'sdb /dev/sdc sde')
         self.test_config.set('volume-group', 'cinder-new')
         self.test_config.set('overwrite', 'True')
+        self.test_config.set('remove-missing', True)
         hooks.hooks.execute(['hooks/config-changed'])
         self.assertTrue(self.CONFIGS.write_all.called)
         self.assertTrue(conf_https.called)
         self.configure_lvm_storage.assert_called_with(
             ['sdb', '/dev/sdc', 'sde'],
             'cinder-new',
-            True)
+            True, True)
 
     @patch.object(hooks, 'configure_https')
     def test_config_changed_upgrade_available(self, conf_https):

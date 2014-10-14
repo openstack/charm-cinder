@@ -211,11 +211,13 @@ class TestCinderUtils(CharmTestCase):
                         ('/mnt/loop0', cinder_utils.DEFAULT_LOOPBACK_SIZE))
 
     @patch.object(cinder_utils, 'clean_storage')
+    @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
-    def test_configure_lvm_storage(self, extend_lvm, clean_storage):
+    def test_configure_lvm_storage(self, extend_lvm, reduce_lvm,
+                                   clean_storage):
         devices = ['/dev/vdb', '/dev/vdc']
         self.is_lvm_physical_volume.return_value = False
-        cinder_utils.configure_lvm_storage(devices, 'test', True)
+        cinder_utils.configure_lvm_storage(devices, 'test', True, True)
         clean_storage.assert_has_calls(
             [call('/dev/vdb'),
              call('/dev/vdc')]
@@ -225,24 +227,29 @@ class TestCinderUtils(CharmTestCase):
              call('/dev/vdc')]
         )
         self.create_lvm_volume_group.assert_called_with('test', '/dev/vdb')
+        reduce_lvm.assert_called_with('test')
         extend_lvm.assert_called_with('test', '/dev/vdc')
 
     @patch.object(cinder_utils, 'clean_storage')
+    @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
-    def test_configure_lvm_storage_loopback(self, extend_lvm, clean_storage):
+    def test_configure_lvm_storage_loopback(self, extend_lvm, reduce_lvm,
+                                            clean_storage):
         devices = ['/mnt/loop0|10']
         self.ensure_loopback_device.return_value = '/dev/loop0'
         self.is_lvm_physical_volume.return_value = False
-        cinder_utils.configure_lvm_storage(devices, 'test', True)
+        cinder_utils.configure_lvm_storage(devices, 'test', True, True)
         clean_storage.assert_called_with('/dev/loop0')
         self.ensure_loopback_device.assert_called_with('/mnt/loop0', '10')
         self.create_lvm_physical_volume.assert_called_with('/dev/loop0')
         self.create_lvm_volume_group.assert_called_with('test', '/dev/loop0')
+        reduce_lvm.assert_called_with('test')
         self.assertFalse(extend_lvm.called)
 
     @patch.object(cinder_utils, 'clean_storage')
+    @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
-    def test_configure_lvm_storage_existing_vg(self, extend_lvm,
+    def test_configure_lvm_storage_existing_vg(self, extend_lvm, reduce_lvm,
                                                clean_storage):
         def pv_lookup(device):
             devices = {
@@ -260,19 +267,21 @@ class TestCinderUtils(CharmTestCase):
         devices = ['/dev/vdb', '/dev/vdc']
         self.is_lvm_physical_volume.side_effect = pv_lookup
         self.list_lvm_volume_group.side_effect = vg_lookup
-        cinder_utils.configure_lvm_storage(devices, 'test', True)
+        cinder_utils.configure_lvm_storage(devices, 'test', True, True)
         clean_storage.assert_has_calls(
             [call('/dev/vdc')]
         )
         self.create_lvm_physical_volume.assert_has_calls(
             [call('/dev/vdc')]
         )
+        reduce_lvm.assert_called_with('test')
         extend_lvm.assert_called_with('test', '/dev/vdc')
         self.assertFalse(self.create_lvm_volume_group.called)
 
     @patch.object(cinder_utils, 'clean_storage')
+    @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
-    def test_configure_lvm_storage_different_vg(self, extend_lvm,
+    def test_configure_lvm_storage_different_vg(self, extend_lvm, reduce_lvm,
                                                 clean_storage):
         def pv_lookup(device):
             devices = {
@@ -290,15 +299,18 @@ class TestCinderUtils(CharmTestCase):
         devices = ['/dev/vdb', '/dev/vdc']
         self.is_lvm_physical_volume.side_effect = pv_lookup
         self.list_lvm_volume_group.side_effect = vg_lookup
-        cinder_utils.configure_lvm_storage(devices, 'test', True)
+        cinder_utils.configure_lvm_storage(devices, 'test', True, True)
         clean_storage.assert_called_with('/dev/vdc')
         self.create_lvm_physical_volume.assert_called_with('/dev/vdc')
+        reduce_lvm.assert_called_with('test')
         extend_lvm.assert_called_with('test', '/dev/vdc')
         self.assertFalse(self.create_lvm_volume_group.called)
 
     @patch.object(cinder_utils, 'clean_storage')
+    @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
     def test_configure_lvm_storage_different_vg_ignore(self, extend_lvm,
+                                                       reduce_lvm,
                                                        clean_storage):
         def pv_lookup(device):
             devices = {
@@ -316,11 +328,17 @@ class TestCinderUtils(CharmTestCase):
         devices = ['/dev/vdb', '/dev/vdc']
         self.is_lvm_physical_volume.side_effect = pv_lookup
         self.list_lvm_volume_group.side_effect = vg_lookup
-        cinder_utils.configure_lvm_storage(devices, 'test', False)
+        cinder_utils.configure_lvm_storage(devices, 'test', False, False)
         self.assertFalse(clean_storage.called)
         self.assertFalse(self.create_lvm_physical_volume.called)
+        self.assertFalse(reduce_lvm.called)
         self.assertFalse(extend_lvm.called)
         self.assertFalse(self.create_lvm_volume_group.called)
+
+    @patch('subprocess.check_call')
+    def test_reduce_lvm_volume_group_missing(self, _call):
+        cinder_utils.reduce_lvm_volume_group_missing('test')
+        _call.assert_called_with(['vgreduce', '--removemissing', 'test'])
 
     @patch('subprocess.check_call')
     def test_extend_lvm_volume_group(self, _call):
