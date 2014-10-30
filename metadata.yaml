@@ -6,6 +6,9 @@ description: |
 categories:
   - miscellaneous
 provides:
+  nrpe-external-master:
+    interface: nrpe-external-master
+    scope: container
   cinder-volume-service:
     interface: cinder
 requires:

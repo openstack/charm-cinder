@@ -72,6 +72,8 @@ from charmhelpers.contrib.openstack.ip import (
 )
 from charmhelpers.contrib.openstack.context import ADDRESS_TYPES
 
+from charmhelpers.contrib.charmsupport.nrpe import NRPE
+
 hooks = Hooks()
 
 CONFIGS = register_configs()
@@ -117,6 +119,7 @@ def config_changed():
 
     CONFIGS.write_all()
     configure_https()
+    update_nrpe_config()
 
     for rid in relation_ids('cluster'):
         cluster_joined(relation_id=rid)
@@ -399,6 +402,7 @@ def configure_https():
 def upgrade_charm():
     for rel_id in relation_ids('amqp'):
         amqp_joined(relation_id=rel_id)
+    update_nrpe_config()
 
 
 @hooks.hook('storage-backend-relation-changed')
@@ -406,6 +410,26 @@ def upgrade_charm():
 @restart_on_change(restart_map())
 def storage_backend():
     CONFIGS.write(CINDER_CONF)
+
+
+@hooks.hook('nrpe-external-master-relation-joined', 'nrpe-external-master-relation-changed')
+def update_nrpe_config():
+    SERVICES = [
+        'cinder-api',
+        'cinder-volume',
+        'cinder-scheduler',
+    ]
+    nrpe = NRPE()
+    apt_install('python-dbus')
+    
+    for service in SERVICES:
+        nrpe.add_check(
+            shortname=service,
+            description='%s process' % service,
+            check_cmd = 'check_upstart_job %s' % service,
+            )
+
+    nrpe.write()
 
 
 if __name__ == '__main__':
