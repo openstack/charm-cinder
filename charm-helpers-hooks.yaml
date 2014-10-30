@@ -11,3 +11,4 @@ include:
     - fetch
     - payload.execd
     - contrib.network.ip
+    - contrib.charmsupport
