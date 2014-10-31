@@ -33,6 +33,7 @@ from charmhelpers.core.hookenv import (
     relation_get,
     relation_ids,
     relation_set,
+    relations_of_type,
     service_name,
     unit_get,
     log,
@@ -419,7 +420,13 @@ def update_nrpe_config():
         'cinder-volume',
         'cinder-scheduler',
     ]
-    nrpe = NRPE()
+    # Find out if nrpe set nagios_hostname
+    hostname = None
+    for rel in relations_of_type('nrpe-external-master'):
+        if 'nagios_hostname' in rel:
+            hostname = rel['nagios_hostname']
+            break
+    nrpe = NRPE(hostname=hostname)
     apt_install('python-dbus')
     
     for service in SERVICES:
