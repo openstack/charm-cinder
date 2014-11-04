@@ -425,14 +425,17 @@ def update_nrpe_config():
     for rel in relations_of_type('nrpe-external-master'):
         if 'nagios_hostname' in rel:
             hostname = rel['nagios_hostname']
+            host_context = rel['nagios_host_context']
             break
     nrpe = NRPE(hostname=hostname)
     apt_install('python-dbus')
-    
+
+    current_unit = "%s:%s" % (host_context, local_unit())
+
     for service in SERVICES:
         nrpe.add_check(
             shortname=service,
-            description='%s process' % service,
+            description='process check {%s}' % current_unit,
             check_cmd = 'check_upstart_job %s' % service,
             )
 
