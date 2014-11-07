@@ -27,11 +27,6 @@ from charmhelpers.core.host import (
     lsb_release
 )
 
-from charmhelpers.contrib.storage.linux.ceph import (
-    create_pool as ceph_create_pool,
-    pool_exists as ceph_pool_exists,
-)
-
 from charmhelpers.contrib.openstack.alternatives import install_alternative
 from charmhelpers.contrib.hahelpers.cluster import (
     eligible_leader,
@@ -395,13 +390,6 @@ def migrate_database():
     'Runs cinder-manage to initialize a new database or migrate existing'
     cmd = ['cinder-manage', 'db', 'sync']
     subprocess.check_call(cmd)
-
-
-def ensure_ceph_pool(service, replicas):
-    'Creates a ceph pool for service if one does not exist'
-    # TODO(Ditto about moving somewhere sharable)
-    if not ceph_pool_exists(service=service, name=service):
-        ceph_create_pool(service=service, name=service, replicas=replicas)
 
 
 def set_ceph_env_variables(service):
