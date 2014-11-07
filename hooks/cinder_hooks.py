@@ -44,7 +44,12 @@ from charmhelpers.fetch import (
     apt_update
 )
 
-from charmhelpers.core.host import lsb_release, restart_on_change
+from charmhelpers.core.host import (
+    lsb_release,
+    restart_on_change,
+    service_start,
+    service_stop
+)
 
 from charmhelpers.contrib.openstack.utils import (
     configure_installation_source,
@@ -265,13 +270,18 @@ def ceph_changed(relation_id=None):
                                user='cinder', group='cinder'):
         juju_log('Could not create ceph keyring: peer not ready?')
         return
+
     if 'broker_rsp' in settings:
         rsp = settings['broker_rsp']
         if not rsp:
             log("Ceph broker request failed (rsp=%s)" % (rsp), level=ERROR)
             return
-        else:
-            log("Ceph broker request succeeded (rsp=%s)" % (rsp), level=INFO)
+
+        log("Ceph broker request succeeded (rsp=%s)" % (rsp), level=INFO)
+        set_ceph_env_variables(service=svc)
+        CONFIGS.write(CINDER_CONF)
+        CONFIGS.write(ceph_config_file())
+        service_start('cinder-volume')
     else:
         broker_ops = [{'op': 'create_pool', 'pool': svc,
                        'replicas': config('ceph-osd-replication-count')}]
@@ -279,9 +289,7 @@ def ceph_changed(relation_id=None):
             relation_set(relation_id=rid, broker_req=json.dumps(broker_ops))
             log("Request sent to Ceph broker (rid=%s)" % (rid))
 
-    set_ceph_env_variables(service=svc)
-    CONFIGS.write(CINDER_CONF)
-    CONFIGS.write(ceph_config_file())
+        service_stop('cinder-volume')
 
 
 @hooks.hook('cluster-relation-joined')
