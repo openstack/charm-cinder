@@ -31,7 +31,6 @@ TO_PATCH = [
     'determine_packages',
     'do_openstack_upgrade',
     'ensure_ceph_keyring',
-    'ensure_ceph_pool',
     'juju_log',
     'log',
     'lsb_release',
@@ -372,7 +371,6 @@ class TestJoinedHooks(CharmTestCase):
         self.ensure_ceph_keyring.assert_called_with(service='cinder',
                                                     user='cinder',
                                                     group='cinder')
-        self.ensure_ceph_pool.assert_called_with(service='cinder', replicas=3)
         for c in [call('/var/lib/charm/cinder/ceph.conf'),
                   call('/etc/cinder/cinder.conf')]:
             self.assertIn(c, self.CONFIGS.write.call_args_list)
@@ -395,7 +393,6 @@ class TestJoinedHooks(CharmTestCase):
         self.service_name.return_value = 'cinder'
         self.ensure_ceph_keyring.return_value = True
         hooks.hooks.execute(['hooks/ceph-relation-changed'])
-        self.assertFalse(self.ensure_ceph_pool.called)
 
 
 class TestDepartedHooks(CharmTestCase):
