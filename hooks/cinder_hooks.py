@@ -264,31 +264,34 @@ def ceph_changed(relation_id=None):
         juju_log('ceph relation incomplete. Peer not ready?')
         return
 
-    settings = relation_get(rid=relation_id)
-    svc = service_name()
-    if not ensure_ceph_keyring(service=svc,
+    service = service_name()
+    if not ensure_ceph_keyring(service=service,
                                user='cinder', group='cinder'):
         juju_log('Could not create ceph keyring: peer not ready?')
         return
 
-    if 'broker_rsp' in settings:
-        rsp = settings['broker_rsp']
-        if not rsp:
+    settings = relation_get(rid=relation_id)
+    if settings and 'broker_rsp' in settings:
+        rsp = json.loads(settings['broker_rsp'])
+        # Non-zero return code implies failure
+        if rsp['exit_code']:
             log("Ceph broker request failed (rsp=%s)" % (rsp), level=ERROR)
             return
 
         log("Ceph broker request succeeded (rsp=%s)" % (rsp), level=INFO)
-        set_ceph_env_variables(service=svc)
+        set_ceph_env_variables(service=service)
         CONFIGS.write(CINDER_CONF)
         CONFIGS.write(ceph_config_file())
+        log("Starting cinder-volume")
         service_start('cinder-volume')
     else:
-        broker_ops = [{'op': 'create_pool', 'pool': svc,
+        broker_ops = [{'op': 'create_pool', 'pool': service,
                        'replicas': config('ceph-osd-replication-count')}]
         for rid in relation_ids('ceph'):
             relation_set(relation_id=rid, broker_req=json.dumps(broker_ops))
-            log("Request sent to Ceph broker (rid=%s)" % (rid))
+            log("Request(s) sent to Ceph broker (rid=%s)" % (rid))
 
+        log("Stopping cinder-volume until successful response from broker")
         service_stop('cinder-volume')
 
 
