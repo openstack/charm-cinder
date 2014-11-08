@@ -1,10 +1,14 @@
-from mock import MagicMock, patch, call
+import json
+from mock import (
+    MagicMock,
+    patch,
+    call
+)
 
 import cinder_utils as utils
-
 from test_utils import (
     CharmTestCase,
-    RESTART_MAP,
+    RESTART_MAP
 )
 
 # Need to do some early patching to get the module loaded.
@@ -361,12 +365,37 @@ class TestJoinedHooks(CharmTestCase):
         m = 'ceph relation incomplete. Peer not ready?'
         self.juju_log.assert_called_with(m)
 
-    def test_ceph_changed(self):
+    @patch("cinder_hooks.relation_set")
+    @patch("cinder_hooks.relation_get")
+    def test_ceph_changed_broker_send_rq(self, mock_relation_get,
+                                         mock_relation_set):
+        self.CONFIGS.complete_contexts.return_value = ['ceph']
+        self.service_name.return_value = 'cinder'
+        self.ensure_ceph_keyring.return_value = True
+        self.ceph_config_file.return_value = '/var/lib/charm/cinder/ceph.conf'
+        self.relation_ids.return_value = ['ceph:0']
+        hooks.hooks.execute(['hooks/ceph-relation-changed'])
+        self.ensure_ceph_keyring.assert_called_with(service='cinder',
+                                                    user='cinder',
+                                                    group='cinder')
+        broker_dict = json.dumps([{"op": "create_pool", "pool": "cinder",
+                                   "replicas": 3}])
+        mock_relation_set.assert_called_with(broker_req=broker_dict,
+                                             relation_id='ceph:0')
+        for c in [call('/var/lib/charm/cinder/ceph.conf'),
+                  call('/etc/cinder/cinder.conf')]:
+            self.assertNotIn(c, self.CONFIGS.write.call_args_list)
+        self.assertFalse(self.set_ceph_env_variables.called)
+
+    @patch("cinder_hooks.relation_get", autospec=True)
+    def test_ceph_changed_broker_success(self, mock_relation_get):
         'It ensures ceph assets created on ceph changed'
         self.CONFIGS.complete_contexts.return_value = ['ceph']
         self.service_name.return_value = 'cinder'
         self.ensure_ceph_keyring.return_value = True
         self.ceph_config_file.return_value = '/var/lib/charm/cinder/ceph.conf'
+        mock_relation_get.return_value = {'broker_rsp':
+                                          json.dumps({'exit_code': 0})}
         hooks.hooks.execute(['hooks/ceph-relation-changed'])
         self.ensure_ceph_keyring.assert_called_with(service='cinder',
                                                     user='cinder',
@@ -375,6 +404,23 @@ class TestJoinedHooks(CharmTestCase):
                   call('/etc/cinder/cinder.conf')]:
             self.assertIn(c, self.CONFIGS.write.call_args_list)
         self.set_ceph_env_variables.assert_called_with(service='cinder')
+
+    @patch("cinder_hooks.relation_get", autospec=True)
+    def test_ceph_changed_broker_nonzero_rc(self, mock_relation_get):
+        self.CONFIGS.complete_contexts.return_value = ['ceph']
+        self.service_name.return_value = 'cinder'
+        self.ensure_ceph_keyring.return_value = True
+        self.ceph_config_file.return_value = '/var/lib/charm/cinder/ceph.conf'
+        mock_relation_get.return_value = {'broker_rsp':
+                                          json.dumps({'exit_code': 1})}
+        hooks.hooks.execute(['hooks/ceph-relation-changed'])
+        self.ensure_ceph_keyring.assert_called_with(service='cinder',
+                                                    user='cinder',
+                                                    group='cinder')
+        for c in [call('/var/lib/charm/cinder/ceph.conf'),
+                  call('/etc/cinder/cinder.conf')]:
+            self.assertNotIn(c, self.CONFIGS.write.call_args_list)
+        self.assertFalse(self.set_ceph_env_variables.called)
 
     def test_ceph_changed_no_keys(self):
         'It ensures ceph assets created on ceph changed'
