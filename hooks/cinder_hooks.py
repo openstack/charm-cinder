@@ -285,7 +285,7 @@ def ceph_changed(relation_id=None):
         log("Starting cinder-volume")
         service_start('cinder-volume')
     else:
-        broker_ops = [{'op': 'create_pool', 'pool': service,
+        broker_ops = [{'op': 'create_pool', 'name': service,
                        'replicas': config('ceph-osd-replication-count')}]
         for rid in relation_ids('ceph'):
             relation_set(relation_id=rid, broker_req=json.dumps(broker_ops))
