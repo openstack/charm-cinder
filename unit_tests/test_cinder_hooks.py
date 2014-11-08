@@ -378,7 +378,7 @@ class TestJoinedHooks(CharmTestCase):
         self.ensure_ceph_keyring.assert_called_with(service='cinder',
                                                     user='cinder',
                                                     group='cinder')
-        broker_dict = json.dumps([{"op": "create_pool", "pool": "cinder",
+        broker_dict = json.dumps([{"op": "create_pool", "name": "cinder",
                                    "replicas": 3}])
         mock_relation_set.assert_called_with(broker_req=broker_dict,
                                              relation_id='ceph:0')
