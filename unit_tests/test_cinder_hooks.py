@@ -378,8 +378,9 @@ class TestJoinedHooks(CharmTestCase):
         self.ensure_ceph_keyring.assert_called_with(service='cinder',
                                                     user='cinder',
                                                     group='cinder')
-        broker_dict = json.dumps([{"op": "create_pool", "name": "cinder",
-                                   "replicas": 3}])
+        req = {'api-version': 1,
+               'ops': [{"op": "create-pool", "name": "cinder", "replicas": 3}]}
+        broker_dict = json.dumps(req)
         mock_relation_set.assert_called_with(broker_req=broker_dict,
                                              relation_id='ceph:0')
         for c in [call('/var/lib/charm/cinder/ceph.conf'),
@@ -395,7 +396,7 @@ class TestJoinedHooks(CharmTestCase):
         self.ensure_ceph_keyring.return_value = True
         self.ceph_config_file.return_value = '/var/lib/charm/cinder/ceph.conf'
         mock_relation_get.return_value = {'broker_rsp':
-                                          json.dumps({'exit_code': 0})}
+                                          json.dumps({'exit-code': 0})}
         hooks.hooks.execute(['hooks/ceph-relation-changed'])
         self.ensure_ceph_keyring.assert_called_with(service='cinder',
                                                     user='cinder',
@@ -412,7 +413,7 @@ class TestJoinedHooks(CharmTestCase):
         self.ensure_ceph_keyring.return_value = True
         self.ceph_config_file.return_value = '/var/lib/charm/cinder/ceph.conf'
         mock_relation_get.return_value = {'broker_rsp':
-                                          json.dumps({'exit_code': 1})}
+                                          json.dumps({'exit-code': 1})}
         hooks.hooks.execute(['hooks/ceph-relation-changed'])
         self.ensure_ceph_keyring.assert_called_with(service='cinder',
                                                     user='cinder',
