@@ -183,6 +183,47 @@ class TestClusterHooks(CharmTestCase):
         }
         self.relation_set.assert_called_with(**ex_args)
 
+
+    def test_ha_joined_no_bound_ip(self):
+        '''
+        Ensure fallback configuration options are used if network
+        interface cannot be auto-detected
+        '''
+        conf = {
+            'ha-bindiface': 'eth100',
+            'ha-mcastport': '37373',
+            'vip': '192.168.25.163',
+        }
+
+        self.test_config.set('prefer-ipv6', 'False')
+        self.test_config.set('vip-default-iface', 'eth120')
+        self.test_config.set('vip-default-cidr', '21')
+        self.get_hacluster_config.return_value = conf
+        self.get_iface_for_address.return_value = None
+        self.get_netmask_for_address.return_value = None
+        hooks.hooks.execute(['hooks/ha-relation-joined'])
+        ex_args = {
+            'corosync_mcastport': '37373',
+            'init_services': {'res_cinder_haproxy': 'haproxy'},
+            'resource_params': {
+                'res_cinder_eth120_vip':
+                'params ip="192.168.25.163" cidr_netmask="21"'
+                ' nic="eth120"',
+                'res_cinder_haproxy': 'op monitor interval="5s"'
+            },
+            'corosync_bindiface': 'eth100',
+            'clones': {'cl_cinder_haproxy': 'res_cinder_haproxy'},
+            'resources': {
+                'res_cinder_eth120_vip': 'ocf:heartbeat:IPaddr2',
+                'res_cinder_haproxy': 'lsb:haproxy'
+            }
+        }
+        self.relation_set.assert_has_calls([
+            call(groups={'grp_cinder_vips': 'res_cinder_eth120_vip'}),
+            call(**ex_args)
+        ])
+
+
     @patch.object(hooks, 'identity_joined')
     def test_ha_changed_clustered(self, joined):
         self.relation_get.return_value = True

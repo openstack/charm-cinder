@@ -118,6 +118,18 @@ options:
       .
       If multiple networks are being used, a VIP should be provided for each
       network, separated by spaces.
+  vip-default-iface:
+    type: string
+    default: eth0
+    description: |
+      Default network interface to use for HA vip when it cannot be automatically
+      determined.
+  vip-default-cidr:
+    type: int
+    default: 24
+    description: |
+      Default CIDR netmask to use for HA vip when it cannot be automatically
+      determined.
   ha-bindiface:
     type: string
     default: eth0
