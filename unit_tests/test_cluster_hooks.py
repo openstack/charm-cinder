@@ -183,7 +183,6 @@ class TestClusterHooks(CharmTestCase):
         }
         self.relation_set.assert_called_with(**ex_args)
 
-
     def test_ha_joined_no_bound_ip(self):
         '''
         Ensure fallback configuration options are used if network
@@ -222,7 +221,6 @@ class TestClusterHooks(CharmTestCase):
             call(groups={'grp_cinder_vips': 'res_cinder_eth120_vip'}),
             call(**ex_args)
         ])
-
 
     @patch.object(hooks, 'identity_joined')
     def test_ha_changed_clustered(self, joined):
