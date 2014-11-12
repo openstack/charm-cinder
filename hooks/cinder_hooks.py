@@ -319,9 +319,9 @@ def ha_joined():
             vip_params = 'ip'
 
         iface = (get_iface_for_address(vip) or
-                 config('vip-default-iface'))
+                 config('vip_iface'))
         netmask = (get_netmask_for_address(vip) or
-                   config('vip-default-cidr'))
+                   config('vip_cidr'))
 
         if iface is not None:
             vip_key = 'res_cinder_{}_vip'.format(iface)
