@@ -196,8 +196,8 @@ class TestClusterHooks(CharmTestCase):
         }
 
         self.test_config.set('prefer-ipv6', 'False')
-        self.test_config.set('vip-default-iface', 'eth120')
-        self.test_config.set('vip-default-cidr', '21')
+        self.test_config.set('vip_iface', 'eth120')
+        self.test_config.set('vip_cidr', '21')
         self.get_hacluster_config.return_value = conf
         self.get_iface_for_address.return_value = None
         self.get_netmask_for_address.return_value = None
