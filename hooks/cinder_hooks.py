@@ -15,6 +15,7 @@ from cinder_utils import (
     configure_lvm_storage,
     register_configs,
     restart_map,
+    services,
     service_enabled,
     set_ceph_env_variables,
     CLUSTER_RES,
@@ -413,13 +414,9 @@ def storage_backend():
     CONFIGS.write(CINDER_CONF)
 
 
-@hooks.hook('nrpe-external-master-relation-joined', 'nrpe-external-master-relation-changed')
+@hooks.hook('nrpe-external-master-relation-joined',
+            'nrpe-external-master-relation-changed')
 def update_nrpe_config():
-    SERVICES = [
-        'cinder-api',
-        'cinder-volume',
-        'cinder-scheduler',
-    ]
     # Find out if nrpe set nagios_hostname
     hostname = None
     host_context = None
@@ -436,12 +433,35 @@ def update_nrpe_config():
     else:
         current_unit = local_unit()
 
-    for service in SERVICES:
-        nrpe.add_check(
-            shortname=service,
-            description='process check {%s}' % current_unit,
-            check_cmd = 'check_upstart_job %s' % service,
-            )
+    services_to_monitor = services()
+
+    for service in services_to_monitor:
+        upstart_init = '/etc/init/%s.conf' % service
+        sysv_init = '/etc/init.d/%s' % service
+
+        if os.path.exists(upstart_init):
+            nrpe.add_check(
+                shortname=service,
+                description='process check {%s}' % current_unit,
+                check_cmd='check_upstart_job %s' % service,
+                )
+        elif os.path.exists(sysv_init):
+            cronpath = '/etc/cron.d/nagios-service-check-%s' % service
+            checkpath = os.path.join(os.environ['CHARM_DIR'],
+                                     'files/nrpe-external-master',
+                                     'check_exit_status.pl'),
+            cron_template = '*/5 * * * * root \
+%s -s /etc/init.d/%s status > /var/lib/nagios/service-check-%s.txt\n' \
+                % (checkpath[0], service, service)
+            f = open(cronpath, 'w')
+            f.write(cron_template)
+            f.close()
+            nrpe.add_check(
+                shortname=service,
+                description='process check {%s}' % current_unit,
+                check_cmd='check_status_file.py \
+                            -f /var/lib/nagios/service-check-%s.txt' % service,
+                )
 
     nrpe.write()
 
