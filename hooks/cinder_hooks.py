@@ -1,5 +1,4 @@
 #!/usr/bin/python
-import json
 import os
 import sys
 import uuid
@@ -56,7 +55,11 @@ from charmhelpers.contrib.openstack.utils import (
     openstack_upgrade_available,
     sync_db_with_multi_ipv6_addresses)
 
-from charmhelpers.contrib.storage.linux.ceph import ensure_ceph_keyring
+from charmhelpers.contrib.storage.linux.ceph import (
+    ensure_ceph_keyring,
+    CephBrokerRq,
+    CephBrokerRsp,
+)
 
 from charmhelpers.contrib.hahelpers.cluster import (
     eligible_leader,
@@ -272,24 +275,26 @@ def ceph_changed(relation_id=None):
 
     settings = relation_get(rid=relation_id)
     if settings and 'broker_rsp' in settings:
-        rsp = json.loads(settings['broker_rsp'])
+        rsp = CephBrokerRsp(settings['broker_rsp'])
         # Non-zero return code implies failure
-        if rsp['exit-code']:
-            log("Ceph broker request failed (rsp=%s)" % (rsp), level=ERROR)
+        if rsp.exit_code:
+            log("Ceph broker request failed (rc=%s, msg=%s)" %
+                (rsp.exit_code, rsp.exit_msg), level=ERROR)
             return
 
-        log("Ceph broker request succeeded (rsp=%s)" % (rsp), level=INFO)
+        log("Ceph broker request succeeded (rc=%s, msg=%s)" %
+            (rsp.exit_code, rsp.exit_msg), level=INFO)
         set_ceph_env_variables(service=service)
         CONFIGS.write(CINDER_CONF)
         CONFIGS.write(ceph_config_file())
         log("Starting cinder-volume")
         service_start('cinder-volume')
     else:
-        broker_req = {'api-version': 1, 'ops':
-                      [{'op': 'create-pool', 'name': service,
-                        'replicas': config('ceph-osd-replication-count')}]}
+        rq = CephBrokerRq()
+        replicas = config('ceph-osd-replication-count')
+        rq.add_op_create_pool(name=service, replica_count=replicas)
         for rid in relation_ids('ceph'):
-            relation_set(relation_id=rid, broker_req=json.dumps(broker_req))
+            relation_set(relation_id=rid, broker_req=rq.request)
             log("Request(s) sent to Ceph broker (rid=%s)" % (rid))
 
         log("Stopping cinder-volume until successful response from broker")
