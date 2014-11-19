@@ -1,4 +1,4 @@
-branch: lp:charm-helpers
+branch: lp:~hopem/charm-helpers/ceph-broker-client-wrappers 
 destination: hooks/charmhelpers
 include:
     - core
