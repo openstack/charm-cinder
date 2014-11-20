@@ -287,8 +287,6 @@ def ceph_changed(relation_id=None):
         set_ceph_env_variables(service=service)
         CONFIGS.write(CINDER_CONF)
         CONFIGS.write(ceph_config_file())
-        log("Starting cinder-volume")
-        service_start('cinder-volume')
     else:
         rq = CephBrokerRq()
         replicas = config('ceph-osd-replication-count')
@@ -296,9 +294,6 @@ def ceph_changed(relation_id=None):
         for rid in relation_ids('ceph'):
             relation_set(relation_id=rid, broker_req=rq.request)
             log("Request(s) sent to Ceph broker (rid=%s)" % (rid))
-
-        log("Stopping cinder-volume until successful response from broker")
-        service_stop('cinder-volume')
 
 
 @hooks.hook('cluster-relation-joined')
