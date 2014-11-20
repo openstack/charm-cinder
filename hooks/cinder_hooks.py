@@ -46,8 +46,6 @@ from charmhelpers.fetch import (
 from charmhelpers.core.host import (
     lsb_release,
     restart_on_change,
-    service_start,
-    service_stop
 )
 
 from charmhelpers.contrib.openstack.utils import (
