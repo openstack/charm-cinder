@@ -2,12 +2,15 @@
 
 # Common python helper functions used for OpenStack charms.
 from collections import OrderedDict
+from functools import wraps
 
 import subprocess
 import json
 import os
 import socket
 import sys
+
+import six
 
 from charmhelpers.core.hookenv import (
     config,
@@ -112,7 +115,7 @@ def get_os_codename_install_source(src):
 
     # Best guess match based on deb string provided
     if src.startswith('deb') or src.startswith('ppa'):
-        for k, v in OPENSTACK_CODENAMES.iteritems():
+        for k, v in six.iteritems(OPENSTACK_CODENAMES):
             if v in src:
                 return v
 
@@ -133,7 +136,7 @@ def get_os_codename_version(vers):
 
 def get_os_version_codename(codename):
     '''Determine OpenStack version number from codename.'''
-    for k, v in OPENSTACK_CODENAMES.iteritems():
+    for k, v in six.iteritems(OPENSTACK_CODENAMES):
         if v == codename:
             return k
     e = 'Could not derive OpenStack version for '\
@@ -193,7 +196,7 @@ def get_os_version_package(pkg, fatal=True):
     else:
         vers_map = OPENSTACK_CODENAMES
 
-    for version, cname in vers_map.iteritems():
+    for version, cname in six.iteritems(vers_map):
         if cname == codename:
             return version
     # e = "Could not determine OpenStack version for package: %s" % pkg
@@ -317,7 +320,7 @@ def save_script_rc(script_path="scripts/scriptrc", **env_vars):
         rc_script.write(
             "#!/bin/bash\n")
         [rc_script.write('export %s=%s\n' % (u, p))
-         for u, p in env_vars.iteritems() if u != "script_path"]
+         for u, p in six.iteritems(env_vars) if u != "script_path"]
 
 
 def openstack_upgrade_available(package):
@@ -417,7 +420,7 @@ def ns_query(address):
 
     if isinstance(address, dns.name.Name):
         rtype = 'PTR'
-    elif isinstance(address, basestring):
+    elif isinstance(address, six.string_types):
         rtype = 'A'
     else:
         return None
@@ -468,6 +471,14 @@ def get_hostname(address, fqdn=True):
         return result.split('.')[0]
 
 
+def get_matchmaker_map(mm_file='/etc/oslo/matchmaker_ring.json'):
+    mm_map = {}
+    if os.path.isfile(mm_file):
+        with open(mm_file, 'r') as f:
+            mm_map = json.load(f)
+    return mm_map
+
+
 def sync_db_with_multi_ipv6_addresses(database, database_user,
                                       relation_prefix=None):
     hosts = get_ipv6_addr(dynamic_only=False)
@@ -477,10 +488,24 @@ def sync_db_with_multi_ipv6_addresses(database, database_user,
               'hostname': json.dumps(hosts)}
 
     if relation_prefix:
-        keys = kwargs.keys()
-        for key in keys:
+        for key in list(kwargs.keys()):
             kwargs["%s_%s" % (relation_prefix, key)] = kwargs[key]
             del kwargs[key]
 
     for rid in relation_ids('shared-db'):
         relation_set(relation_id=rid, **kwargs)
+
+
+def os_requires_version(ostack_release, pkg):
+    """
+    Decorator for hook to specify minimum supported release
+    """
+    def wrap(f):
+        @wraps(f)
+        def wrapped_f(*args):
+            if os_release(pkg) < ostack_release:
+                raise Exception("This hook is not supported on releases"
+                                " before %s" % ostack_release)
+            f(*args)
+        return wrapped_f
+    return wrap

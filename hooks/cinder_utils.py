@@ -145,7 +145,7 @@ CONFIG_FILES = OrderedDict([
         'services': ['cinder-volume']
     }),
     (HAPROXY_CONF, {
-        'hook_contexts': [context.HAProxyContext(),
+        'hook_contexts': [context.HAProxyContext(singlenode_mode=True),
                           cinder_contexts.HAProxyContext()],
         'services': ['haproxy'],
     }),
