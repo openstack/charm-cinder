@@ -5,16 +5,15 @@ from yaml import safe_load
 from charmhelpers.core.host import (
     lsb_release
 )
-from urlparse import (
-    urlparse,
-    urlunparse,
-)
 import subprocess
 from charmhelpers.core.hookenv import (
     config,
     log,
 )
 import os
+
+import six
+from six.moves.urllib.parse import urlparse, urlunparse
 
 
 CLOUD_ARCHIVE = """# Ubuntu Cloud Archive
@@ -69,10 +68,16 @@ CLOUD_ARCHIVE_POCKETS = {
 
 # The order of this list is very important. Handlers should be listed in from
 # least- to most-specific URL matching.
-FETCH_HANDLERS = (
-    'charmhelpers.fetch.archiveurl.ArchiveUrlFetchHandler',
-    'charmhelpers.fetch.bzrurl.BzrUrlFetchHandler',
-)
+if six.PY2:
+    FETCH_HANDLERS = (
+        'charmhelpers.fetch.archiveurl.ArchiveUrlFetchHandler',
+        'charmhelpers.fetch.bzrurl.BzrUrlFetchHandler',
+        'charmhelpers.fetch.giturl.GitUrlFetchHandler',
+    )
+else:
+    FETCH_HANDLERS = (
+        'charmhelpers.fetch.archiveurl.ArchiveUrlFetchHandler',
+    )
 
 APT_NO_LOCK = 100  # The return code for "couldn't acquire lock" in APT.
 APT_NO_LOCK_RETRY_DELAY = 10  # Wait 10 seconds between apt lock checks.
@@ -148,7 +153,7 @@ def apt_install(packages, options=None, fatal=False):
     cmd = ['apt-get', '--assume-yes']
     cmd.extend(options)
     cmd.append('install')
-    if isinstance(packages, basestring):
+    if isinstance(packages, six.string_types):
         cmd.append(packages)
     else:
         cmd.extend(packages)
@@ -181,7 +186,7 @@ def apt_update(fatal=False):
 def apt_purge(packages, fatal=False):
     """Purge one or more packages"""
     cmd = ['apt-get', '--assume-yes', 'purge']
-    if isinstance(packages, basestring):
+    if isinstance(packages, six.string_types):
         cmd.append(packages)
     else:
         cmd.extend(packages)
@@ -192,7 +197,7 @@ def apt_purge(packages, fatal=False):
 def apt_hold(packages, fatal=False):
     """Hold one or more packages"""
     cmd = ['apt-mark', 'hold']
-    if isinstance(packages, basestring):
+    if isinstance(packages, six.string_types):
         cmd.append(packages)
     else:
         cmd.extend(packages)
@@ -218,6 +223,7 @@ def add_source(source, key=None):
         pocket for the release.
         'cloud:' may be used to activate official cloud archive pockets,
         such as 'cloud:icehouse'
+        'distro' may be used as a noop
 
     @param key: A key to be added to the system's APT keyring and used
     to verify the signatures on packages. Ideally, this should be an
@@ -251,12 +257,14 @@ def add_source(source, key=None):
         release = lsb_release()['DISTRIB_CODENAME']
         with open('/etc/apt/sources.list.d/proposed.list', 'w') as apt:
             apt.write(PROPOSED_POCKET.format(release))
+    elif source == 'distro':
+        pass
     else:
-        raise SourceConfigError("Unknown source: {!r}".format(source))
+        log("Unknown source: {!r}".format(source))
 
     if key:
         if '-----BEGIN PGP PUBLIC KEY BLOCK-----' in key:
-            with NamedTemporaryFile() as key_file:
+            with NamedTemporaryFile('w+') as key_file:
                 key_file.write(key)
                 key_file.flush()
                 key_file.seek(0)
@@ -293,14 +301,14 @@ def configure_sources(update=False,
     sources = safe_load((config(sources_var) or '').strip()) or []
     keys = safe_load((config(keys_var) or '').strip()) or None
 
-    if isinstance(sources, basestring):
+    if isinstance(sources, six.string_types):
         sources = [sources]
 
     if keys is None:
         for source in sources:
             add_source(source, None)
     else:
-        if isinstance(keys, basestring):
+        if isinstance(keys, six.string_types):
             keys = [keys]
 
         if len(sources) != len(keys):
@@ -397,7 +405,7 @@ def _run_apt_command(cmd, fatal=False):
         while result is None or result == APT_NO_LOCK:
             try:
                 result = subprocess.check_call(cmd, env=env)
-            except subprocess.CalledProcessError, e:
+            except subprocess.CalledProcessError as e:
                 retry_count = retry_count + 1
                 if retry_count > APT_NO_LOCK_RETRY_COUNT:
                     raise
