@@ -315,14 +315,17 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
     vg_found = False
     new_devices = []
     for device in devices:
-        if (not is_lvm_physical_volume(device) or
-                (is_lvm_physical_volume(device) and
-                 list_lvm_volume_group(device) != volume_group)):
+        if not is_lvm_physical_volume(device):
+            # Unused device
+            if overwrite is True or not has_partition_table(device):
+                prepare_volume(device)
+                new_devices.append(device)
+        elif (is_lvm_physical_volume(device) and
+              list_lvm_volume_group(device) != volume_group):
             # Existing LVM but not part of required VG or new device
             if overwrite is True:
-                clean_storage(device)
+                prepare_volume(device)
                 new_devices.append(device)
-                create_lvm_physical_volume(device)
         elif (is_lvm_physical_volume(device) and
                 list_lvm_volume_group(device) == volume_group):
             # Mark vg as found
@@ -341,6 +344,17 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
         # Extend the volume group as required
         for new_device in new_devices:
             extend_lvm_volume_group(volume_group, new_device)
+
+
+def prepare_volume(device):
+    clean_storage(device)
+    create_lvm_physical_volume(device)
+
+
+def has_partition_table(block_device):
+    out = subprocess.check_output(['fdisk', '-l', block_device],
+                                  stderr=subprocess.STDOUT)
+    return "doesn't contain a valid partition" not in out
 
 
 def clean_storage(block_device):
