@@ -19,8 +19,6 @@ TO_PATCH = [
     'umount',
     'mkdir',
     # ceph utils
-    'ceph_create_pool',
-    'ceph_pool_exists',
     # storage_utils
     'create_lvm_physical_volume',
     'create_lvm_volume_group',
@@ -400,18 +398,6 @@ class TestCinderUtils(CharmTestCase):
         with patch('subprocess.check_call') as check_call:
             cinder_utils.migrate_database()
             check_call.assert_called_with(['cinder-manage', 'db', 'sync'])
-
-    def test_ensure_ceph_pool(self):
-        self.ceph_pool_exists.return_value = False
-        cinder_utils.ensure_ceph_pool(service='cinder', replicas=3)
-        self.ceph_create_pool.assert_called_with(service='cinder',
-                                                 name='cinder',
-                                                 replicas=3)
-
-    def test_ensure_ceph_pool_already_exists(self):
-        self.ceph_pool_exists.return_value = True
-        cinder_utils.ensure_ceph_pool(service='cinder', replicas=3)
-        self.assertFalse(self.ceph_create_pool.called)
 
     @patch('os.path.exists')
     def test_register_configs_apache(self, exists):
