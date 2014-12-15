@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 import os
 import sys
 import uuid
@@ -9,7 +8,6 @@ from subprocess import check_call
 from cinder_utils import (
     determine_packages,
     do_openstack_upgrade,
-    ensure_ceph_pool,
     juju_log,
     migrate_database,
     configure_lvm_storage,
@@ -37,6 +35,7 @@ from charmhelpers.core.hookenv import (
     unit_get,
     log,
     ERROR,
+    INFO
 )
 
 from charmhelpers.fetch import (
@@ -44,14 +43,21 @@ from charmhelpers.fetch import (
     apt_update
 )
 
-from charmhelpers.core.host import lsb_release, restart_on_change
+from charmhelpers.core.host import (
+    lsb_release,
+    restart_on_change,
+)
 
 from charmhelpers.contrib.openstack.utils import (
     configure_installation_source,
     openstack_upgrade_available,
     sync_db_with_multi_ipv6_addresses)
 
-from charmhelpers.contrib.storage.linux.ceph import ensure_ceph_keyring
+from charmhelpers.contrib.storage.linux.ceph import (
+    ensure_ceph_keyring,
+    CephBrokerRq,
+    CephBrokerRsp,
+)
 
 from charmhelpers.contrib.hahelpers.cluster import (
     eligible_leader,
@@ -254,23 +260,38 @@ def ceph_joined():
 
 @hooks.hook('ceph-relation-changed')
 @restart_on_change(restart_map())
-def ceph_changed():
+def ceph_changed(relation_id=None):
     if 'ceph' not in CONFIGS.complete_contexts():
         juju_log('ceph relation incomplete. Peer not ready?')
         return
-    svc = service_name()
-    if not ensure_ceph_keyring(service=svc,
+
+    service = service_name()
+    if not ensure_ceph_keyring(service=service,
                                user='cinder', group='cinder'):
         juju_log('Could not create ceph keyring: peer not ready?')
         return
-    CONFIGS.write(CINDER_CONF)
-    CONFIGS.write(ceph_config_file())
-    set_ceph_env_variables(service=svc)
 
-    if eligible_leader(CLUSTER_RES):
-        _config = config()
-        ensure_ceph_pool(service=svc,
-                         replicas=_config['ceph-osd-replication-count'])
+    settings = relation_get(rid=relation_id)
+    if settings and 'broker_rsp' in settings:
+        rsp = CephBrokerRsp(settings['broker_rsp'])
+        # Non-zero return code implies failure
+        if rsp.exit_code:
+            log("Ceph broker request failed (rc=%s, msg=%s)" %
+                (rsp.exit_code, rsp.exit_msg), level=ERROR)
+            return
+
+        log("Ceph broker request succeeded (rc=%s, msg=%s)" %
+            (rsp.exit_code, rsp.exit_msg), level=INFO)
+        set_ceph_env_variables(service=service)
+        CONFIGS.write(CINDER_CONF)
+        CONFIGS.write(ceph_config_file())
+    else:
+        rq = CephBrokerRq()
+        replicas = config('ceph-osd-replication-count')
+        rq.add_op_create_pool(name=service, replica_count=replicas)
+        for rid in relation_ids('ceph'):
+            relation_set(relation_id=rid, broker_req=rq.request)
+            log("Request(s) sent to Ceph broker (rid=%s)" % (rid))
 
 
 @hooks.hook('cluster-relation-joined')
