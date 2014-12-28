@@ -1,5 +1,5 @@
 name: cinder
-summary: Cinder OpenStack starage service
+summary: Cinder OpenStack storage service
 maintainer: Adam Gandelman <adamg@canonical.com>
 description: |
  Cinder is a storage service for the Openstack project
