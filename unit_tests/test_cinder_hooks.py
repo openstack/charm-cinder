@@ -46,6 +46,7 @@ TO_PATCH = [
     'CONFIGS',
     'CLUSTER_RES',
     'ceph_config_file',
+    'update_nrpe_config',
     # charmhelpers.core.hookenv
     'config',
     'is_relation_made',
