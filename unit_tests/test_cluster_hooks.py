@@ -26,8 +26,6 @@ from test_utils import (
 TO_PATCH = [
     # cinder_utils
     'determine_packages',
-    'ensure_ceph_keyring',
-    'ensure_ceph_pool',
     'juju_log',
     'lsb_release',
     'migrate_database',

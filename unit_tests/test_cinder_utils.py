@@ -19,8 +19,6 @@ TO_PATCH = [
     'umount',
     'mkdir',
     # ceph utils
-    'ceph_create_pool',
-    'ceph_pool_exists',
     # storage_utils
     'create_lvm_physical_volume',
     'create_lvm_volume_group',
@@ -57,6 +55,18 @@ DPKG_OPTIONS = [
     '--option', 'Dpkg::Options::=--force-confnew',
     '--option', 'Dpkg::Options::=--force-confdef',
 ]
+
+FDISKDISPLAY = """
+  Disk /dev/vdb doesn't contain a valid partition table
+
+  Disk /dev/vdb: 21.5 GB, 21474836480 bytes
+  16 heads, 63 sectors/track, 41610 cylinders, total 41943040 sectors
+  Units = sectors of 1 * 512 = 512 bytes
+  Sector size (logical/physical): 512 bytes / 512 bytes
+  I/O size (minimum/optimal): 512 bytes / 512 bytes
+  Disk identifier: 0x00000000
+
+"""
 
 
 class TestCinderUtils(CharmTestCase):
@@ -210,6 +220,13 @@ class TestCinderUtils(CharmTestCase):
         self.assertTrue(cinder_utils._parse_block_device('/mnt/loop0'),
                         ('/mnt/loop0', cinder_utils.DEFAULT_LOOPBACK_SIZE))
 
+    @patch('subprocess.check_output')
+    def test_has_partition_table(self, _check):
+        _check.return_value = FDISKDISPLAY
+        block_device = '/dev/vdb'
+        cinder_utils.has_partition_table(block_device)
+        _check.assert_called_with(['fdisk', '-l', '/dev/vdb'], stderr=-2)
+
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
@@ -229,6 +246,37 @@ class TestCinderUtils(CharmTestCase):
         self.create_lvm_volume_group.assert_called_with('test', '/dev/vdb')
         reduce_lvm.assert_called_with('test')
         extend_lvm.assert_called_with('test', '/dev/vdc')
+
+    @patch.object(cinder_utils, 'has_partition_table')
+    @patch.object(cinder_utils, 'clean_storage')
+    @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
+    @patch.object(cinder_utils, 'extend_lvm_volume_group')
+    def test_configure_lvm_storage_unused_dev(self, extend_lvm, reduce_lvm,
+                                              clean_storage, has_part):
+        devices = ['/dev/vdb', '/dev/vdc']
+        self.is_lvm_physical_volume.return_value = False
+        has_part.return_value = False
+        cinder_utils.configure_lvm_storage(devices, 'test', False, True)
+        clean_storage.assert_has_calls(
+            [call('/dev/vdb'),
+             call('/dev/vdc')]
+        )
+        self.create_lvm_physical_volume.assert_has_calls(
+            [call('/dev/vdb'),
+             call('/dev/vdc')]
+        )
+        self.create_lvm_volume_group.assert_called_with('test', '/dev/vdb')
+        reduce_lvm.assert_called_with('test')
+        extend_lvm.assert_called_with('test', '/dev/vdc')
+
+    @patch.object(cinder_utils, 'has_partition_table')
+    @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
+    def test_configure_lvm_storage_used_dev(self, reduce_lvm, has_part):
+        devices = ['/dev/vdb', '/dev/vdc']
+        self.is_lvm_physical_volume.return_value = False
+        has_part.return_value = True
+        cinder_utils.configure_lvm_storage(devices, 'test', False, True)
+        reduce_lvm.assert_called_with('test')
 
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
@@ -350,18 +398,6 @@ class TestCinderUtils(CharmTestCase):
         with patch('subprocess.check_call') as check_call:
             cinder_utils.migrate_database()
             check_call.assert_called_with(['cinder-manage', 'db', 'sync'])
-
-    def test_ensure_ceph_pool(self):
-        self.ceph_pool_exists.return_value = False
-        cinder_utils.ensure_ceph_pool(service='cinder', replicas=3)
-        self.ceph_create_pool.assert_called_with(service='cinder',
-                                                 name='cinder',
-                                                 replicas=3)
-
-    def test_ensure_ceph_pool_already_exists(self):
-        self.ceph_pool_exists.return_value = True
-        cinder_utils.ensure_ceph_pool(service='cinder', replicas=3)
-        self.assertFalse(self.ceph_create_pool.called)
 
     @patch('os.path.exists')
     def test_register_configs_apache(self, exists):
