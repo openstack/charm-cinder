@@ -64,8 +64,10 @@ class HAProxyContext(OSContextGenerator):
         Also used to extend cinder.conf context with correct api_listening_port
         '''
         haproxy_port = config('api-listening-port')
-        api_port = determine_api_port(config('api-listening-port'))
-        apache_port = determine_apache_port(config('api-listening-port'))
+        api_port = determine_api_port(config('api-listening-port'),
+                                      singlenode_mode=True)
+        apache_port = determine_apache_port(config('api-listening-port'),
+                                            singlenode_mode=True)
 
         ctxt = {
             'service_ports': {'cinder_api': [haproxy_port, apache_port]},

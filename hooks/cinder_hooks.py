@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 import os
 import sys
 import uuid
@@ -9,12 +8,12 @@ from subprocess import check_call
 from cinder_utils import (
     determine_packages,
     do_openstack_upgrade,
-    ensure_ceph_pool,
     juju_log,
     migrate_database,
     configure_lvm_storage,
     register_configs,
     restart_map,
+    services,
     service_enabled,
     set_ceph_env_variables,
     CLUSTER_RES,
@@ -37,6 +36,7 @@ from charmhelpers.core.hookenv import (
     unit_get,
     log,
     ERROR,
+    INFO
 )
 
 from charmhelpers.fetch import (
@@ -44,14 +44,21 @@ from charmhelpers.fetch import (
     apt_update
 )
 
-from charmhelpers.core.host import lsb_release, restart_on_change
+from charmhelpers.core.host import (
+    lsb_release,
+    restart_on_change,
+)
 
 from charmhelpers.contrib.openstack.utils import (
     configure_installation_source,
     openstack_upgrade_available,
     sync_db_with_multi_ipv6_addresses)
 
-from charmhelpers.contrib.storage.linux.ceph import ensure_ceph_keyring
+from charmhelpers.contrib.storage.linux.ceph import (
+    ensure_ceph_keyring,
+    CephBrokerRq,
+    CephBrokerRsp,
+)
 
 from charmhelpers.contrib.hahelpers.cluster import (
     eligible_leader,
@@ -71,6 +78,8 @@ from charmhelpers.contrib.openstack.ip import (
     PUBLIC, INTERNAL, ADMIN
 )
 from charmhelpers.contrib.openstack.context import ADDRESS_TYPES
+
+from charmhelpers.contrib.charmsupport import nrpe
 
 hooks = Hooks()
 
@@ -117,6 +126,7 @@ def config_changed():
 
     CONFIGS.write_all()
     configure_https()
+    update_nrpe_config()
 
     for rid in relation_ids('cluster'):
         cluster_joined(relation_id=rid)
@@ -254,23 +264,38 @@ def ceph_joined():
 
 @hooks.hook('ceph-relation-changed')
 @restart_on_change(restart_map())
-def ceph_changed():
+def ceph_changed(relation_id=None):
     if 'ceph' not in CONFIGS.complete_contexts():
         juju_log('ceph relation incomplete. Peer not ready?')
         return
-    svc = service_name()
-    if not ensure_ceph_keyring(service=svc,
+
+    service = service_name()
+    if not ensure_ceph_keyring(service=service,
                                user='cinder', group='cinder'):
         juju_log('Could not create ceph keyring: peer not ready?')
         return
-    CONFIGS.write(CINDER_CONF)
-    CONFIGS.write(ceph_config_file())
-    set_ceph_env_variables(service=svc)
 
-    if eligible_leader(CLUSTER_RES):
-        _config = config()
-        ensure_ceph_pool(service=svc,
-                         replicas=_config['ceph-osd-replication-count'])
+    settings = relation_get(rid=relation_id)
+    if settings and 'broker_rsp' in settings:
+        rsp = CephBrokerRsp(settings['broker_rsp'])
+        # Non-zero return code implies failure
+        if rsp.exit_code:
+            log("Ceph broker request failed (rc=%s, msg=%s)" %
+                (rsp.exit_code, rsp.exit_msg), level=ERROR)
+            return
+
+        log("Ceph broker request succeeded (rc=%s, msg=%s)" %
+            (rsp.exit_code, rsp.exit_msg), level=INFO)
+        set_ceph_env_variables(service=service)
+        CONFIGS.write(CINDER_CONF)
+        CONFIGS.write(ceph_config_file())
+    else:
+        rq = CephBrokerRq()
+        replicas = config('ceph-osd-replication-count')
+        rq.add_op_create_pool(name=service, replica_count=replicas)
+        for rid in relation_ids('ceph'):
+            relation_set(relation_id=rid, broker_req=rq.request)
+            log("Request(s) sent to Ceph broker (rid=%s)" % (rid))
 
 
 @hooks.hook('cluster-relation-joined')
@@ -403,6 +428,7 @@ def configure_https():
 def upgrade_charm():
     for rel_id in relation_ids('amqp'):
         amqp_joined(relation_id=rel_id)
+    update_nrpe_config()
 
 
 @hooks.hook('storage-backend-relation-changed')
@@ -410,6 +436,18 @@ def upgrade_charm():
 @restart_on_change(restart_map())
 def storage_backend():
     CONFIGS.write(CINDER_CONF)
+
+
+@hooks.hook('nrpe-external-master-relation-joined',
+            'nrpe-external-master-relation-changed')
+def update_nrpe_config():
+    # python-dbus is used by check_upstart_job
+    apt_install('python-dbus')
+    hostname = nrpe.get_nagios_hostname()
+    current_unit = nrpe.get_nagios_unit_name()
+    nrpe_setup = nrpe.NRPE(hostname=hostname)
+    nrpe.add_init_service_checks(nrpe_setup, services(), current_unit)
+    nrpe_setup.write()
 
 
 if __name__ == '__main__':

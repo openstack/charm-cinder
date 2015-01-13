@@ -117,10 +117,3 @@ overwrite:  Whether or not to wipe local storage that of data that may prevent
 
 enabled-services:  Can be used to separate cinder services between service
                    service units (see previous section)
-
-Contact Information
--------------------
-
-Author: Adam Gandelman <adamg@canonical.com>
-Report bugs at: http://bugs.launchpad.net/charms
-Location: http://jujucharms.com
