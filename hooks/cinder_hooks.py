@@ -13,6 +13,7 @@ from cinder_utils import (
     configure_lvm_storage,
     register_configs,
     restart_map,
+    services,
     service_enabled,
     set_ceph_env_variables,
     CLUSTER_RES,
@@ -78,6 +79,8 @@ from charmhelpers.contrib.openstack.ip import (
 )
 from charmhelpers.contrib.openstack.context import ADDRESS_TYPES
 
+from charmhelpers.contrib.charmsupport import nrpe
+
 hooks = Hooks()
 
 CONFIGS = register_configs()
@@ -123,6 +126,7 @@ def config_changed():
 
     CONFIGS.write_all()
     configure_https()
+    update_nrpe_config()
 
     for rid in relation_ids('cluster'):
         cluster_joined(relation_id=rid)
@@ -420,6 +424,7 @@ def configure_https():
 def upgrade_charm():
     for rel_id in relation_ids('amqp'):
         amqp_joined(relation_id=rel_id)
+    update_nrpe_config()
 
 
 @hooks.hook('storage-backend-relation-changed')
@@ -427,6 +432,18 @@ def upgrade_charm():
 @restart_on_change(restart_map())
 def storage_backend():
     CONFIGS.write(CINDER_CONF)
+
+
+@hooks.hook('nrpe-external-master-relation-joined',
+            'nrpe-external-master-relation-changed')
+def update_nrpe_config():
+    # python-dbus is used by check_upstart_job
+    apt_install('python-dbus')
+    hostname = nrpe.get_nagios_hostname()
+    current_unit = nrpe.get_nagios_unit_name()
+    nrpe_setup = nrpe.NRPE(hostname=hostname)
+    nrpe.add_init_service_checks(nrpe_setup, services(), current_unit)
+    nrpe_setup.write()
 
 
 if __name__ == '__main__':
