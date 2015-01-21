@@ -138,7 +138,7 @@ options:
       with the other members of the HA Cluster.
   ha-mcastport:
     type: int
-    default: 5401
+    default: 5454
     description: |
       Default multicast port number that will be used to communicate between
       HA Cluster nodes.
