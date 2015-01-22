@@ -132,7 +132,7 @@ def config_changed():
         cluster_joined(relation_id=rid)
     for r_id in relation_ids('ha'):
         ha_joined(relation_id=r_id)
- 
+
 
 @hooks.hook('shared-db-relation-joined')
 def db_joined():
