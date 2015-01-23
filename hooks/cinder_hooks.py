@@ -130,6 +130,8 @@ def config_changed():
 
     for rid in relation_ids('cluster'):
         cluster_joined(relation_id=rid)
+    for r_id in relation_ids('ha'):
+        ha_joined(relation_id=r_id)
 
 
 @hooks.hook('shared-db-relation-joined')
@@ -323,7 +325,7 @@ def cluster_changed():
 
 
 @hooks.hook('ha-relation-joined')
-def ha_joined():
+def ha_joined(relation_id=None):
     cluster_config = get_hacluster_config()
 
     resources = {
@@ -361,7 +363,8 @@ def ha_joined():
             vip_group.append(vip_key)
 
     if len(vip_group) >= 1:
-        relation_set(groups={'grp_cinder_vips': ' '.join(vip_group)})
+        relation_set(relation_id=relation_id,
+                     groups={'grp_cinder_vips': ' '.join(vip_group)})
 
     init_services = {
         'res_cinder_haproxy': 'haproxy'
@@ -369,7 +372,8 @@ def ha_joined():
     clones = {
         'cl_cinder_haproxy': 'res_cinder_haproxy'
     }
-    relation_set(init_services=init_services,
+    relation_set(relation_id=relation_id,
+                 init_services=init_services,
                  corosync_bindiface=cluster_config['ha-bindiface'],
                  corosync_mcastport=cluster_config['ha-mcastport'],
                  resources=resources,

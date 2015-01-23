@@ -136,6 +136,7 @@ class TestClusterHooks(CharmTestCase):
                 'res_cinder_haproxy': 'op monitor interval="5s"'
             },
             'corosync_bindiface': 'eth100',
+            'relation_id': None,
             'clones': {'cl_cinder_haproxy': 'res_cinder_haproxy'},
             'resources': {
                 'res_cinder_eth101_vip': 'ocf:heartbeat:IPaddr2',
@@ -143,7 +144,8 @@ class TestClusterHooks(CharmTestCase):
             }
         }
         self.relation_set.assert_has_calls([
-            call(groups={'grp_cinder_vips': 'res_cinder_eth101_vip'}),
+            call(relation_id=None,
+                 groups={'grp_cinder_vips': 'res_cinder_eth101_vip'}),
             call(**ex_args)
         ])
 
@@ -163,6 +165,7 @@ class TestClusterHooks(CharmTestCase):
         self.get_netmask_for_address.return_value = 'ffff.ffff.ffff.ffff'
         hooks.hooks.execute(['hooks/ha-relation-joined'])
         ex_args = {
+            'relation_id': None,
             'corosync_mcastport': '37373',
             'init_services': {'res_cinder_haproxy': 'haproxy'},
             'resource_params': {
@@ -200,6 +203,7 @@ class TestClusterHooks(CharmTestCase):
         self.get_netmask_for_address.return_value = None
         hooks.hooks.execute(['hooks/ha-relation-joined'])
         ex_args = {
+            'relation_id': None,
             'corosync_mcastport': '37373',
             'init_services': {'res_cinder_haproxy': 'haproxy'},
             'resource_params': {
@@ -216,7 +220,8 @@ class TestClusterHooks(CharmTestCase):
             }
         }
         self.relation_set.assert_has_calls([
-            call(groups={'grp_cinder_vips': 'res_cinder_eth120_vip'}),
+            call(relation_id=None,
+                 groups={'grp_cinder_vips': 'res_cinder_eth120_vip'}),
             call(**ex_args)
         ])
 
