@@ -58,6 +58,7 @@ from charmhelpers.contrib.storage.linux.ceph import (
     ensure_ceph_keyring,
     CephBrokerRq,
     CephBrokerRsp,
+    delete_keyring,
 )
 
 from charmhelpers.contrib.hahelpers.cluster import (
@@ -300,6 +301,13 @@ def ceph_changed(relation_id=None):
             log("Request(s) sent to Ceph broker (rid=%s)" % (rid))
 
 
+@hooks.hook('ceph-relation-broken')
+def ceph_broken():
+    service = service_name()
+    delete_keyring(service=service)
+    CONFIGS.write_all()
+
+
 @hooks.hook('cluster-relation-joined')
 def cluster_joined(relation_id=None):
     for addr_type in ADDRESS_TYPES:
@@ -400,7 +408,6 @@ def image_service_changed():
 
 
 @hooks.hook('amqp-relation-broken',
-            'ceph-relation-broken',
             'identity-service-relation-broken',
             'image-service-relation-broken',
             'shared-db-relation-broken',
