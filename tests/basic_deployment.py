@@ -28,7 +28,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
     # NOTE(beisner):  Features and tests vary across Openstack releases.
     # https://wiki.openstack.org/wiki/CinderSupportMatrix
 
-    def __init__(self, series=None, openstack=None, source=None, stable=False):
+    def __init__(self, series=None, openstack=None, source=None, stable=True):
         '''Deploy the entire test environment.'''
         super(CinderBasicDeployment, self).__init__(series, openstack, source,
                                                     stable)
