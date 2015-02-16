@@ -68,7 +68,8 @@ TO_PATCH = [
     'get_hacluster_config',
     'execd_preinstall',
     'get_ipv6_addr',
-    'sync_db_with_multi_ipv6_addresses'
+    'sync_db_with_multi_ipv6_addresses',
+    'delete_keyring'
 ]
 
 
@@ -434,6 +435,12 @@ class TestJoinedHooks(CharmTestCase):
         # the hook should just exit 0 and return.
         self.assertTrue(self.juju_log.called)
         self.assertFalse(self.CONFIGS.write.called)
+
+    def test_ceph_broken(self):
+        self.service_name.return_value = 'cinder'
+        hooks.hooks.execute(['hooks/ceph-relation-broken'])
+        self.delete_keyring.assert_called_with(service='cinder')
+        self.assertTrue(self.CONFIGS.write_all.called)
 
     def test_ceph_changed_no_leadership(self):
         '''It does not attempt to create ceph pool if not leader'''
