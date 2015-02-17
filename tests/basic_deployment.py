@@ -526,7 +526,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
         if not self.service_restarted(self.cinder_sentry, 'cinder-api',
                                       '/etc/cinder/cinder.conf',
-                                      sleep_time=30):
+                                      sleep_time=90):
             self.d.configure('cinder', {'verbose': 'False'})
             self.d.configure('cinder', {'debug': 'False'})
             msg = "cinder-api service didn't restart after config change"
