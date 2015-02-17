@@ -100,6 +100,8 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         self.glance = u.authenticate_glance_admin(self.keystone)
 
         u.log.debug('openstack rel: {}'.format(self._get_openstack_release()))
+        # Wait for relations to settle
+        sleep(120)
 
     def service_restarted(self, sentry_unit, service, filename,
                           pgrep_full=False, sleep_time=60):
