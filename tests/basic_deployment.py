@@ -521,27 +521,23 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
            easier because restarting services requires re-authorization.
            '''
         u.log.debug('making charm config change')
-        self.d.configure('cinder', {'verbose': 'True'})
-        self.d.configure('cinder', {'debug': 'True'})
+        self.d.configure('cinder', {'verbose': 'True', 'debug': 'True'})
 
         if not u.service_restarted(self.cinder_sentry, 'cinder-api',
                                    '/etc/cinder/cinder.conf',
                                    sleep_time=120):
-            self.d.configure('cinder', {'verbose': 'False'})
-            self.d.configure('cinder', {'debug': 'False'})
+            self.d.configure('cinder', {'verbose': 'False', 'debug': 'False'})
             msg = "cinder-api service didn't restart after config change"
             amulet.raise_status(amulet.FAIL, msg=msg)
 
         if not u.service_restarted(self.cinder_sentry, 'cinder-volume',
                                    '/etc/cinder/cinder.conf', sleep_time=0):
-            self.d.configure('cinder', {'verbose': 'False'})
-            self.d.configure('cinder', {'debug': 'False'})
+            self.d.configure('cinder', {'verbose': 'False', 'debug': 'False'})
             msg = "cinder-volume service didn't restart after conf change"
             amulet.raise_status(amulet.FAIL, msg=msg)
 
         u.log.debug('returning to original charm config')
-        self.d.configure('cinder', {'verbose': 'False'})
-        self.d.configure('cinder', {'debug': 'False'})
+        self.d.configure('cinder', {'verbose': 'False', 'debug': 'False'})
 
     def test_users(self):
         '''Verify expected users.'''
