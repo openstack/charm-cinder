@@ -121,8 +121,8 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         file_mtime = u._get_file_mtime(sentry_unit, filename)
 
         tries = 0
-        while proc_start_time < file_mtime and tries < (sleep_time/4):
-            sleep(4)
+        while proc_start_time < file_mtime and tries < (sleep_time/30):
+            sleep(30)
             proc_start_time = u._get_proc_start_time(sentry_unit,
                                                      service, pgrep_full)
             file_mtime = u._get_file_mtime(sentry_unit, filename)
