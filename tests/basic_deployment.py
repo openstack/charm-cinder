@@ -103,41 +103,41 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         # Wait for relations to settle
         sleep(120)
 
-    def service_restarted(self, sentry_unit, service, filename,
-                          pgrep_full=False, sleep_time=60):
-        """Compare a service's start time vs a file's last modification time
-           (such as a config file for that service) to determine if the service
-           has been restarted (within 60s by default), return when verified."""
-
-        # NOTE(beisner): prev rev utilized sleep_time as an arbitrary wait with
-        # no debug feedback.  Added checking timeout loop logic & debug output.
-        # Increased default timeout to 60s due to test failures.
-
-        # NOTE(beisner): need to move to charmhelpers, and adjust calls here.
-        # It is backward compatible with prev rev by coreycb.
-
-        proc_start_time = u._get_proc_start_time(sentry_unit,
-                                                 service, pgrep_full)
-        file_mtime = u._get_file_mtime(sentry_unit, filename)
-
-        tries = 0
-        while proc_start_time < file_mtime and tries < (sleep_time/30):
-            sleep(30)
-            proc_start_time = u._get_proc_start_time(sentry_unit,
-                                                     service, pgrep_full)
-            file_mtime = u._get_file_mtime(sentry_unit, filename)
-            u.log.debug('proc restart wait: {} {}'.format(tries, service))
-            tries += 1
-
-        u.log.debug('proc-file time diff for {},{}: {}'.format(service,
-                    filename, proc_start_time - file_mtime))
-
-        if proc_start_time >= file_mtime:
-            return True
-        else:
-            u.log.debug('service not restarted within ()s: {}'.format(
-                service, sleep_time))
-            return False
+#    def service_restarted(self, sentry_unit, service, filename,
+#                          pgrep_full=False, sleep_time=60):
+#        """Compare a service's start time vs a file's last modification time
+#           (such as a config file for that service) to determine if the service
+#           has been restarted (within 60s by default), return when verified."""
+#
+#        # NOTE(beisner): prev rev utilized sleep_time as an arbitrary wait with
+#        # no debug feedback.  Added checking timeout loop logic & debug output.
+#        # Increased default timeout to 60s due to test failures.
+#
+#        # NOTE(beisner): need to move to charmhelpers, and adjust calls here.
+#        # It is backward compatible with prev rev by coreycb.
+#
+#        proc_start_time = u._get_proc_start_time(sentry_unit,
+#                                                 service, pgrep_full)
+#        file_mtime = u._get_file_mtime(sentry_unit, filename)
+#
+#        tries = 0
+#        while proc_start_time < file_mtime and tries < (sleep_time/30):
+#            sleep(30)
+#            proc_start_time = u._get_proc_start_time(sentry_unit,
+#                                                     service, pgrep_full)
+#            file_mtime = u._get_file_mtime(sentry_unit, filename)
+#            u.log.debug('proc restart wait: {} {}'.format(tries, service))
+#            tries += 1
+#
+#        u.log.debug('proc-file time diff for {},{}: {}'.format(service,
+#                    filename, proc_start_time - file_mtime))
+#
+#        if proc_start_time >= file_mtime:
+#            return True
+#        else:
+#            u.log.debug('service not restarted within ()s: {}'.format(
+#                service, sleep_time))
+#            return False
 
     def authenticate_cinder_admin(self, username, password, tenant):
         """Authenticates admin user with cinder."""
@@ -524,16 +524,16 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         self.d.configure('cinder', {'verbose': 'True'})
         self.d.configure('cinder', {'debug': 'True'})
 
-        if not self.service_restarted(self.cinder_sentry, 'cinder-api',
-                                      '/etc/cinder/cinder.conf',
-                                      sleep_time=120):
+        if not u.service_restarted(self.cinder_sentry, 'cinder-api',
+                                   '/etc/cinder/cinder.conf',
+                                   sleep_time=120):
             self.d.configure('cinder', {'verbose': 'False'})
             self.d.configure('cinder', {'debug': 'False'})
             msg = "cinder-api service didn't restart after config change"
             amulet.raise_status(amulet.FAIL, msg=msg)
 
-        if not self.service_restarted(self.cinder_sentry, 'cinder-volume',
-                                      '/etc/cinder/cinder.conf', sleep_time=0):
+        if not u.service_restarted(self.cinder_sentry, 'cinder-volume',
+                                   '/etc/cinder/cinder.conf', sleep_time=0):
             self.d.configure('cinder', {'verbose': 'False'})
             self.d.configure('cinder', {'debug': 'False'})
             msg = "cinder-volume service didn't restart after conf change"
