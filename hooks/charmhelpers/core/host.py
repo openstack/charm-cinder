@@ -322,7 +322,7 @@ def restart_on_change(restart_map, stopstart=False):
             else:
                 for action in ['stop', 'start']:
                     for service_name in services_list:
-                        log('CALLING %s FOR %s' + (action, service_name))
+                        log('CALLING %s FOR %s' % (action, service_name))
                         service(action, service_name)
         return wrapped_f
     return wrap
