@@ -317,12 +317,10 @@ def restart_on_change(restart_map, stopstart=False):
             services_list = list(OrderedDict.fromkeys(restarts))
             if not stopstart:
                 for service_name in services_list:
-                    log('CALLING RESTART FOR ' + service_name)
                     service('restart', service_name)
             else:
                 for action in ['stop', 'start']:
                     for service_name in services_list:
-                        log('CALLING %s FOR %s' % (action, service_name))
                         service(action, service_name)
         return wrapped_f
     return wrap
