@@ -134,9 +134,7 @@ CONFIG_FILES = OrderedDict([
                      'cinder-scheduler', 'haproxy']
     }),
     (CINDER_API_CONF, {
-        'hook_contexts': [context.IdentityServiceContext(service='cinder',
-                                                         service_user='cinder')
-                          ],
+        'hook_contexts': [context.IdentityServiceContext()],
         'services': ['cinder-api'],
     }),
     (ceph_config_file(), {
