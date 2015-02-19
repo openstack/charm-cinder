@@ -125,14 +125,18 @@ CONFIG_FILES = OrderedDict([
                               config_file=CINDER_CONF),
                           cinder_contexts.StorageBackendContext(),
                           cinder_contexts.LoggingConfigContext(),
-                          context.IdentityServiceContext(),
+                          context.IdentityServiceContext(
+                              service='cinder',
+                              service_user='cinder'),
                           context.BindHostContext(),
                           context.WorkerConfigContext()],
         'services': ['cinder-api', 'cinder-volume',
                      'cinder-scheduler', 'haproxy']
     }),
     (CINDER_API_CONF, {
-        'hook_contexts': [context.IdentityServiceContext()],
+        'hook_contexts': [context.IdentityServiceContext(service='cinder',
+                                                         service_user='cinder')
+                          ],
         'services': ['cinder-api'],
     }),
     (ceph_config_file(), {
