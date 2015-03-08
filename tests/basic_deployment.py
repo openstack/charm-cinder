@@ -71,7 +71,13 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                            'admin-token': 'ubuntutesting'}
         cinder_config = {'block-device': 'vdb',
                          'glance-api-version': '2',
-                         'overwrite': 'true'}
+                         'overwrite': 'true',
+                         # NOTE(coreycb): Added the following temporarily to test deploy from source
+                         'openstack-origin-git':
+                         "{'cinder':"
+                         "   {'repository': 'git://git.openstack.org/openstack/cinder.git',"
+                         "    'branch': 'stable/icehouse'}}"}
+
         mysql_config = {'dataset-size': '50%'}
         configs = {'cinder': cinder_config,
                    'keystone': keystone_config,
