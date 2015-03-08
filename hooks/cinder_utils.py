@@ -1,10 +1,13 @@
 import os
+import shutil
 import subprocess
+import yaml
 
 from collections import OrderedDict
 from copy import copy
 
 from charmhelpers.core.hookenv import (
+    charm_dir,
     config,
     relation_ids,
     log,
@@ -19,12 +22,18 @@ from charmhelpers.fetch import (
 )
 
 from charmhelpers.core.host import (
+    adduser,
+    add_group,
+    add_user_to_group,
+    mkdir,
     mounts,
     umount,
+    service_restart,
     service_stop,
     service_start,
     mkdir,
-    lsb_release
+    lsb_release,
+    write_file,
 )
 
 from charmhelpers.contrib.openstack.alternatives import install_alternative
@@ -58,9 +67,13 @@ from charmhelpers.contrib.openstack import (
 
 from charmhelpers.contrib.openstack.utils import (
     configure_installation_source,
-    get_os_codename_package,
     get_os_codename_install_source,
+    git_install_requested,
+    git_clone_and_install,
+    os_release,
 )
+
+from charmhelpers.core.templating import render
 
 import cinder_contexts
 
@@ -79,6 +92,25 @@ COMMON_PACKAGES = [
 API_PACKAGES = ['cinder-api']
 VOLUME_PACKAGES = ['cinder-volume']
 SCHEDULER_PACKAGES = ['cinder-scheduler']
+
+BASE_GIT_PACKAGES = [
+    'libxml2-dev',
+    'libxslt1-dev',
+    'lvm2',
+    'python-dev',
+    'python-pip',
+    'python-setuptools',
+    'zlib1g-dev',
+]
+
+# ubuntu packages that should not be installed when deploying from source
+GIT_PACKAGE_BLACKLIST = [
+    'cinder-api',
+    'cinder-common',
+    'cinder-scheduler',
+    'cinder-volume',
+    'python-keystoneclient',
+]
 
 DEFAULT_LOOPBACK_SIZE = '5G'
 
@@ -163,7 +195,7 @@ def register_configs():
     # if called without anything installed (eg during install hook)
     # just default to earliest supported release. configs dont get touched
     # till post-install, anyway.
-    release = get_os_codename_package('cinder-common', fatal=False) or 'folsom'
+    release = os_release('cinder-common', base='folsom')
     configs = templating.OSConfigRenderer(templates_dir=TEMPLATES,
                                           openstack_release=release)
 
@@ -215,6 +247,13 @@ def determine_packages():
                  ('scheduler', SCHEDULER_PACKAGES)]:
         if service_enabled(s):
             pkgs += p
+
+    if git_install_requested():
+        pkgs.extend(BASE_GIT_PACKAGES)
+        # don't include packages that will be installed from git
+        for p in GIT_PACKAGE_BLACKLIST:
+            pkgs.remove(p)
+
     return pkgs
 
 
@@ -464,3 +503,106 @@ def setup_ipv6():
                    ' main')
         apt_update()
         apt_install('haproxy/trusty-backports', fatal=True)
+
+
+def git_install(projects):
+    """Perform setup, and install git repos specified in yaml parameter."""
+    if git_install_requested():
+        git_pre_install()
+        git_clone_and_install(yaml.load(projects), core_project='cinder')
+        git_post_install()
+
+
+def git_pre_install():
+    """Perform pre cinder installation setup."""
+    dirs = [
+        '/etc/cinder',
+        '/etc/cinder/rootwrap.d',
+        '/etc/tgt',
+        '/var/lib/cinder',
+        '/var/lib/cinder/volumes',
+        '/var/log/cinder',
+    ]
+
+    logs = [
+        '/var/log/cinder/cinder-api.log',
+        '/var/log/cinder/cinder-backup.log',
+        '/var/log/cinder/cinder-scheduler.log',
+        '/var/log/cinder/cinder-volume.log',
+    ]
+
+    adduser('cinder', shell='/bin/bash', system_user=True)
+    add_group('cinder', system_group=True)
+    add_user_to_group('cinder', 'cinder')
+
+    for d in dirs:
+        if d == '/etc/cinder/rootwrap.d':
+            mkdir(d, owner='root', group='root', perms=0755, force=False)
+        else:
+            mkdir(d, owner='cinder', group='cinder', perms=0750, force=False)
+
+    for l in logs:
+        write_file(l, '', owner='cinder', group='cinder', perms=0600)
+
+
+def git_post_install():
+    """Perform post cinder installation setup."""
+    src_etc = os.path.join(charm_dir(), '/mnt/openstack-git/cinder.git/etc/cinder')
+    configs = {
+        'policy': {
+            'src': os.path.join(src_etc, 'policy.json'),
+            'dest': '/etc/cinder/policy.json',
+        },
+        'rootwrap': {
+            'src': os.path.join(src_etc, 'rootwrap.conf'),
+            'dest': '/etc/cinder/rootwrap.conf',
+        },
+        'filters': {
+            'src': os.path.join(src_etc, 'rootwrap.d/volume.filters'),
+            'dest': '/etc/cinder/rootwrap.d/volume.filters',
+        },
+    }
+
+    for conf, files in configs.iteritems():
+        shutil.copyfile(files['src'], files['dest'])
+
+    render('cinder_tgt.conf', '/etc/tgt/conf.d', {}, perms=0o644)
+    #render('cinder_sudoers', '/etc/sudoers.d/cinder_sudoers', {}, perms=0o440)
+    render('logging.conf', '/etc/cinder/logging.conf', {}, perms=0o644)
+
+    cinder_api_context = {
+        'service_description': 'Cinder API server',
+        'process_name': 'cinder-api',
+    }
+
+    cinder_backup_context = {
+        'service_description': 'Cinder backup server',
+        'process_name': 'cinder-backup',
+    }
+
+    cinder_scheduler_context = {
+        'service_description': 'Cinder scheduler server',
+        'process_name': 'cinder-scheduler',
+    }
+
+    cinder_volume_context = {
+        'service_description': 'Cinder volume server',
+        'process_name': 'cinder-volume',
+    }
+
+    render('upstart/cinder.upstart', '/etc/init/cinder-api.conf',
+           cinder_api_context, perms=0o644)
+    render('upstart/cinder.upstart', '/etc/init/cinder-backup.conf',
+           cinder_backup_context, perms=0o644)
+    render('upstart/cinder.upstart', '/etc/init/cinder-scheduler.conf',
+           cinder_scheduler_context, perms=0o644)
+    render('upstart/cinder.upstart', '/etc/init/cinder-volume.conf',
+           cinder_volume_context, perms=0o644)
+
+    service_restart('tgtd')
+
+    for s, p in [('api', API_PACKAGES),
+                 ('volume', VOLUME_PACKAGES),
+                 ('scheduler', SCHEDULER_PACKAGES)]:
+        if service_enabled(s):
+            service_start(s)
