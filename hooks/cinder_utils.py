@@ -29,7 +29,7 @@ from charmhelpers.core.host import (
 
 from charmhelpers.contrib.openstack.alternatives import install_alternative
 from charmhelpers.contrib.hahelpers.cluster import (
-    eligible_leader,
+    is_elected_leader,
 )
 
 from charmhelpers.contrib.storage.linux.utils import (
@@ -445,7 +445,7 @@ def do_openstack_upgrade(configs):
 
     # Stop/start services and migrate DB if leader
     [service_stop(s) for s in services()]
-    if eligible_leader(CLUSTER_RES):
+    if is_elected_leader(CLUSTER_RES):
         migrate_database()
     [service_start(s) for s in services()]
 
