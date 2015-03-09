@@ -62,7 +62,7 @@ from charmhelpers.contrib.storage.linux.ceph import (
 )
 
 from charmhelpers.contrib.hahelpers.cluster import (
-    eligible_leader,
+    is_elected_leader,
     get_hacluster_config,
 )
 
@@ -175,7 +175,7 @@ def db_changed():
         juju_log('shared-db relation incomplete. Peer not ready?')
         return
     CONFIGS.write(CINDER_CONF)
-    if eligible_leader(CLUSTER_RES):
+    if is_elected_leader(CLUSTER_RES):
         # Bugs 1353135 & 1187508. Dbs can appear to be ready before the units
         # acl entry has been added. So, if the db supports passing a list of
         # permitted units then check if we're in the list.
@@ -194,7 +194,7 @@ def pgsql_db_changed():
         juju_log('pgsql-db relation incomplete. Peer not ready?')
         return
     CONFIGS.write(CINDER_CONF)
-    if eligible_leader(CLUSTER_RES):
+    if is_elected_leader(CLUSTER_RES):
         juju_log('Cluster leader, performing db sync')
         migrate_database()
 
