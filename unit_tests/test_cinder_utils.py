@@ -33,7 +33,7 @@ TO_PATCH = [
     'get_os_codename_package',
     'get_os_codename_install_source',
     'configure_installation_source',
-    'eligible_leader',
+    'is_elected_leader',
     'templating',
     'install_alternative',
     # fetch
@@ -475,7 +475,7 @@ class TestCinderUtils(CharmTestCase):
         self.config.side_effect = None
         self.config.return_value = 'cloud:precise-havana'
         services.return_value = ['cinder-api', 'cinder-volume']
-        self.eligible_leader.return_value = True
+        self.is_elected_leader.return_value = True
         self.get_os_codename_install_source.return_value = 'havana'
         configs = MagicMock()
         cinder_utils.do_openstack_upgrade(configs)
@@ -494,7 +494,7 @@ class TestCinderUtils(CharmTestCase):
         self.config.side_effect = None
         self.config.return_value = 'cloud:precise-havana'
         services.return_value = ['cinder-api', 'cinder-volume']
-        self.eligible_leader.return_value = False
+        self.is_elected_leader.return_value = False
         self.get_os_codename_install_source.return_value = 'havana'
         configs = MagicMock()
         cinder_utils.do_openstack_upgrade(configs)
