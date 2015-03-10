@@ -62,6 +62,10 @@ from charmhelpers.contrib.openstack.utils import (
     get_os_codename_install_source,
 )
 
+from charmhelpers.core.decorators import (
+    retry_on_exception,
+)
+
 import cinder_contexts
 
 COMMON_PACKAGES = [
@@ -400,6 +404,9 @@ def _parse_block_device(block_device):
         return ('/dev/{}'.format(block_device), 0)
 
 
+# NOTE(jamespage): Retry deals with sync issues during one-shot HA deploys.
+#                  mysql might be restarting or suchlike.
+@retry_on_exception(5, base_delay=3, exc_type=subprocess.CalledProcessError)
 def migrate_database():
     'Runs cinder-manage to initialize a new database or migrate existing'
     cmd = ['cinder-manage', 'db', 'sync']
