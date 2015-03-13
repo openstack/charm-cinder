@@ -125,7 +125,9 @@ CONFIG_FILES = OrderedDict([
                               config_file=CINDER_CONF),
                           cinder_contexts.StorageBackendContext(),
                           cinder_contexts.LoggingConfigContext(),
-                          context.IdentityServiceContext(),
+                          context.IdentityServiceContext(
+                              service='cinder',
+                              service_user='cinder'),
                           context.BindHostContext(),
                           context.WorkerConfigContext()],
         'services': ['cinder-api', 'cinder-volume',
