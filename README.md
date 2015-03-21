@@ -121,98 +121,90 @@ enabled-services:  Can be used to separate cinder services between service
 Deploying from source
 ---------------------
 
-The minimal openstack-origin-git config required to deploy from source is:
+The minimum openstack-origin-git config required to deploy from source is:
 
   openstack-origin-git:
-      "{'cinder':
-           {'repository': 'git://git.openstack.org/openstack/cinder.git',
-            'branch': 'stable/icehouse'}}"
+      "repositories:
+         - {name: requirements,
+            repository: 'git://git.openstack.org/openstack/requirements',
+            branch: stable/juno}
+         - {name: cinder,
+            repository: 'git://git.openstack.org/openstack/cinder',
+            branch: stable/juno}"
 
-If you specify a 'requirements' repository, it will be used to update the
-requirements.txt files of all other git repos that it applies to, before
-they are installed:
+Note that there are only two 'name' values the charm knows about: 'requirements'
+and 'cinder'. These repositories must correspond to these 'name' values.
+Additionally, the requirements repository must be specified first and the
+cinder repository must be specified last. All other repostories are installed
+in the order in which they are specified.
 
-  openstack-origin-git:
-      "{'requirements':
-           {'repository': 'git://git.openstack.org/openstack/requirements.git',
-            'branch': 'master'},
-        'cinder':
-           {'repository': 'git://git.openstack.org/openstack/cinder.git',
-            'branch': 'master'}}"
-
-Note that there are only two key values the charm knows about for the outermost
-dictionary: 'cinder' and 'requirements'. These repositories must correspond to
-these keys. If the requirements repository is specified, it will be installed
-first. The cinder repository is always installed last.  All other repostories
-will be installed in between.
-
-NOTE(coreycb): The following is temporary to keep track of the full list of
-current tip repos (may not be up-to-date).
+The following is a full list of current tip repos (may not be up-to-date):
 
   openstack-origin-git:
-      "{'requirements':
-           {'repository': 'git://git.openstack.org/openstack/requirements.git',
-            'branch': 'master'},
-        'keystonemiddleware:
-           {'repository': 'git://git.openstack.org/openstack/keystonemiddleware.git',
-            'branch: 'master'},
-        'oslo-concurrency':
-           {'repository': 'git://git.openstack.org/openstack/oslo.concurrency.git',
-            'branch: 'master'},
-        'oslo-config':
-           {'repository': 'git://git.openstack.org/openstack/oslo.config.git',
-            'branch: 'master'},
-        'oslo-context':
-           {'repository': 'git://git.openstack.org/openstack/oslo.context.git',
-            'branch: 'master'},
-        'oslo-db':
-           {'repository': 'git://git.openstack.org/openstack/oslo.db.git',
-            'branch: 'master'},
-        'oslo-i18n':
-           {'repository': 'git://git.openstack.org/openstack/oslo.i18n.git',
-            'branch: 'master'},
-        'oslo-messaging':
-           {'repository': 'git://git.openstack.org/openstack/oslo.messaging.git',
-            'branch: 'master'},
-        'oslo-rootwrap':
-           {'repository': 'git://git.openstack.org/openstack/oslo.rootwrap.git',
-            'branch: 'master'},
-        'oslo-serialization':
-           {'repository': 'git://git.openstack.org/openstack/oslo.serialization.git',
-            'branch: 'master'},
-        'oslo-utils':
-           {'repository': 'git://git.openstack.org/openstack/oslo.utils.git',
-            'branch: 'master'},
-        'oslo-vmware':
-           {'repository': 'git://git.openstack.org/openstack/oslo.vmware.git',
-            'branch: 'master'},
-        'osprofiler':
-           {'repository': 'git://git.openstack.org/stackforge/osprofiler.git',
-            'branch: 'master'},
-        'pbr':
-           {'repository': 'git://git.openstack.org/openstack-dev/pbr.git',
-            'branch: 'master'},
-        'python-barbicanclient':
-           {'repository': 'git://git.openstack.org/openstack/python-barbicanclient.git',
-            'branch: 'master'},
-        'python-glanceclient':
-           {'repository': 'git://git.openstack.org/openstack/python-glanceclient.git',
-            'branch: 'master'},
-        'python-novaclient':
-           {'repository': 'git://git.openstack.org/openstack/python-novaclient.git',
-            'branch: 'master'},
-        'python-swiftclient':
-           {'repository': 'git://git.openstack.org/openstack/python-swiftclient.git',
-            'branch: 'master'},
-        'stevedore':
-           {'repository': 'git://git.openstack.org/openstack/stevedore.git',
-            'branch: 'master'},
-        'sqlalchemy-migrate':
-           {'repository': 'git://git.openstack.org/stackforge/sqlalchemy-migrate.git',
-            'branch: 'master'},
-        'taskflow':
-           {'repository': 'git://git.openstack.org/openstack/taskflow.git',
-            'branch: 'master'},
-        'cinder':
-           {'repository': 'git://git.openstack.org/openstack/cinder.git',
-            'branch': 'master'}}"
+      "repositories:
+         - {name: requirements,
+            repository: 'git://git.openstack.org/openstack/requirements',
+            branch: master}
+         - {name: oslo-concurrency,
+            repository: 'git://git.openstack.org/openstack/oslo.concurrency',
+            branch: master}
+         - {name: oslo-config,
+            repository: 'git://git.openstack.org/openstack/oslo.config',
+            branch: master}
+         - {name: oslo-context,
+            repository': 'git://git.openstack.org/openstack/oslo.context.git',
+            branch: master}
+         - {name: oslo-db,
+            repository: 'git://git.openstack.org/openstack/oslo.db',
+            branch: master}
+         - {name: oslo-i18n,
+            repository: 'git://git.openstack.org/openstack/oslo.i18n',
+            branch: master}
+         - {name: oslo-messaging,
+            repository: 'git://git.openstack.org/openstack/oslo.messaging.git',
+            branch: master}
+         - {name: oslo-serialization,
+            repository: 'git://git.openstack.org/openstack/oslo.serialization',
+            branch: master}
+         - {name: oslo-utils,
+            repository: 'git://git.openstack.org/openstack/oslo.utils',
+            branch: master}
+         - {name: oslo-rootwrap,
+            repository: 'git://git.openstack.org/openstack/oslo.rootwrap.git',
+            branch: master}
+         - {name: oslo-vmware,
+            repository: 'git://git.openstack.org/openstack/oslo.vmware.git',
+            branch: master}
+         - {name: osprofiler,
+            repository: 'git://git.openstack.org/stackforge/osprofiler.git',
+            branch: master}
+         - {name: pbr,
+            repository: 'git://git.openstack.org/openstack-dev/pbr',
+            branch: master}
+         - {name: python-barbicanclient,
+            repository: 'git://git.openstack.org/openstack/python-barbicanclient.git',
+            branch: master}
+         - {name: python-glanceclient,
+            repository: 'git://git.openstack.org/openstack/python-glanceclient.git',
+            branch: master}
+         - {name: python-novaclient,
+            repository: 'git://git.openstack.org/openstack/python-novaclient.git',
+            branch: master}
+         - {name: python-swiftclient:
+            repository: 'git://git.openstack.org/openstack/python-swiftclient.git',
+            branch: master}
+         - {name: sqlalchemy-migrate,
+            repository: 'git://git.openstack.org/stackforge/sqlalchemy-migrate',
+            branch: master}
+         - {name: stevedore,
+            repository: 'git://git.openstack.org/openstack/stevedore.git',
+            branch: master}
+         - {name: taskflow,
+            repository: 'git://git.openstack.org/openstack/taskflow.git',
+            branch: master}
+         - {name: keystonemiddleware,
+            repository: 'git://git.openstack.org/openstack/keystonemiddleware',
+            branch: master}
+         - {name: cinder,
+            repository: 'git://git.openstack.org/openstack/cinder',
+            branch: master}"
