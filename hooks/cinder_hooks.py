@@ -433,6 +433,7 @@ def relation_broken():
     CONFIGS.write_all()
 
 
+@restart_on_change(restart_map(), stopstart=True)
 def configure_https():
     '''Enables SSL API Apache config if appropriate and kicks identity-service
     with any required api updates.
