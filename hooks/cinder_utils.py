@@ -70,6 +70,7 @@ from charmhelpers.contrib.openstack.utils import (
     get_os_codename_install_source,
     git_install_requested,
     git_clone_and_install,
+    git_src_dir,
     os_release,
 )
 
@@ -507,16 +508,16 @@ def setup_ipv6():
         apt_install('haproxy/trusty-backports', fatal=True)
 
 
-def git_install(projects):
+def git_install(projects_yaml):
     """Perform setup, and install git repos specified in yaml parameter."""
     if git_install_requested():
         git_pre_install()
-        git_clone_and_install(yaml.load(projects), core_project='cinder')
-        git_post_install()
+        git_clone_and_install(projects_yaml, core_project='cinder')
+        git_post_install(projects_yaml)
 
 
 def git_pre_install():
-    """Perform pre cinder installation setup."""
+    """Perform cinder pre-install setup."""
     dirs = [
         '/etc/cinder',
         '/etc/cinder/rootwrap.d',
@@ -547,9 +548,9 @@ def git_pre_install():
         write_file(l, '', owner='cinder', group='cinder', perms=0600)
 
 
-def git_post_install():
-    """Perform post cinder installation setup."""
-    src_etc = os.path.join(charm_dir(), '/mnt/openstack-git/cinder.git/etc/cinder')
+def git_post_install(projects_yaml):
+    """Perform cinder post-install setup."""
+    src_etc = os.path.join(git_src_dir(projects_yaml, 'cinder'), 'etc')
     configs = {
         'policy': {
             'src': os.path.join(src_etc, 'policy.json'),
@@ -574,32 +575,51 @@ def git_post_install():
 
     cinder_api_context = {
         'service_description': 'Cinder API server',
+        'service_name': 'Cinder',
+        'user_name': 'cinder',
+        'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-api',
+        'executable_name': '/usr/local/bin/cinder-api',
     }
 
     cinder_backup_context = {
         'service_description': 'Cinder backup server',
+        'service_name': 'Cinder',
+        'user_name': 'cinder',
+        'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-backup',
+        'executable_name': '/usr/local/bin/cinder-backup',
     }
 
     cinder_scheduler_context = {
         'service_description': 'Cinder scheduler server',
+        'service_name': 'Cinder',
+        'user_name': 'cinder',
+        'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-scheduler',
+        'executable_name': '/usr/local/bin/cinder-scheduler',
     }
 
     cinder_volume_context = {
         'service_description': 'Cinder volume server',
+        'service_name': 'Cinder',
+        'user_name': 'cinder',
+        'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-volume',
+        'executable_name': '/usr/local/bin/cinder-volume',
     }
 
-    render('upstart/cinder.upstart', '/etc/init/cinder-api.conf',
-           cinder_api_context, perms=0o644)
-    render('upstart/cinder.upstart', '/etc/init/cinder-backup.conf',
-           cinder_backup_context, perms=0o644)
-    render('upstart/cinder.upstart', '/etc/init/cinder-scheduler.conf',
-           cinder_scheduler_context, perms=0o644)
-    render('upstart/cinder.upstart', '/etc/init/cinder-volume.conf',
-           cinder_volume_context, perms=0o644)
+    # NOTE(coreycb): Needs systemd support
+    templates_dir = 'hooks/charmhelpers/contrib/openstack/templates'
+    templates_dir = os.path.join(charm_dir(), templates_dir)
+    render('git.upstart', '/etc/init/cinder-api.conf',
+           cinder_api_context, perms=0o644, templates_dir=templates_dir)
+    render('git.upstart', '/etc/init/cinder-backup.conf',
+           cinder_backup_context, perms=0o644, templates_dir=templates_dir)
+    render('git.upstart', '/etc/init/cinder-scheduler.conf',
+           cinder_scheduler_context, perms=0o644, templates_dir=templates_dir)
+    render('git.upstart', '/etc/init/cinder-volume.conf',
+           cinder_volume_context, perms=0o644, templates_dir=templates_dir)
 
     service_restart('tgtd')
 
