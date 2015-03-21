@@ -3,6 +3,7 @@
 import amulet
 import types
 from time import sleep
+import yaml
 import cinderclient.v1.client as cinder_client
 
 from charmhelpers.contrib.openstack.amulet.deployment import (
