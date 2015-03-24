@@ -52,7 +52,9 @@ from charmhelpers.core.host import (
 from charmhelpers.contrib.openstack.utils import (
     configure_installation_source,
     openstack_upgrade_available,
-    sync_db_with_multi_ipv6_addresses)
+    sync_db_with_multi_ipv6_addresses,
+    get_os_codename_package
+)
 
 from charmhelpers.contrib.storage.linux.ceph import (
     ensure_ceph_keyring,
@@ -246,6 +248,29 @@ def identity_joined(rid=None):
         'admin_url': admin_url,
     }
     relation_set(relation_id=rid, **settings)
+
+    if get_os_codename_package('cinder-common') >= 'icehouse':
+        # NOTE(jamespage) register v2 endpoint as well
+        public_url = '{}:{}/v2/$(tenant_id)s'.format(
+            canonical_url(CONFIGS, PUBLIC),
+            config('api-listening-port')
+        )
+        internal_url = '{}:{}/v2/$(tenant_id)s'.format(
+            canonical_url(CONFIGS, INTERNAL),
+            config('api-listening-port')
+        )
+        admin_url = '{}:{}/v2/$(tenant_id)s'.format(
+            canonical_url(CONFIGS, ADMIN),
+            config('api-listening-port')
+        )
+        settings = {
+            'region': config('region'),
+            'service': 'cinderv2',
+            'public_url': public_url,
+            'internal_url': internal_url,
+            'admin_url': admin_url,
+        }
+        relation_set(relation_id=rid, **settings)
 
 
 @hooks.hook('identity-service-relation-changed')
