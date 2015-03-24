@@ -344,11 +344,16 @@ class TestJoinedHooks(CharmTestCase):
         self.canonical_url.return_value = 'http://cindernode1'
         hooks.hooks.execute(['hooks/identity-service-relation-joined'])
         expected = {
-            'service': 'cinder',
-            'region': 'RegionOne',
-            'public_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
-            'admin_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
-            'internal_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'region': None,
+            'service': None,
+            'public_url': None,
+            'internal_url': None,
+            'admin_url': None,
+            'cinder_service': 'cinder',
+            'cinder_region': 'RegionOne',
+            'cinder_public_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_admin_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_internal_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
             'relation_id': None,
         }
         self.relation_set.assert_called_with(**expected)
@@ -361,23 +366,24 @@ class TestJoinedHooks(CharmTestCase):
         self.canonical_url.return_value = 'http://cindernode1'
         hooks.hooks.execute(['hooks/identity-service-relation-joined'])
         expected = {
-            'service': 'cinder',
-            'region': 'RegionOne',
-            'public_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
-            'admin_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
-            'internal_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'region': None,
+            'service': None,
+            'public_url': None,
+            'internal_url': None,
+            'admin_url': None,
+            'cinder_service': 'cinder',
+            'cinder_region': 'RegionOne',
+            'cinder_public_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_admin_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_internal_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinderv2_service': 'cinderv2',
+            'cinderv2_region': 'RegionOne',
+            'cinderv2_public_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
+            'cinderv2_admin_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
+            'cinderv2_internal_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
             'relation_id': None,
         }
-        expectedv2 = {
-            'service': 'cinderv2',
-            'region': 'RegionOne',
-            'public_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
-            'admin_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
-            'internal_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
-            'relation_id': None,
-        }
-        self.relation_set.assert_has_calls([call(**expected),
-                                            call(**expectedv2)])
+        self.relation_set.assert_called_with(**expected)
 
     @patch('os.mkdir')
     def test_ceph_joined(self, mkdir):
