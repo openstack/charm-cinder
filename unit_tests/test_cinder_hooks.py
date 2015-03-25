@@ -380,7 +380,8 @@ class TestJoinedHooks(CharmTestCase):
             'cinderv2_region': 'RegionOne',
             'cinderv2_public_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
             'cinderv2_admin_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
-            'cinderv2_internal_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
+            'cinderv2_internal_url': 'http://cindernode1:8776/'
+                                     'v2/$(tenant_id)s',
             'relation_id': None,
         }
         self.relation_set.assert_called_with(**expected)
