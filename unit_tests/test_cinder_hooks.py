@@ -62,6 +62,7 @@ TO_PATCH = [
     # charmhelpers.contrib.openstack.openstack_utils
     'configure_installation_source',
     'openstack_upgrade_available',
+    'get_os_codename_package',
     # charmhelpers.contrib.hahelpers.cluster_utils
     'canonical_url',
     'eligible_leader',
@@ -337,16 +338,50 @@ class TestJoinedHooks(CharmTestCase):
 
     def test_identity_service_joined(self):
         'It properly requests unclustered endpoint via identity-service'
+        self.get_os_codename_package.return_value = 'havana'
         self.unit_get.return_value = 'cindernode1'
         self.config.side_effect = self.test_config.get
         self.canonical_url.return_value = 'http://cindernode1'
         hooks.hooks.execute(['hooks/identity-service-relation-joined'])
         expected = {
-            'service': 'cinder',
-            'region': 'RegionOne',
-            'public_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
-            'admin_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
-            'internal_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'region': None,
+            'service': None,
+            'public_url': None,
+            'internal_url': None,
+            'admin_url': None,
+            'cinder_service': 'cinder',
+            'cinder_region': 'RegionOne',
+            'cinder_public_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_admin_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_internal_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'relation_id': None,
+        }
+        self.relation_set.assert_called_with(**expected)
+
+    def test_identity_service_joined_icehouse(self):
+        'It properly requests unclustered endpoint via identity-service'
+        self.get_os_codename_package.return_value = 'icehouse'
+        self.unit_get.return_value = 'cindernode1'
+        self.config.side_effect = self.test_config.get
+        self.canonical_url.return_value = 'http://cindernode1'
+        hooks.hooks.execute(['hooks/identity-service-relation-joined'])
+        expected = {
+            'region': None,
+            'service': None,
+            'public_url': None,
+            'internal_url': None,
+            'admin_url': None,
+            'cinder_service': 'cinder',
+            'cinder_region': 'RegionOne',
+            'cinder_public_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_admin_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_internal_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinderv2_service': 'cinderv2',
+            'cinderv2_region': 'RegionOne',
+            'cinderv2_public_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
+            'cinderv2_admin_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
+            'cinderv2_internal_url': 'http://cindernode1:8776/'
+                                     'v2/$(tenant_id)s',
             'relation_id': None,
         }
         self.relation_set.assert_called_with(**expected)

@@ -52,7 +52,9 @@ from charmhelpers.core.host import (
 from charmhelpers.contrib.openstack.utils import (
     configure_installation_source,
     openstack_upgrade_available,
-    sync_db_with_multi_ipv6_addresses)
+    sync_db_with_multi_ipv6_addresses,
+    get_os_codename_package
+)
 
 from charmhelpers.contrib.storage.linux.ceph import (
     ensure_ceph_keyring,
@@ -239,12 +241,38 @@ def identity_joined(rid=None):
         config('api-listening-port')
     )
     settings = {
-        'region': config('region'),
-        'service': 'cinder',
-        'public_url': public_url,
-        'internal_url': internal_url,
-        'admin_url': admin_url,
+        'region': None,
+        'service': None,
+        'public_url': None,
+        'internal_url': None,
+        'admin_url': None,
+        'cinder_region': config('region'),
+        'cinder_service': 'cinder',
+        'cinder_public_url': public_url,
+        'cinder_internal_url': internal_url,
+        'cinder_admin_url': admin_url,
     }
+    if get_os_codename_package('cinder-common') >= 'icehouse':
+        # NOTE(jamespage) register v2 endpoint as well
+        public_url = '{}:{}/v2/$(tenant_id)s'.format(
+            canonical_url(CONFIGS, PUBLIC),
+            config('api-listening-port')
+        )
+        internal_url = '{}:{}/v2/$(tenant_id)s'.format(
+            canonical_url(CONFIGS, INTERNAL),
+            config('api-listening-port')
+        )
+        admin_url = '{}:{}/v2/$(tenant_id)s'.format(
+            canonical_url(CONFIGS, ADMIN),
+            config('api-listening-port')
+        )
+        settings.update({
+            'cinderv2_region': config('region'),
+            'cinderv2_service': 'cinderv2',
+            'cinderv2_public_url': public_url,
+            'cinderv2_internal_url': internal_url,
+            'cinderv2_admin_url': admin_url,
+        })
     relation_set(relation_id=rid, **settings)
 
 
