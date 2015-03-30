@@ -59,6 +59,7 @@ TO_PATCH = [
     # charmhelpers.core.host
     'apt_install',
     'apt_update',
+    'service_reload',
     # charmhelpers.contrib.openstack.openstack_utils
     'configure_installation_source',
     'openstack_upgrade_available',
