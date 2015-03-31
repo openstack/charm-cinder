@@ -59,6 +59,7 @@ TO_PATCH = [
     # charmhelpers.core.host
     'apt_install',
     'apt_update',
+    'service_reload',
     # charmhelpers.contrib.openstack.openstack_utils
     'configure_installation_source',
     'openstack_upgrade_available',
@@ -234,8 +235,9 @@ class TestChangedHooks(CharmTestCase):
         self.CONFIGS.complete_contexts.return_value = ['https']
         self.relation_ids.return_value = ['identity-service:0']
         hooks.configure_https()
-        cmd = ['a2ensite', 'openstack_https_frontend']
-        self.check_call.assert_called_with(cmd)
+        calls = [call('a2dissite', 'openstack_https_frontend'),
+                 call('service', 'apache2', 'reload')]
+        self.check_call.assert_called_has_calls(calls)
         identity_joined.assert_called_with(rid='identity-service:0')
 
     @patch.object(hooks, 'identity_joined')
@@ -244,8 +246,9 @@ class TestChangedHooks(CharmTestCase):
         self.CONFIGS.complete_contexts.return_value = []
         self.relation_ids.return_value = ['identity-service:0']
         hooks.configure_https()
-        cmd = ['a2dissite', 'openstack_https_frontend']
-        self.check_call.assert_called_with(cmd)
+        calls = [call('a2dissite', 'openstack_https_frontend'),
+                 call('service', 'apache2', 'reload')]
+        self.check_call.assert_called_has_calls(calls)
         identity_joined.assert_called_with(rid='identity-service:0')
 
     def test_image_service_changed(self):

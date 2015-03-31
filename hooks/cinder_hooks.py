@@ -3,7 +3,9 @@ import os
 import sys
 import uuid
 
-from subprocess import check_call
+from subprocess import (
+    check_call,
+)
 
 from cinder_utils import (
     determine_packages,
@@ -47,6 +49,7 @@ from charmhelpers.fetch import (
 from charmhelpers.core.host import (
     lsb_release,
     restart_on_change,
+    service_reload,
 )
 
 from charmhelpers.contrib.openstack.utils import (
@@ -459,6 +462,10 @@ def configure_https():
     else:
         cmd = ['a2dissite', 'openstack_https_frontend']
         check_call(cmd)
+
+    # TODO: improve this by checking if local CN certs are available
+    # first then checking reload status (see LP #1433114).
+    service_reload('apache2', restart_on_failure=True)
 
     for rid in relation_ids('identity-service'):
         identity_joined(rid=rid)
