@@ -59,9 +59,11 @@ TO_PATCH = [
     # charmhelpers.core.host
     'apt_install',
     'apt_update',
+    'service_reload',
     # charmhelpers.contrib.openstack.openstack_utils
     'configure_installation_source',
     'openstack_upgrade_available',
+    'get_os_codename_package',
     # charmhelpers.contrib.hahelpers.cluster_utils
     'canonical_url',
     'is_elected_leader',
@@ -233,8 +235,9 @@ class TestChangedHooks(CharmTestCase):
         self.CONFIGS.complete_contexts.return_value = ['https']
         self.relation_ids.return_value = ['identity-service:0']
         hooks.configure_https()
-        cmd = ['a2ensite', 'openstack_https_frontend']
-        self.check_call.assert_called_with(cmd)
+        calls = [call('a2dissite', 'openstack_https_frontend'),
+                 call('service', 'apache2', 'reload')]
+        self.check_call.assert_called_has_calls(calls)
         identity_joined.assert_called_with(rid='identity-service:0')
 
     @patch.object(hooks, 'identity_joined')
@@ -243,8 +246,9 @@ class TestChangedHooks(CharmTestCase):
         self.CONFIGS.complete_contexts.return_value = []
         self.relation_ids.return_value = ['identity-service:0']
         hooks.configure_https()
-        cmd = ['a2dissite', 'openstack_https_frontend']
-        self.check_call.assert_called_with(cmd)
+        calls = [call('a2dissite', 'openstack_https_frontend'),
+                 call('service', 'apache2', 'reload')]
+        self.check_call.assert_called_has_calls(calls)
         identity_joined.assert_called_with(rid='identity-service:0')
 
     def test_image_service_changed(self):
@@ -337,16 +341,50 @@ class TestJoinedHooks(CharmTestCase):
 
     def test_identity_service_joined(self):
         'It properly requests unclustered endpoint via identity-service'
+        self.get_os_codename_package.return_value = 'havana'
         self.unit_get.return_value = 'cindernode1'
         self.config.side_effect = self.test_config.get
         self.canonical_url.return_value = 'http://cindernode1'
         hooks.hooks.execute(['hooks/identity-service-relation-joined'])
         expected = {
-            'service': 'cinder',
-            'region': 'RegionOne',
-            'public_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
-            'admin_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
-            'internal_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'region': None,
+            'service': None,
+            'public_url': None,
+            'internal_url': None,
+            'admin_url': None,
+            'cinder_service': 'cinder',
+            'cinder_region': 'RegionOne',
+            'cinder_public_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_admin_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_internal_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'relation_id': None,
+        }
+        self.relation_set.assert_called_with(**expected)
+
+    def test_identity_service_joined_icehouse(self):
+        'It properly requests unclustered endpoint via identity-service'
+        self.get_os_codename_package.return_value = 'icehouse'
+        self.unit_get.return_value = 'cindernode1'
+        self.config.side_effect = self.test_config.get
+        self.canonical_url.return_value = 'http://cindernode1'
+        hooks.hooks.execute(['hooks/identity-service-relation-joined'])
+        expected = {
+            'region': None,
+            'service': None,
+            'public_url': None,
+            'internal_url': None,
+            'admin_url': None,
+            'cinder_service': 'cinder',
+            'cinder_region': 'RegionOne',
+            'cinder_public_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_admin_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_internal_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinderv2_service': 'cinderv2',
+            'cinderv2_region': 'RegionOne',
+            'cinderv2_public_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
+            'cinderv2_admin_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
+            'cinderv2_internal_url': 'http://cindernode1:8776/'
+                                     'v2/$(tenant_id)s',
             'relation_id': None,
         }
         self.relation_set.assert_called_with(**expected)
