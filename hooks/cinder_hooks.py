@@ -3,7 +3,9 @@ import os
 import sys
 import uuid
 
-from subprocess import check_call
+from subprocess import (
+    check_call,
+)
 
 from cinder_utils import (
     determine_packages,
@@ -47,12 +49,15 @@ from charmhelpers.fetch import (
 from charmhelpers.core.host import (
     lsb_release,
     restart_on_change,
+    service_reload,
 )
 
 from charmhelpers.contrib.openstack.utils import (
     configure_installation_source,
     openstack_upgrade_available,
-    sync_db_with_multi_ipv6_addresses)
+    sync_db_with_multi_ipv6_addresses,
+    get_os_codename_package
+)
 
 from charmhelpers.contrib.storage.linux.ceph import (
     ensure_ceph_keyring,
@@ -239,12 +244,38 @@ def identity_joined(rid=None):
         config('api-listening-port')
     )
     settings = {
-        'region': config('region'),
-        'service': 'cinder',
-        'public_url': public_url,
-        'internal_url': internal_url,
-        'admin_url': admin_url,
+        'region': None,
+        'service': None,
+        'public_url': None,
+        'internal_url': None,
+        'admin_url': None,
+        'cinder_region': config('region'),
+        'cinder_service': 'cinder',
+        'cinder_public_url': public_url,
+        'cinder_internal_url': internal_url,
+        'cinder_admin_url': admin_url,
     }
+    if get_os_codename_package('cinder-common') >= 'icehouse':
+        # NOTE(jamespage) register v2 endpoint as well
+        public_url = '{}:{}/v2/$(tenant_id)s'.format(
+            canonical_url(CONFIGS, PUBLIC),
+            config('api-listening-port')
+        )
+        internal_url = '{}:{}/v2/$(tenant_id)s'.format(
+            canonical_url(CONFIGS, INTERNAL),
+            config('api-listening-port')
+        )
+        admin_url = '{}:{}/v2/$(tenant_id)s'.format(
+            canonical_url(CONFIGS, ADMIN),
+            config('api-listening-port')
+        )
+        settings.update({
+            'cinderv2_region': config('region'),
+            'cinderv2_service': 'cinderv2',
+            'cinderv2_public_url': public_url,
+            'cinderv2_internal_url': internal_url,
+            'cinderv2_admin_url': admin_url,
+        })
     relation_set(relation_id=rid, **settings)
 
 
@@ -431,6 +462,10 @@ def configure_https():
     else:
         cmd = ['a2dissite', 'openstack_https_frontend']
         check_call(cmd)
+
+    # TODO: improve this by checking if local CN certs are available
+    # first then checking reload status (see LP #1433114).
+    service_reload('apache2', restart_on_failure=True)
 
     for rid in relation_ids('identity-service'):
         identity_joined(rid=rid)
