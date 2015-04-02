@@ -1,0 +1,2 @@
+git-reinstall:
+  description: Reinstall cinder from the openstack-origin-git repositories.
