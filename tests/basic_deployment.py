@@ -3,6 +3,7 @@
 import amulet
 import types
 from time import sleep
+import yaml
 import cinderclient.v1.client as cinder_client
 
 from charmhelpers.contrib.openstack.amulet.deployment import (
@@ -28,10 +29,12 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
     # NOTE(beisner):  Features and tests vary across Openstack releases.
     # https://wiki.openstack.org/wiki/CinderSupportMatrix
 
-    def __init__(self, series=None, openstack=None, source=None, stable=False):
+    def __init__(self, series=None, openstack=None, source=None, git=False,
+                 stable=False):
         '''Deploy the entire test environment.'''
         super(CinderBasicDeployment, self).__init__(series, openstack, source,
                                                     stable)
+        self.git = git
         self._add_services()
         self._add_relations()
         self._configure_services()
@@ -67,11 +70,30 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def _configure_services(self):
         '''Configure all of the services.'''
-        keystone_config = {'admin-password': 'openstack',
-                           'admin-token': 'ubuntutesting'}
         cinder_config = {'block-device': 'vdb',
                          'glance-api-version': '2',
                          'overwrite': 'true'}
+        if self.git:
+            branch = 'stable/' + self._get_openstack_release_string()
+            openstack_origin_git = {
+                'repositories': [
+                    {'name': 'requirements',
+                     'repository':
+                     'git://git.openstack.org/openstack/requirements',
+                     'branch': branch},
+                    {'name': 'cinder',
+                     'repository': 'git://git.openstack.org/openstack/cinder',
+                     'branch': branch},
+                ],
+                'directory': '/mnt/openstack-git',
+                'http_proxy': 'http://squid.internal:3128',
+                'https_proxy': 'https://squid.internal:3128',
+            }
+            cinder_config['openstack-origin-git'] = \
+                yaml.dump(openstack_origin_git)
+
+        keystone_config = {'admin-password': 'openstack',
+                           'admin-token': 'ubuntutesting'}
         mysql_config = {'dataset-size': '50%'}
         configs = {'cinder': cinder_config,
                    'keystone': keystone_config,
@@ -300,9 +322,8 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             'auth_port': '35357',
             'auth_protocol': 'http',
             'private-address': u.valid_ip,
-            'https_keystone': 'False',
             'auth_host': u.valid_ip,
-            'service_username': 'cinder',
+            'service_username': 'cinder_cinderv2',
             'service_tenant_id': u.not_null,
             'service_host': u.valid_ip
         }
@@ -318,11 +339,11 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         relation = ['identity-service',
                     'keystone:identity-service']
         expected = {
-            'service': 'cinder',
-            'region': 'RegionOne',
-            'public_url': u.valid_url,
-            'internal_url': u.valid_url,
-            'admin_url': u.valid_url,
+            'cinder_service': 'cinder',
+            'cinder_region': 'RegionOne',
+            'cinder_public_url': u.valid_url,
+            'cinder_internal_url': u.valid_url,
+            'cinder_admin_url': u.valid_url,
             'private-address': u.valid_ip
         }
         u.log.debug('')
@@ -509,7 +530,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def test_users(self):
         '''Verify expected users.'''
-        user0 = {'name': 'cinder',
+        user0 = {'name': 'cinder_cinderv2',
                  'enabled': True,
                  'tenantId': u.not_null,
                  'id': u.not_null,
