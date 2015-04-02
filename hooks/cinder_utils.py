@@ -673,8 +673,4 @@ def git_post_install(projects_yaml):
 
     service_restart('tgtd')
 
-    for s, p in [('api', API_PACKAGES),
-                 ('volume', VOLUME_PACKAGES),
-                 ('scheduler', SCHEDULER_PACKAGES)]:
-        if service_enabled(s):
-            service_restart(s)
+    [service_restart(s) for s in services()]
