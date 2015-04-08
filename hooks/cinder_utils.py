@@ -622,7 +622,7 @@ def git_post_install(projects_yaml):
         'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-api',
         'executable_name': '/usr/local/bin/cinder-api',
-        'config_file': '/etc/cinder/cinder.conf',
+        'config_files': ['/etc/cinder/cinder.conf'],
         'log_file': '/var/log/cinder/cinder-api.log',
     }
 
@@ -633,7 +633,7 @@ def git_post_install(projects_yaml):
         'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-backup',
         'executable_name': '/usr/local/bin/cinder-backup',
-        'config_file': '/etc/cinder/cinder.conf',
+        'config_files': ['/etc/cinder/cinder.conf'],
         'log_file': '/var/log/cinder/cinder-backup.log',
     }
 
@@ -644,7 +644,7 @@ def git_post_install(projects_yaml):
         'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-scheduler',
         'executable_name': '/usr/local/bin/cinder-scheduler',
-        'config_file': '/etc/cinder/cinder.conf',
+        'config_files': ['/etc/cinder/cinder.conf'],
         'log_file': '/var/log/cinder/cinder-scheduler.log',
     }
 
@@ -655,7 +655,7 @@ def git_post_install(projects_yaml):
         'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-volume',
         'executable_name': '/usr/local/bin/cinder-volume',
-        'config_file': '/etc/cinder/cinder.conf',
+        'config_files': ['/etc/cinder/cinder.conf'],
         'log_file': '/var/log/cinder/cinder-volume.log',
     }
 
