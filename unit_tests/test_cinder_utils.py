@@ -601,7 +601,7 @@ class TestCinderUtils(CharmTestCase):
             'start_dir': '/var/lib/cinder',
             'process_name': 'cinder-api',
             'executable_name': '/usr/local/bin/cinder-api',
-            'config_file': '/etc/cinder/cinder.conf',
+            'config_files': ['/etc/cinder/cinder.conf'],
             'log_file': '/var/log/cinder/cinder-api.log',
         }
 
@@ -612,7 +612,7 @@ class TestCinderUtils(CharmTestCase):
             'start_dir': '/var/lib/cinder',
             'process_name': 'cinder-backup',
             'executable_name': '/usr/local/bin/cinder-backup',
-            'config_file': '/etc/cinder/cinder.conf',
+            'config_files': ['/etc/cinder/cinder.conf'],
             'log_file': '/var/log/cinder/cinder-backup.log',
         }
 
@@ -623,7 +623,7 @@ class TestCinderUtils(CharmTestCase):
             'start_dir': '/var/lib/cinder',
             'process_name': 'cinder-scheduler',
             'executable_name': '/usr/local/bin/cinder-scheduler',
-            'config_file': '/etc/cinder/cinder.conf',
+            'config_files': ['/etc/cinder/cinder.conf'],
             'log_file': '/var/log/cinder/cinder-scheduler.log',
         }
 
@@ -634,7 +634,7 @@ class TestCinderUtils(CharmTestCase):
             'start_dir': '/var/lib/cinder',
             'process_name': 'cinder-volume',
             'executable_name': '/usr/local/bin/cinder-volume',
-            'config_file': '/etc/cinder/cinder.conf',
+            'config_files': ['/etc/cinder/cinder.conf'],
             'log_file': '/var/log/cinder/cinder-volume.log',
         }
         expected = [
@@ -661,9 +661,8 @@ class TestCinderUtils(CharmTestCase):
         ]
         self.assertEquals(render.call_args_list, expected)
         expected = [
-            call('tgtd'),
-            call('api'),
-            call('volume'),
-            call('scheduler'),
+            call('tgtd'), call('haproxy'), call('apache2'),
+            call('cinder-api'), call('cinder-volume'),
+            call('cinder-scheduler'),
         ]
         self.assertEquals(service_restart.call_args_list, expected)
