@@ -69,6 +69,7 @@ COMMON_PACKAGES = [
     'cinder-common',
     'gdisk',
     'haproxy',
+    'librbd1', # bug 1440948 vol-from-img
     'python-jinja2',
     'python-keystoneclient',
     'python-mysqldb',
