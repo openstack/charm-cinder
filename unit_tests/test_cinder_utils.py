@@ -545,10 +545,6 @@ class TestCinderUtils(CharmTestCase):
         add_group.assert_called_with('cinder', system_group=True)
         add_user_to_group.assert_called_with('cinder', 'cinder')
         expected = [
-            call('/etc/cinder', owner='cinder', perms=488, force=False,
-                 group='cinder'),
-            call('/etc/cinder/rootwrap.d', owner='root', perms=493,
-                 force=False, group='root'),
             call('/etc/tgt', owner='cinder', perms=488, force=False,
                  group='cinder'),
             call('/var/lib/cinder', owner='cinder', perms=493, force=False,
@@ -577,22 +573,23 @@ class TestCinderUtils(CharmTestCase):
     @patch.object(cinder_utils, 'service_restart')
     @patch.object(cinder_utils, 'render')
     @patch('os.path.join')
-    @patch('shutil.copyfile')
+    @patch('os.path.exists')
+    @patch('shutil.copytree')
+    @patch('shutil.rmtree')
     @patch('pwd.getpwnam')
     @patch('grp.getgrnam')
     @patch('os.chown')
     @patch('os.chmod')
-    def test_git_post_install(self, chmod, chown, grp, pwd, copyfile, join,
-                              render, service_restart, git_src_dir):
+    def test_git_post_install(self, chmod, chown, grp, pwd, rmtree, copytree,
+                              exists, join, render, service_restart,
+                              git_src_dir):
         projects_yaml = openstack_origin_git
         join.return_value = 'joined-string'
         cinder_utils.git_post_install(projects_yaml)
         expected = [
-            call('joined-string', '/etc/cinder/policy.json'),
-            call('joined-string', '/etc/cinder/rootwrap.conf'),
-            call('joined-string', '/etc/cinder/rootwrap.d/volume.filters'),
+            call('joined-string', '/etc/cinder'),
         ]
-        copyfile.assert_has_calls(expected, any_order=True)
+        copytree.assert_has_calls(expected)
 
         cinder_api_context = {
             'service_description': 'Cinder API server',
