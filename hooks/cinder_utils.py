@@ -603,13 +603,13 @@ def git_post_install(projects_yaml):
     os.chown('/etc/cinder/api-paste.ini', uid, gid)
     os.chown('/etc/cinder/policy.json', uid, gid)
 
-    render('cinder_tgt.conf', '/etc/tgt/conf.d', {}, owner='cinder',
-           group='cinder', perms=0o644)
     render('cinder.conf', '/etc/cinder/cinder.conf', {}, owner='cinder',
            group='cinder', perms=0o644)
-    render('logging.conf', '/etc/cinder/logging.conf', {}, owner='cinder',
+    render('git/cinder_tgt.conf', '/etc/tgt/conf.d', {}, owner='cinder',
            group='cinder', perms=0o644)
-    render('cinder_sudoers', '/etc/sudoers.d/cinder_sudoers', {},
+    render('git/logging.conf', '/etc/cinder/logging.conf', {}, owner='cinder',
+           group='cinder', perms=0o644)
+    render('git/cinder_sudoers', '/etc/sudoers.d/cinder_sudoers', {},
            owner='root', group='root', perms=0o440)
 
     os.chmod('/etc/sudoers.d', 0o750)
