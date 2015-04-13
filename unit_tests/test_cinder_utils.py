@@ -638,13 +638,13 @@ class TestCinderUtils(CharmTestCase):
             'log_file': '/var/log/cinder/cinder-volume.log',
         }
         expected = [
-            call('cinder_tgt.conf', '/etc/tgt/conf.d', {}, owner='cinder',
-                 group='cinder', perms=0o644),
             call('cinder.conf', '/etc/cinder/cinder.conf', {}, owner='cinder',
                  group='cinder', perms=0o644),
-            call('logging.conf', '/etc/cinder/logging.conf', {},
+            call('git/cinder_tgt.conf', '/etc/tgt/conf.d', {}, owner='cinder',
+                 group='cinder', perms=0o644),
+            call('git/logging.conf', '/etc/cinder/logging.conf', {},
                  owner='cinder', group='cinder', perms=0o644),
-            call('cinder_sudoers', '/etc/sudoers.d/cinder_sudoers', {},
+            call('git/cinder_sudoers', '/etc/sudoers.d/cinder_sudoers', {},
                  owner='root', group='root', perms=0o440),
             call('git.upstart', '/etc/init/cinder-api.conf',
                  cinder_api_context, perms=0o644,
