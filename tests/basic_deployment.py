@@ -301,7 +301,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             'auth_protocol': 'http',
             'private-address': u.valid_ip,
             'auth_host': u.valid_ip,
-            'service_username': 'cinder',
+            'service_username': 'cinder_cinderv2',
             'service_tenant_id': u.not_null,
             'service_host': u.valid_ip
         }
@@ -317,11 +317,11 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         relation = ['identity-service',
                     'keystone:identity-service']
         expected = {
-            'service': 'cinder',
-            'region': 'RegionOne',
-            'public_url': u.valid_url,
-            'internal_url': u.valid_url,
-            'admin_url': u.valid_url,
+            'cinder_service': 'cinder',
+            'cinder_region': 'RegionOne',
+            'cinder_public_url': u.valid_url,
+            'cinder_internal_url': u.valid_url,
+            'cinder_admin_url': u.valid_url,
             'private-address': u.valid_ip
         }
         u.log.debug('')
@@ -508,7 +508,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def test_users(self):
         '''Verify expected users.'''
-        user0 = {'name': 'cinder',
+        user0 = {'name': 'cinder_cinderv2',
                  'enabled': True,
                  'tenantId': u.not_null,
                  'id': u.not_null,
