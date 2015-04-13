@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import amulet
+import os
 import types
 from time import sleep
 import yaml
@@ -75,6 +76,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                          'overwrite': 'true'}
         if self.git:
             branch = 'stable/' + self._get_openstack_release_string()
+            amulet_http_proxy = os.environ.get('AMULET_HTTP_PROXY')
             openstack_origin_git = {
                 'repositories': [
                     {'name': 'requirements',
@@ -86,8 +88,8 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                      'branch': branch},
                 ],
                 'directory': '/mnt/openstack-git',
-                'http_proxy': 'http://squid.internal:3128',
-                'https_proxy': 'https://squid.internal:3128',
+                'http_proxy': amulet_http_proxy,
+                'https_proxy': amulet_http_proxy,
             }
             cinder_config['openstack-origin-git'] = \
                 yaml.dump(openstack_origin_git)
