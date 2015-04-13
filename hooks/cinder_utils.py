@@ -1,6 +1,4 @@
-import grp
 import os
-import pwd
 import shutil
 import subprocess
 
@@ -518,17 +516,7 @@ def git_install(projects_yaml):
 
 def git_pre_install():
     """Perform cinder pre-install setup."""
-    dirs = [{'path': '/etc/cinder',
-             'owner': 'cinder',
-             'group': 'cinder',
-             'perms': 0750,
-             },
-            {'path': '/etc/cinder/rootwrap.d',
-             'owner': 'root',
-             'group': 'root',
-             'perms': 0755,
-             },
-            {'path': '/etc/tgt',
+    dirs = [{'path': '/etc/tgt',
              'owner': 'cinder',
              'group': 'cinder',
              'perms': 0750,
@@ -577,31 +565,13 @@ def git_post_install(projects_yaml):
     """Perform cinder post-install setup."""
     src_etc = os.path.join(git_src_dir(projects_yaml, 'cinder'), 'etc/cinder')
     configs = {
-        'api-paste': {
-            'src': os.path.join(src_etc, 'api-paste.ini'),
-            'dest': '/etc/cinder/api-paste.ini',
-        },
-        'policy': {
-            'src': os.path.join(src_etc, 'policy.json'),
-            'dest': '/etc/cinder/policy.json',
-        },
-        'rootwrap': {
-            'src': os.path.join(src_etc, 'rootwrap.conf'),
-            'dest': '/etc/cinder/rootwrap.conf',
-        },
-        'filters': {
-            'src': os.path.join(src_etc, 'rootwrap.d/volume.filters'),
-            'dest': '/etc/cinder/rootwrap.d/volume.filters',
-        },
+        'src': src_etc,
+        'dest': '/etc/cinder',
     }
 
-    for conf, files in configs.iteritems():
-        shutil.copyfile(files['src'], files['dest'])
-
-    uid = pwd.getpwnam('cinder').pw_uid
-    gid = grp.getgrnam('cinder').gr_gid
-    os.chown('/etc/cinder/api-paste.ini', uid, gid)
-    os.chown('/etc/cinder/policy.json', uid, gid)
+    if os.path.exists(configs['dest']):
+        shutil.rmtree(configs['dest'])
+    shutil.copytree(configs['src'], configs['dest'])
 
     render('cinder.conf', '/etc/cinder/cinder.conf', {}, owner='cinder',
            group='cinder', perms=0o644)
@@ -613,7 +583,6 @@ def git_post_install(projects_yaml):
            owner='root', group='root', perms=0o440)
 
     os.chmod('/etc/sudoers.d', 0o750)
-    os.chmod('/etc/cinder', 0o750)
 
     cinder_api_context = {
         'service_description': 'Cinder API server',
