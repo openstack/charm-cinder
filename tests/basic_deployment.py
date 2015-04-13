@@ -169,9 +169,9 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                                                           obj_count)
 
     def obj_is_status(self, obj, obj_id, stat='available',
-                      msg='openstack object status check', max_wait=60):
+                      msg='openstack object status check', max_wait=120):
         ''''Wait for an openstack object status to be as expected.
-            By default, expect an available status within 60s.  Useful
+            By default, expect an available status within 120s.  Useful
             when confirming cinder volumes, snapshots, glance images, etc.
             reach a certain state/status within a specified time.'''
         # NOTE(beisner): need to move to charmhelpers, and adjust calls here.
