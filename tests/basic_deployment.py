@@ -169,9 +169,9 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                                                           obj_count)
 
     def obj_is_status(self, obj, obj_id, stat='available',
-                      msg='openstack object status check', max_wait=60):
+                      msg='openstack object status check', max_wait=120):
         ''''Wait for an openstack object status to be as expected.
-            By default, expect an available status within 60s.  Useful
+            By default, expect an available status within 120s.  Useful
             when confirming cinder volumes, snapshots, glance images, etc.
             reach a certain state/status within a specified time.'''
         # NOTE(beisner): need to move to charmhelpers, and adjust calls here.
@@ -301,7 +301,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             'auth_protocol': 'http',
             'private-address': u.valid_ip,
             'auth_host': u.valid_ip,
-            'service_username': 'cinder',
+            'service_username': 'cinder_cinderv2',
             'service_tenant_id': u.not_null,
             'service_host': u.valid_ip
         }
@@ -317,11 +317,11 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         relation = ['identity-service',
                     'keystone:identity-service']
         expected = {
-            'service': 'cinder',
-            'region': 'RegionOne',
-            'public_url': u.valid_url,
-            'internal_url': u.valid_url,
-            'admin_url': u.valid_url,
+            'cinder_service': 'cinder',
+            'cinder_region': 'RegionOne',
+            'cinder_public_url': u.valid_url,
+            'cinder_internal_url': u.valid_url,
+            'cinder_admin_url': u.valid_url,
             'private-address': u.valid_ip
         }
         u.log.debug('')
@@ -508,7 +508,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def test_users(self):
         '''Verify expected users.'''
-        user0 = {'name': 'cinder',
+        user0 = {'name': 'cinder_cinderv2',
                  'enabled': True,
                  'tenantId': u.not_null,
                  'id': u.not_null,
