@@ -49,9 +49,10 @@ class TestCinderActions(CharmTestCase):
     @patch.object(git_reinstall, 'action_set')
     @patch.object(git_reinstall, 'action_fail')
     @patch.object(git_reinstall, 'git_install')
+    @patch.object(git_reinstall, 'config_changed')
     @patch('charmhelpers.contrib.openstack.utils.config')
-    def test_git_reinstall(self, _config, git_install, action_fail,
-                           action_set):
+    def test_git_reinstall(self, _config, config_changed, git_install,
+                           action_fail, action_set):
         _config.return_value = openstack_origin_git
         self.test_config.set('openstack-origin-git', openstack_origin_git)
 
@@ -59,15 +60,18 @@ class TestCinderActions(CharmTestCase):
 
         git_install.assert_called_with(openstack_origin_git)
         self.assertTrue(git_install.called)
+        self.assertTrue(config_changed.called)
         self.assertFalse(action_set.called)
         self.assertFalse(action_fail.called)
 
     @patch.object(git_reinstall, 'action_set')
     @patch.object(git_reinstall, 'action_fail')
     @patch.object(git_reinstall, 'git_install')
+    @patch.object(git_reinstall, 'config_changed')
     @patch('charmhelpers.contrib.openstack.utils.config')
-    def test_git_reinstall_not_configured(self, _config, git_install,
-                                          action_fail, action_set):
+    def test_git_reinstall_not_configured(self, _config, config_changed,
+                                          git_install, action_fail,
+                                          action_set):
         _config.return_value = None
 
         git_reinstall.git_reinstall()
@@ -80,10 +84,11 @@ class TestCinderActions(CharmTestCase):
     @patch.object(git_reinstall, 'action_set')
     @patch.object(git_reinstall, 'action_fail')
     @patch.object(git_reinstall, 'git_install')
+    @patch.object(git_reinstall, 'config_changed')
     @patch('traceback.format_exc')
     @patch('charmhelpers.contrib.openstack.utils.config')
-    def test_git_reinstall_exception(self, _config, format_exc, git_install,
-                                     action_fail, action_set):
+    def test_git_reinstall_exception(self, _config, format_exc, config_changed,
+                                     git_install, action_fail, action_set):
         _config.return_value = openstack_origin_git
         e = OSError('something bad happened')
         git_install.side_effect = e
