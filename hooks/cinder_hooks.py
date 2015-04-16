@@ -10,6 +10,7 @@ from subprocess import (
 from cinder_utils import (
     determine_packages,
     do_openstack_upgrade,
+    git_install,
     juju_log,
     migrate_database,
     configure_lvm_storage,
@@ -53,10 +54,12 @@ from charmhelpers.core.host import (
 )
 
 from charmhelpers.contrib.openstack.utils import (
+    config_value_changed,
     configure_installation_source,
+    git_install_requested,
     openstack_upgrade_available,
     sync_db_with_multi_ipv6_addresses,
-    get_os_codename_package
+    os_release,
 )
 
 from charmhelpers.contrib.storage.linux.ceph import (
@@ -101,8 +104,11 @@ def install():
             src == 'distro'):
         src = 'cloud:precise-folsom'
     configure_installation_source(src)
+
     apt_update()
     apt_install(determine_packages(), fatal=True)
+
+    git_install(config('openstack-origin-git'))
 
 
 @hooks.hook('config-changed')
@@ -123,12 +129,16 @@ def config_changed():
                               conf['overwrite'] in ['true', 'True', True],
                               conf['remove-missing'])
 
-    if openstack_upgrade_available('cinder-common'):
-        do_openstack_upgrade(configs=CONFIGS)
-        # NOTE(jamespage) tell any storage-backends we just upgraded
-        for rid in relation_ids('storage-backend'):
-            relation_set(relation_id=rid,
-                         upgrade_nonce=uuid.uuid4())
+    if git_install_requested():
+        if config_value_changed('openstack-origin-git'):
+            git_install(config('openstack-origin-git'))
+    else:
+        if openstack_upgrade_available('cinder-common'):
+            do_openstack_upgrade(configs=CONFIGS)
+            # NOTE(jamespage) tell any storage-backends we just upgraded
+            for rid in relation_ids('storage-backend'):
+                relation_set(relation_id=rid,
+                             upgrade_nonce=uuid.uuid4())
 
     CONFIGS.write_all()
     configure_https()
@@ -255,7 +265,7 @@ def identity_joined(rid=None):
         'cinder_internal_url': internal_url,
         'cinder_admin_url': admin_url,
     }
-    if get_os_codename_package('cinder-common') >= 'icehouse':
+    if os_release('cinder-common') >= 'icehouse':
         # NOTE(jamespage) register v2 endpoint as well
         public_url = '{}:{}/v2/$(tenant_id)s'.format(
             canonical_url(CONFIGS, PUBLIC),
