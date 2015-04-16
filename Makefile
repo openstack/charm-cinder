@@ -13,7 +13,7 @@ test:
 	@echo Starting amulet deployment tests...
 	#NOTE(beisner): can remove -v after bug 1320357 is fixed
 	#   https://bugs.launchpad.net/amulet/+bug/1320357
-	@juju test -v -p AMULET_HTTP_PROXY --timeout 900 \
+	@juju test -v -p AMULET_HTTP_PROXY,AMULET_OS_VIP --timeout 900 \
         00-setup 14-basic-precise-icehouse 15-basic-trusty-icehouse \
         16-basic-trusty-icehouse-git 17-basic-trusty-juno \
         18-basic-trusty-juno-git
