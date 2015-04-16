@@ -1,0 +1,11 @@
+#!/usr/bin/python
+
+"""Amulet tests on a basic Cinder deployment on trusty-juno."""
+
+from basic_deployment import CinderBasicDeployment
+
+if __name__ == '__main__':
+    deployment = CinderBasicDeployment(series='trusty',
+                                       openstack='cloud:trusty-juno',
+                                       source='cloud:trusty-updates/juno')
+    deployment.run_tests()

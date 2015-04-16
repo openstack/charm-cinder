@@ -4,6 +4,7 @@ from mock import (
     patch,
     call
 )
+import yaml
 
 import cinder_utils as utils
 from test_utils import (
@@ -35,6 +36,7 @@ TO_PATCH = [
     'determine_packages',
     'do_openstack_upgrade',
     'ensure_ceph_keyring',
+    'git_install',
     'juju_log',
     'log',
     'lsb_release',
@@ -63,7 +65,7 @@ TO_PATCH = [
     # charmhelpers.contrib.openstack.openstack_utils
     'configure_installation_source',
     'openstack_upgrade_available',
-    'get_os_codename_package',
+    'os_release',
     # charmhelpers.contrib.hahelpers.cluster_utils
     'canonical_url',
     'eligible_leader',
@@ -79,17 +81,47 @@ class TestInstallHook(CharmTestCase):
 
     def setUp(self):
         super(TestInstallHook, self).setUp(hooks, TO_PATCH)
-        self.config.side_effect = self.test_config.get_all
+        self.config.side_effect = self.test_config.get
 
-    def test_install_precise_distro(self):
+    @patch.object(utils, 'git_install_requested')
+    def test_install_precise_distro(self, git_requested):
         'It redirects to cloud archive if setup to install precise+distro'
+        git_requested.return_value = False
         self.lsb_release.return_value = {'DISTRIB_CODENAME': 'precise'}
         hooks.hooks.execute(['hooks/install'])
         ca = 'cloud:precise-folsom'
         self.configure_installation_source.assert_called_with(ca)
 
-    def test_correct_install_packages(self):
+    @patch.object(utils, 'git_install_requested')
+    def test_install_git(self, git_requested):
+        git_requested.return_value = True
+        self.determine_packages.return_value = ['foo', 'bar', 'baz']
+        repo = 'cloud:trusty-juno'
+        openstack_origin_git = {
+            'repositories': [
+                {'name': 'requirements',
+                 'repository': 'git://git.openstack.org/openstack/requirements',  # noqa
+                 'branch': 'stable/juno'},
+                {'name': 'cinder',
+                 'repository': 'git://git.openstack.org/openstack/cinder',
+                 'branch': 'stable/juno'}
+            ],
+            'directory': '/mnt/openstack-git',
+        }
+        projects_yaml = yaml.dump(openstack_origin_git)
+        self.test_config.set('openstack-origin', repo)
+        self.test_config.set('openstack-origin-git', projects_yaml)
+        hooks.hooks.execute(['hooks/install'])
+        self.assertTrue(self.execd_preinstall.called)
+        self.configure_installation_source.assert_called_with(repo)
+        self.apt_update.assert_called_with()
+        self.apt_install.assert_called_with(['foo', 'bar', 'baz'], fatal=True)
+        self.git_install.assert_called_with(projects_yaml)
+
+    @patch.object(utils, 'git_install_requested')
+    def test_correct_install_packages(self, git_requested):
         'It installs the correct packages based on what is determined'
+        git_requested.return_value = False
         self.determine_packages.return_value = ['foo', 'bar', 'baz']
         hooks.hooks.execute(['hooks/install'])
         self.apt_install.assert_called_with(['foo', 'bar', 'baz'], fatal=True)
@@ -99,7 +131,7 @@ class TestChangedHooks(CharmTestCase):
 
     def setUp(self):
         super(TestChangedHooks, self).setUp(hooks, TO_PATCH)
-        self.config.side_effect = self.test_config.get_all
+        self.config.side_effect = self.test_config.get
 
     @patch.object(hooks, 'amqp_joined')
     def test_upgrade_charm_no_amqp(self, _joined):
@@ -114,8 +146,10 @@ class TestChangedHooks(CharmTestCase):
         _joined.assert_called_with(relation_id='amqp:1')
 
     @patch.object(hooks, 'configure_https')
-    def test_config_changed(self, conf_https):
+    @patch.object(hooks, 'git_install_requested')
+    def test_config_changed(self, git_requested, conf_https):
         'It writes out all config'
+        git_requested.return_value = False
         self.openstack_upgrade_available.return_value = False
         hooks.hooks.execute(['hooks/config-changed'])
         self.assertTrue(self.CONFIGS.write_all.called)
@@ -125,8 +159,10 @@ class TestChangedHooks(CharmTestCase):
                                                       False, False)
 
     @patch.object(hooks, 'configure_https')
-    def test_config_changed_block_devices(self, conf_https):
+    @patch.object(hooks, 'git_install_requested')
+    def test_config_changed_block_devices(self, git_requested, conf_https):
         'It writes out all config'
+        git_requested.return_value = False
         self.openstack_upgrade_available.return_value = False
         self.test_config.set('block-device', 'sdb /dev/sdc sde')
         self.test_config.set('volume-group', 'cinder-new')
@@ -141,11 +177,39 @@ class TestChangedHooks(CharmTestCase):
             True, True)
 
     @patch.object(hooks, 'configure_https')
-    def test_config_changed_upgrade_available(self, conf_https):
+    @patch.object(hooks, 'git_install_requested')
+    def test_config_changed_upgrade_available(self, git_requested, conf_https):
         'It writes out all config with an available OS upgrade'
+        git_requested.return_value = False
         self.openstack_upgrade_available.return_value = True
         hooks.hooks.execute(['hooks/config-changed'])
         self.do_openstack_upgrade.assert_called_with(configs=self.CONFIGS)
+
+    @patch.object(hooks, 'configure_https')
+    @patch.object(hooks, 'git_install_requested')
+    @patch.object(hooks, 'config_value_changed')
+    def test_config_changed_git_updated(self, config_val_changed,
+                                        git_requested, conf_https):
+        git_requested.return_value = True
+        repo = 'cloud:trusty-juno'
+        openstack_origin_git = {
+            'repositories': [
+                {'name': 'requirements',
+                 'repository': 'git://git.openstack.org/openstack/requirements',  # noqa
+                 'branch': 'stable/juno'},
+                {'name': 'cinder',
+                 'repository': 'git://git.openstack.org/openstack/',
+                 'branch': 'stable/juno'}
+            ],
+            'directory': '/mnt/openstack-git',
+        }
+        projects_yaml = yaml.dump(openstack_origin_git)
+        self.test_config.set('openstack-origin', repo)
+        self.test_config.set('openstack-origin-git', projects_yaml)
+        hooks.hooks.execute(['hooks/config-changed'])
+        self.git_install.assert_called_with(projects_yaml)
+        self.assertFalse(self.do_openstack_upgrade.called)
+        self.assertTrue(conf_https.called)
 
     def test_db_changed(self):
         'It writes out cinder.conf on db changed'
@@ -341,7 +405,7 @@ class TestJoinedHooks(CharmTestCase):
 
     def test_identity_service_joined(self):
         'It properly requests unclustered endpoint via identity-service'
-        self.get_os_codename_package.return_value = 'havana'
+        self.os_release.return_value = 'havana'
         self.unit_get.return_value = 'cindernode1'
         self.config.side_effect = self.test_config.get
         self.canonical_url.return_value = 'http://cindernode1'
@@ -363,7 +427,7 @@ class TestJoinedHooks(CharmTestCase):
 
     def test_identity_service_joined_icehouse(self):
         'It properly requests unclustered endpoint via identity-service'
-        self.get_os_codename_package.return_value = 'icehouse'
+        self.os_release.return_value = 'icehouse'
         self.unit_get.return_value = 'cindernode1'
         self.config.side_effect = self.test_config.get
         self.canonical_url.return_value = 'http://cindernode1'
