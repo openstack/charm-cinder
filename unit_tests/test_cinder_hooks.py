@@ -245,7 +245,7 @@ class TestChangedHooks(CharmTestCase):
         self.assertFalse(self.migrate_database.called)
 
     def test_db_changed_relation_db_missing_acls(self):
-        'It does not migration when acl list is not present'
+        'No database migration is attempted when ACL list is not present'
         self.relation_get.return_value = None
         self.local_unit.return_value = 'cinder/0'
         self.CONFIGS.complete_contexts.return_value = ['shared-db']
