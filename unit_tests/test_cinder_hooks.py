@@ -244,6 +244,15 @@ class TestChangedHooks(CharmTestCase):
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
         self.assertFalse(self.migrate_database.called)
 
+    def test_db_changed_relation_db_missing_acls(self):
+        'It does not migration when acl list is not present'
+        self.relation_get.return_value = None
+        self.local_unit.return_value = 'cinder/0'
+        self.CONFIGS.complete_contexts.return_value = ['shared-db']
+        self.eligible_leader.return_value = True
+        hooks.hooks.execute(['hooks/shared-db-relation-changed'])
+        self.assertFalse(self.migrate_database.called)
+
     def test_pgsql_db_changed_relation_incomplete(self):
         'It does not write out cinder.conf with incomplete pgsql-db rel'
         hooks.hooks.execute(['hooks/pgsql-db-relation-changed'])
