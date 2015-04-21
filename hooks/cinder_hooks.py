@@ -200,7 +200,7 @@ def db_changed():
             migrate_database()
         else:
             juju_log('allowed_units either not presented, or local unit '
-                     'not in acl list: %s' % allowed_units)
+                     'not in acl list: %s' % repr(allowed_units))
 
 
 @hooks.hook('pgsql-db-relation-changed')
