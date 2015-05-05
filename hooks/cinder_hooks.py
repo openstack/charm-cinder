@@ -18,6 +18,7 @@ from cinder_utils import (
     restart_map,
     services,
     service_enabled,
+    service_restart,
     set_ceph_env_variables,
     CLUSTER_RES,
     CINDER_CONF,
@@ -334,6 +335,9 @@ def ceph_changed(relation_id=None):
         set_ceph_env_variables(service=service)
         CONFIGS.write(CINDER_CONF)
         CONFIGS.write(ceph_config_file())
+        # Ensure that cinder-volume is restarted since only now can we
+        # guarantee that ceph resources are ready.
+        service_restart('cinder-volume')
     else:
         rq = CephBrokerRq()
         replicas = config('ceph-osd-replication-count')
