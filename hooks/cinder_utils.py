@@ -585,13 +585,14 @@ def git_post_install(projects_yaml):
 
     os.chmod('/etc/sudoers.d', 0o750)
 
+    bin_dir = os.path.join(charm_dir(), 'venv/bin')
     cinder_api_context = {
         'service_description': 'Cinder API server',
         'service_name': 'Cinder',
         'user_name': 'cinder',
         'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-api',
-        'executable_name': '/usr/local/bin/cinder-api',
+        'executable_name': os.path.join(bin_dir, 'cinder-api'),
         'config_files': ['/etc/cinder/cinder.conf'],
         'log_file': '/var/log/cinder/cinder-api.log',
     }
@@ -602,7 +603,7 @@ def git_post_install(projects_yaml):
         'user_name': 'cinder',
         'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-backup',
-        'executable_name': '/usr/local/bin/cinder-backup',
+        'executable_name': os.path.join(bin_dir, 'cinder-backup'),
         'config_files': ['/etc/cinder/cinder.conf'],
         'log_file': '/var/log/cinder/cinder-backup.log',
     }
@@ -613,7 +614,7 @@ def git_post_install(projects_yaml):
         'user_name': 'cinder',
         'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-scheduler',
-        'executable_name': '/usr/local/bin/cinder-scheduler',
+        'executable_name': os.path.join(bin_dir, 'cinder-scheduler'),
         'config_files': ['/etc/cinder/cinder.conf'],
         'log_file': '/var/log/cinder/cinder-scheduler.log',
     }
@@ -624,7 +625,7 @@ def git_post_install(projects_yaml):
         'user_name': 'cinder',
         'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-volume',
-        'executable_name': '/usr/local/bin/cinder-volume',
+        'executable_name': os.path.join(bin_dir, 'cinder-volume'),
         'config_files': ['/etc/cinder/cinder.conf'],
         'log_file': '/var/log/cinder/cinder-volume.log',
     }
