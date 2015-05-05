@@ -597,7 +597,7 @@ class TestCinderUtils(CharmTestCase):
             'user_name': 'cinder',
             'start_dir': '/var/lib/cinder',
             'process_name': 'cinder-api',
-            'executable_name': '/usr/local/bin/cinder-api',
+            'executable_name': 'joined-string',
             'config_files': ['/etc/cinder/cinder.conf'],
             'log_file': '/var/log/cinder/cinder-api.log',
         }
@@ -608,7 +608,7 @@ class TestCinderUtils(CharmTestCase):
             'user_name': 'cinder',
             'start_dir': '/var/lib/cinder',
             'process_name': 'cinder-backup',
-            'executable_name': '/usr/local/bin/cinder-backup',
+            'executable_name': 'joined-string',
             'config_files': ['/etc/cinder/cinder.conf'],
             'log_file': '/var/log/cinder/cinder-backup.log',
         }
@@ -619,7 +619,7 @@ class TestCinderUtils(CharmTestCase):
             'user_name': 'cinder',
             'start_dir': '/var/lib/cinder',
             'process_name': 'cinder-scheduler',
-            'executable_name': '/usr/local/bin/cinder-scheduler',
+            'executable_name': 'joined-string',
             'config_files': ['/etc/cinder/cinder.conf'],
             'log_file': '/var/log/cinder/cinder-scheduler.log',
         }
@@ -630,7 +630,7 @@ class TestCinderUtils(CharmTestCase):
             'user_name': 'cinder',
             'start_dir': '/var/lib/cinder',
             'process_name': 'cinder-volume',
-            'executable_name': '/usr/local/bin/cinder-volume',
+            'executable_name': 'joined-string',
             'config_files': ['/etc/cinder/cinder.conf'],
             'log_file': '/var/log/cinder/cinder-volume.log',
         }
