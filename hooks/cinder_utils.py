@@ -94,6 +94,7 @@ VOLUME_PACKAGES = ['cinder-volume']
 SCHEDULER_PACKAGES = ['cinder-scheduler']
 
 BASE_GIT_PACKAGES = [
+    'libffi-dev',
     'libxml2-dev',
     'libxslt1-dev',
     'lvm2',
