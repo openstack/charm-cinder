@@ -95,6 +95,7 @@ SCHEDULER_PACKAGES = ['cinder-scheduler']
 
 BASE_GIT_PACKAGES = [
     'libffi-dev',
+    'libssl-dev',
     'libxml2-dev',
     'libxslt1-dev',
     'lvm2',
