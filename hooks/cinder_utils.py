@@ -5,6 +5,10 @@ import subprocess
 from collections import OrderedDict
 from copy import copy
 
+from charmhelpers.contrib.python.packages import (
+    pip_install,
+)
+
 from charmhelpers.core.hookenv import (
     charm_dir,
     config,
@@ -69,6 +73,7 @@ from charmhelpers.contrib.openstack.utils import (
     git_install_requested,
     git_clone_and_install,
     git_src_dir,
+    git_http_proxy,
     os_release,
 )
 
@@ -95,6 +100,7 @@ SCHEDULER_PACKAGES = ['cinder-scheduler']
 
 BASE_GIT_PACKAGES = [
     'libffi-dev',
+    'libmysqlclient-dev',
     'libssl-dev',
     'libxml2-dev',
     'libxslt1-dev',
@@ -566,6 +572,12 @@ def git_pre_install():
 
 def git_post_install(projects_yaml):
     """Perform cinder post-install setup."""
+    http_proxy = git_http_proxy(projects_yaml)
+    if http_proxy:
+        pip_install('mysql-python', proxy=http_proxy, venv=True)
+    else:
+        pip_install('mysql-python', venv=True)
+
     src_etc = os.path.join(git_src_dir(projects_yaml, 'cinder'), 'etc/cinder')
     configs = {
         'src': src_etc,
