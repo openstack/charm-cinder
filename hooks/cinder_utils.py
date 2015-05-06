@@ -576,6 +576,16 @@ def git_post_install(projects_yaml):
         shutil.rmtree(configs['dest'])
     shutil.copytree(configs['src'], configs['dest'])
 
+    symlinks = [
+        {'src': os.path.join(charm_dir(), 'venv/bin/cinder-manage'),
+         'link': '/usr/local/bin/cinder-manage'},
+    ]
+
+    for s in symlinks:
+        if os.path.lexists(s['link']):
+            os.remove(s['link'])
+        os.symlink(s['src'], s['link'])
+
     render('cinder.conf', '/etc/cinder/cinder.conf', {}, owner='cinder',
            group='cinder', perms=0o644)
     render('git/cinder_tgt.conf', '/etc/tgt/conf.d', {}, owner='cinder',
