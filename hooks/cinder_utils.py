@@ -7,6 +7,7 @@ from copy import copy
 
 from charmhelpers.contrib.python.packages import (
     pip_install,
+    pip_get_virtualenv_path,
 )
 
 from charmhelpers.core.hookenv import (
@@ -73,7 +74,7 @@ from charmhelpers.contrib.openstack.utils import (
     git_install_requested,
     git_clone_and_install,
     git_src_dir,
-    git_http_proxy,
+    git_yaml_value,
     os_release,
 )
 
@@ -572,7 +573,7 @@ def git_pre_install():
 
 def git_post_install(projects_yaml):
     """Perform cinder post-install setup."""
-    http_proxy = git_http_proxy(projects_yaml)
+    http_proxy = git_yaml_value(projects_yaml, 'http_proxy')
     if http_proxy:
         pip_install('mysql-python', proxy=http_proxy, venv=True)
     else:
@@ -589,7 +590,7 @@ def git_post_install(projects_yaml):
     shutil.copytree(configs['src'], configs['dest'])
 
     symlinks = [
-        {'src': os.path.join(charm_dir(), 'venv/bin/cinder-manage'),
+        {'src': os.path.join(pip_get_virtualenv_path(), 'bin/cinder-manage'),
          'link': '/usr/local/bin/cinder-manage'},
     ]
 
@@ -609,7 +610,7 @@ def git_post_install(projects_yaml):
 
     os.chmod('/etc/sudoers.d', 0o750)
 
-    bin_dir = os.path.join(charm_dir(), 'venv/bin')
+    bin_dir = os.path.join(pip_get_virtualenv_path(), 'bin')
     cinder_api_context = {
         'service_description': 'Cinder API server',
         'service_name': 'Cinder',
