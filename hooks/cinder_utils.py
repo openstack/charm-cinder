@@ -595,6 +595,9 @@ def git_post_install(projects_yaml):
         {'src': os.path.join(git_pip_venv_dir(projects_yaml),
                              'bin/cinder-manage'),
          'link': '/usr/local/bin/cinder-manage'},
+        {'src': os.path.join(git_pip_venv_dir(projects_yaml),
+                             'bin/cinder-rootwrap'),
+         'link': '/usr/local/bin/cinder-rootwrap'},
     ]
 
     for s in symlinks:
