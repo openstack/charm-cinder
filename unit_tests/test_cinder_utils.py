@@ -572,6 +572,7 @@ class TestCinderUtils(CharmTestCase):
     @patch.object(cinder_utils, 'git_src_dir')
     @patch.object(cinder_utils, 'service_restart')
     @patch.object(cinder_utils, 'render')
+    @patch.object(cinder_utils, 'pip_install')
     @patch('os.path.join')
     @patch('os.path.exists')
     @patch('shutil.copytree')
@@ -580,16 +581,23 @@ class TestCinderUtils(CharmTestCase):
     @patch('grp.getgrnam')
     @patch('os.chown')
     @patch('os.chmod')
-    def test_git_post_install(self, chmod, chown, grp, pwd, rmtree, copytree,
-                              exists, join, render, service_restart,
-                              git_src_dir):
+    @patch('os.symlink')
+    def test_git_post_install(self, symlink, chmod, chown, grp, pwd, rmtree,
+                              copytree, exists, join, pip_install, render,
+                              service_restart, git_src_dir):
         projects_yaml = openstack_origin_git
         join.return_value = 'joined-string'
         cinder_utils.git_post_install(projects_yaml)
+        pip_install.assert_called_with('mysql-python', venv=True)
         expected = [
             call('joined-string', '/etc/cinder'),
         ]
         copytree.assert_has_calls(expected)
+
+        expected = [
+            call('joined-string', '/usr/local/bin/cinder-manage'),
+        ]
+        symlink.assert_has_calls(expected, any_order=True)
 
         cinder_api_context = {
             'service_description': 'Cinder API server',
