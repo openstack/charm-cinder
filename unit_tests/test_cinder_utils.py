@@ -588,7 +588,7 @@ class TestCinderUtils(CharmTestCase):
         projects_yaml = openstack_origin_git
         join.return_value = 'joined-string'
         cinder_utils.git_post_install(projects_yaml)
-        pip_install.assert_called_with('mysql-python', venv=True)
+        pip_install('mysql-python', venv='joined-string')
         expected = [
             call('joined-string', '/etc/cinder'),
         ]
