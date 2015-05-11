@@ -30,7 +30,7 @@ TO_PATCH = [
     'ensure_loopback_device',
     'is_block_device',
     'zap_disk',
-    'get_os_codename_package',
+    'os_release',
     'get_os_codename_install_source',
     'configure_installation_source',
     'is_elected_leader',
@@ -68,6 +68,15 @@ FDISKDISPLAY = """
 
 """
 
+openstack_origin_git = \
+    """repositories:
+         - {name: requirements,
+            repository: 'git://git.openstack.org/openstack/requirements',
+            branch: stable/juno}
+         - {name: cinder,
+            repository: 'git://git.openstack.org/openstack/cinder',
+            branch: stable/juno}"""
+
 
 class TestCinderUtils(CharmTestCase):
 
@@ -97,8 +106,10 @@ class TestCinderUtils(CharmTestCase):
         self.assertFalse(cinder_utils.service_enabled('volume'))
 
     @patch('cinder_utils.service_enabled')
-    def test_determine_packages_all(self, service_enabled):
+    @patch('cinder_utils.git_install_requested')
+    def test_determine_packages_all(self, git_requested, service_enabled):
         'It determines all packages required when all services enabled'
+        git_requested.return_value = False
         service_enabled.return_value = True
         pkgs = cinder_utils.determine_packages()
         self.assertEquals(sorted(pkgs),
@@ -108,8 +119,10 @@ class TestCinderUtils(CharmTestCase):
                                  cinder_utils.SCHEDULER_PACKAGES))
 
     @patch('cinder_utils.service_enabled')
-    def test_determine_packages_subset(self, service_enabled):
+    @patch('cinder_utils.git_install_requested')
+    def test_determine_packages_subset(self, git_requested, service_enabled):
         'It determines packages required for a subset of enabled services'
+        git_requested.return_value = False
         service_enabled.side_effect = self.svc_enabled
 
         self.test_config.set('enabled-services', 'api')
@@ -402,7 +415,7 @@ class TestCinderUtils(CharmTestCase):
     @patch('os.path.exists')
     def test_register_configs_apache(self, exists):
         exists.return_value = False
-        self.get_os_codename_package.return_value = 'grizzly'
+        self.os_release.return_value = 'grizzly'
         self.relation_ids.return_value = False
         configs = cinder_utils.register_configs()
         calls = []
@@ -419,7 +432,7 @@ class TestCinderUtils(CharmTestCase):
     @patch('os.path.exists')
     def test_register_configs_apache24(self, exists):
         exists.return_value = True
-        self.get_os_codename_package.return_value = 'grizzly'
+        self.os_release.return_value = 'grizzly'
         self.relation_ids.return_value = False
         configs = cinder_utils.register_configs()
         calls = []
@@ -438,7 +451,7 @@ class TestCinderUtils(CharmTestCase):
     def test_register_configs_ceph(self, exists, isdir):
         exists.return_value = True
         isdir.return_value = False
-        self.get_os_codename_package.return_value = 'grizzly'
+        self.os_release.return_value = 'grizzly'
         self.relation_ids.return_value = ['ceph:0']
         self.ceph_config_file.return_value = '/var/lib/charm/cinder/ceph.conf'
         configs = cinder_utils.register_configs()
@@ -504,3 +517,149 @@ class TestCinderUtils(CharmTestCase):
         self.apt_install.assert_called_with(['mypackage'], fatal=True)
         configs.set_release.assert_called_with(openstack_release='havana')
         self.assertFalse(migrate.called)
+
+    @patch.object(cinder_utils, 'git_install_requested')
+    @patch.object(cinder_utils, 'git_clone_and_install')
+    @patch.object(cinder_utils, 'git_post_install')
+    @patch.object(cinder_utils, 'git_pre_install')
+    def test_git_install(self, git_pre, git_post, git_clone_and_install,
+                         git_requested):
+        projects_yaml = openstack_origin_git
+        git_requested.return_value = True
+        cinder_utils.git_install(projects_yaml)
+        self.assertTrue(git_pre.called)
+        git_clone_and_install.assert_called_with(openstack_origin_git,
+                                                 core_project='cinder')
+        self.assertTrue(git_post.called)
+
+    @patch.object(cinder_utils, 'mkdir')
+    @patch.object(cinder_utils, 'write_file')
+    @patch.object(cinder_utils, 'add_user_to_group')
+    @patch.object(cinder_utils, 'add_group')
+    @patch.object(cinder_utils, 'adduser')
+    def test_git_pre_install(self, adduser, add_group, add_user_to_group,
+                             write_file, mkdir):
+        cinder_utils.git_pre_install()
+        adduser.assert_called_with('cinder', shell='/bin/bash',
+                                   system_user=True)
+        add_group.assert_called_with('cinder', system_group=True)
+        add_user_to_group.assert_called_with('cinder', 'cinder')
+        expected = [
+            call('/etc/tgt', owner='cinder', perms=488, force=False,
+                 group='cinder'),
+            call('/var/lib/cinder', owner='cinder', perms=493, force=False,
+                 group='cinder'),
+            call('/var/lib/cinder/volumes', owner='cinder', perms=488,
+                 force=False, group='cinder'),
+            call('/var/lock/cinder', owner='cinder', perms=488, force=False,
+                 group='root'),
+            call('/var/log/cinder', owner='cinder', perms=488, force=False,
+                 group='cinder'),
+        ]
+        self.assertEquals(mkdir.call_args_list, expected)
+        expected = [
+            call('/var/log/cinder/cinder-api.log', '', perms=0600,
+                 owner='cinder', group='cinder'),
+            call('/var/log/cinder/cinder-backup.log', '', perms=0600,
+                 owner='cinder', group='cinder'),
+            call('/var/log/cinder/cinder-scheduler.log', '', perms=0600,
+                 owner='cinder', group='cinder'),
+            call('/var/log/cinder/cinder-volume.log', '', perms=0600,
+                 owner='cinder', group='cinder'),
+        ]
+        self.assertEquals(write_file.call_args_list, expected)
+
+    @patch.object(cinder_utils, 'git_src_dir')
+    @patch.object(cinder_utils, 'service_restart')
+    @patch.object(cinder_utils, 'render')
+    @patch('os.path.join')
+    @patch('os.path.exists')
+    @patch('shutil.copytree')
+    @patch('shutil.rmtree')
+    @patch('pwd.getpwnam')
+    @patch('grp.getgrnam')
+    @patch('os.chown')
+    @patch('os.chmod')
+    def test_git_post_install(self, chmod, chown, grp, pwd, rmtree, copytree,
+                              exists, join, render, service_restart,
+                              git_src_dir):
+        projects_yaml = openstack_origin_git
+        join.return_value = 'joined-string'
+        cinder_utils.git_post_install(projects_yaml)
+        expected = [
+            call('joined-string', '/etc/cinder'),
+        ]
+        copytree.assert_has_calls(expected)
+
+        cinder_api_context = {
+            'service_description': 'Cinder API server',
+            'service_name': 'Cinder',
+            'user_name': 'cinder',
+            'start_dir': '/var/lib/cinder',
+            'process_name': 'cinder-api',
+            'executable_name': '/usr/local/bin/cinder-api',
+            'config_files': ['/etc/cinder/cinder.conf'],
+            'log_file': '/var/log/cinder/cinder-api.log',
+        }
+
+        cinder_backup_context = {
+            'service_description': 'Cinder backup server',
+            'service_name': 'Cinder',
+            'user_name': 'cinder',
+            'start_dir': '/var/lib/cinder',
+            'process_name': 'cinder-backup',
+            'executable_name': '/usr/local/bin/cinder-backup',
+            'config_files': ['/etc/cinder/cinder.conf'],
+            'log_file': '/var/log/cinder/cinder-backup.log',
+        }
+
+        cinder_scheduler_context = {
+            'service_description': 'Cinder scheduler server',
+            'service_name': 'Cinder',
+            'user_name': 'cinder',
+            'start_dir': '/var/lib/cinder',
+            'process_name': 'cinder-scheduler',
+            'executable_name': '/usr/local/bin/cinder-scheduler',
+            'config_files': ['/etc/cinder/cinder.conf'],
+            'log_file': '/var/log/cinder/cinder-scheduler.log',
+        }
+
+        cinder_volume_context = {
+            'service_description': 'Cinder volume server',
+            'service_name': 'Cinder',
+            'user_name': 'cinder',
+            'start_dir': '/var/lib/cinder',
+            'process_name': 'cinder-volume',
+            'executable_name': '/usr/local/bin/cinder-volume',
+            'config_files': ['/etc/cinder/cinder.conf'],
+            'log_file': '/var/log/cinder/cinder-volume.log',
+        }
+        expected = [
+            call('cinder.conf', '/etc/cinder/cinder.conf', {}, owner='cinder',
+                 group='cinder', perms=0o644),
+            call('git/cinder_tgt.conf', '/etc/tgt/conf.d', {}, owner='cinder',
+                 group='cinder', perms=0o644),
+            call('git/logging.conf', '/etc/cinder/logging.conf', {},
+                 owner='cinder', group='cinder', perms=0o644),
+            call('git/cinder_sudoers', '/etc/sudoers.d/cinder_sudoers', {},
+                 owner='root', group='root', perms=0o440),
+            call('git.upstart', '/etc/init/cinder-api.conf',
+                 cinder_api_context, perms=0o644,
+                 templates_dir='joined-string'),
+            call('git.upstart', '/etc/init/cinder-backup.conf',
+                 cinder_backup_context, perms=0o644,
+                 templates_dir='joined-string'),
+            call('git.upstart', '/etc/init/cinder-scheduler.conf',
+                 cinder_scheduler_context, perms=0o644,
+                 templates_dir='joined-string'),
+            call('git.upstart', '/etc/init/cinder-volume.conf',
+                 cinder_volume_context, perms=0o644,
+                 templates_dir='joined-string'),
+        ]
+        self.assertEquals(render.call_args_list, expected)
+        expected = [
+            call('tgtd'), call('haproxy'), call('apache2'),
+            call('cinder-api'), call('cinder-volume'),
+            call('cinder-scheduler'),
+        ]
+        self.assertEquals(service_restart.call_args_list, expected)

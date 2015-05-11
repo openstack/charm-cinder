@@ -1,8 +1,10 @@
 #!/usr/bin/python
 
 import amulet
+import os
 import types
 from time import sleep
+import yaml
 import cinderclient.v1.client as cinder_client
 
 from charmhelpers.contrib.openstack.amulet.deployment import (
@@ -16,7 +18,7 @@ from charmhelpers.contrib.openstack.amulet.utils import (  # noqa
 )
 
 # Use DEBUG to turn on debug logging
-u = OpenStackAmuletUtils(ERROR)
+u = OpenStackAmuletUtils(DEBUG)
 
 
 class CinderBasicDeployment(OpenStackAmuletDeployment):
@@ -28,10 +30,12 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
     # NOTE(beisner):  Features and tests vary across Openstack releases.
     # https://wiki.openstack.org/wiki/CinderSupportMatrix
 
-    def __init__(self, series=None, openstack=None, source=None, stable=False):
+    def __init__(self, series=None, openstack=None, source=None, git=False,
+                 stable=False):
         '''Deploy the entire test environment.'''
         super(CinderBasicDeployment, self).__init__(series, openstack, source,
                                                     stable)
+        self.git = git
         self._add_services()
         self._add_relations()
         self._configure_services()
@@ -67,11 +71,31 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def _configure_services(self):
         '''Configure all of the services.'''
-        keystone_config = {'admin-password': 'openstack',
-                           'admin-token': 'ubuntutesting'}
         cinder_config = {'block-device': 'vdb',
                          'glance-api-version': '2',
                          'overwrite': 'true'}
+        if self.git:
+            branch = 'stable/' + self._get_openstack_release_string()
+            amulet_http_proxy = os.environ.get('AMULET_HTTP_PROXY')
+            openstack_origin_git = {
+                'repositories': [
+                    {'name': 'requirements',
+                     'repository':
+                     'git://git.openstack.org/openstack/requirements',
+                     'branch': branch},
+                    {'name': 'cinder',
+                     'repository': 'git://git.openstack.org/openstack/cinder',
+                     'branch': branch},
+                ],
+                'directory': '/mnt/openstack-git',
+                'http_proxy': amulet_http_proxy,
+                'https_proxy': amulet_http_proxy,
+            }
+            cinder_config['openstack-origin-git'] = \
+                yaml.dump(openstack_origin_git)
+
+        keystone_config = {'admin-password': 'openstack',
+                           'admin-token': 'ubuntutesting'}
         mysql_config = {'dataset-size': '50%'}
         configs = {'cinder': cinder_config,
                    'keystone': keystone_config,
@@ -169,9 +193,9 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                                                           obj_count)
 
     def obj_is_status(self, obj, obj_id, stat='available',
-                      msg='openstack object status check', max_wait=60):
+                      msg='openstack object status check', max_wait=120):
         ''''Wait for an openstack object status to be as expected.
-            By default, expect an available status within 60s.  Useful
+            By default, expect an available status within 120s.  Useful
             when confirming cinder volumes, snapshots, glance images, etc.
             reach a certain state/status within a specified time.'''
         # NOTE(beisner): need to move to charmhelpers, and adjust calls here.
@@ -301,7 +325,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             'auth_protocol': 'http',
             'private-address': u.valid_ip,
             'auth_host': u.valid_ip,
-            'service_username': 'cinder',
+            'service_username': 'cinder_cinderv2',
             'service_tenant_id': u.not_null,
             'service_host': u.valid_ip
         }
@@ -317,11 +341,11 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         relation = ['identity-service',
                     'keystone:identity-service']
         expected = {
-            'service': 'cinder',
-            'region': 'RegionOne',
-            'public_url': u.valid_url,
-            'internal_url': u.valid_url,
-            'admin_url': u.valid_url,
+            'cinder_service': 'cinder',
+            'cinder_region': 'RegionOne',
+            'cinder_public_url': u.valid_url,
+            'cinder_internal_url': u.valid_url,
+            'cinder_admin_url': u.valid_url,
             'private-address': u.valid_ip
         }
         u.log.debug('')
@@ -508,7 +532,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def test_users(self):
         '''Verify expected users.'''
-        user0 = {'name': 'cinder',
+        user0 = {'name': 'cinder_cinderv2',
                  'enabled': True,
                  'tenantId': u.not_null,
                  'id': u.not_null,

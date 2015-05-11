@@ -2,7 +2,7 @@
 PYTHON := /usr/bin/env python
 
 lint:
-	@flake8 --exclude hooks/charmhelpers hooks unit_tests tests
+	@flake8 --exclude hooks/charmhelpers actions hooks unit_tests tests
 	@charm proof
 
 unit_test:
@@ -13,8 +13,7 @@ test:
 	@echo Starting amulet deployment tests...
 	#NOTE(beisner): can remove -v after bug 1320357 is fixed
 	#   https://bugs.launchpad.net/amulet/+bug/1320357
-	@juju test -v -p AMULET_HTTP_PROXY --timeout 900 \
-        00-setup 14-basic-precise-icehouse 15-basic-trusty-icehouse
+	@juju test -v -p AMULET_HTTP_PROXY,AMULET_OS_VIP --timeout 2700
 
 bin/charm_helpers_sync.py:
 	@mkdir -p bin
