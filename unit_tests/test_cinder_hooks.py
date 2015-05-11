@@ -62,6 +62,7 @@ TO_PATCH = [
     'apt_install',
     'apt_update',
     'service_reload',
+    'service_restart',
     # charmhelpers.contrib.openstack.openstack_utils
     'configure_installation_source',
     'openstack_upgrade_available',
@@ -249,7 +250,7 @@ class TestChangedHooks(CharmTestCase):
         self.relation_get.return_value = None
         self.local_unit.return_value = 'cinder/0'
         self.CONFIGS.complete_contexts.return_value = ['shared-db']
-        self.eligible_leader.return_value = True
+        self.is_elected_leader.return_value = True
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
         self.assertFalse(self.migrate_database.called)
 
@@ -518,6 +519,7 @@ class TestJoinedHooks(CharmTestCase):
                   call('/etc/cinder/cinder.conf')]:
             self.assertIn(c, self.CONFIGS.write.call_args_list)
         self.set_ceph_env_variables.assert_called_with(service='cinder')
+        self.service_restart.assert_called_with('cinder-volume')
 
     @patch("cinder_hooks.relation_get", autospec=True)
     def test_ceph_changed_broker_nonzero_rc(self, mock_relation_get):
