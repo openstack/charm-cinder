@@ -15,6 +15,22 @@ options:
       the cloud:precise-folsom/updates repository instead, since Cinder
       was not available in the Ubuntu archive for Precise and is only
       available via the Ubuntu Cloud Archive.
+
+      Note that when openstack-origin-git is specified, openstack
+      specific packages will be installed from source rather than
+      from the openstack-origin repository.
+  openstack-origin-git:
+    default:
+    type: string
+    description: |
+      Specifies a YAML-formatted dictionary listing the git
+      repositories and branches from which to install OpenStack and
+      its dependencies.
+
+      Note that the installed config files will be determined based on
+      the OpenStack release of the openstack-origin option.
+
+      For more details see README.md.
   enabled-services:
     default: all
     type: string
