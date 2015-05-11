@@ -591,6 +591,7 @@ def git_post_install(projects_yaml):
         shutil.rmtree(configs['dest'])
     shutil.copytree(configs['src'], configs['dest'])
 
+    # NOTE(coreycb): Need to find better solution than bin symlinks.
     symlinks = [
         {'src': os.path.join(git_pip_venv_dir(projects_yaml),
                              'bin/cinder-manage'),
