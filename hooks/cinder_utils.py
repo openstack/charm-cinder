@@ -105,6 +105,7 @@ BASE_GIT_PACKAGES = [
     'libssl-dev',
     'libxml2-dev',
     'libxslt1-dev',
+    'libyaml-dev',
     'lvm2',
     'python-dev',
     'python-pip',
