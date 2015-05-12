@@ -575,7 +575,7 @@ def git_pre_install():
 def git_post_install(projects_yaml):
     """Perform cinder post-install setup."""
     http_proxy = git_yaml_value(projects_yaml, 'http_proxy')
-    base_packages = ['mysql-python', 'python-cephclient']
+    base_packages = ['mysql-python']
     for pkg in base_packages:
         if http_proxy:
             pip_install(pkg, proxy=http_proxy,
@@ -602,6 +602,14 @@ def git_post_install(projects_yaml):
         {'src': os.path.join(git_pip_venv_dir(projects_yaml),
                              'bin/cinder-rootwrap'),
          'link': '/usr/local/bin/cinder-rootwrap'},
+        # NOTE(coreycb): This is ugly but couldn't find pypi package that
+        #                installs rbd.py and rados.py.
+        {'src': '/usr/lib/python2.7/dist-packages/rbd.py',
+         'link': os.path.join(git_pip_venv_dir(projects_yaml),
+                              'lib/python2.7/site-packages/rbd.py')},
+        {'src': '/usr/lib/python2.7/dist-packages/rados.py',
+         'link': os.path.join(git_pip_venv_dir(projects_yaml),
+                              'lib/python2.7/site-packages/rados.py')},
     ]
 
     for s in symlinks:
