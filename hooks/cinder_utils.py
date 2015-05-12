@@ -574,12 +574,14 @@ def git_pre_install():
 def git_post_install(projects_yaml):
     """Perform cinder post-install setup."""
     http_proxy = git_yaml_value(projects_yaml, 'http_proxy')
-    if http_proxy:
-        pip_install('mysql-python', proxy=http_proxy,
-                    venv=git_pip_venv_dir(projects_yaml))
-    else:
-        pip_install('mysql-python',
-                    venv=git_pip_venv_dir(projects_yaml))
+    base_packages = ['mysql-python', 'python-cephclient']
+    for pkg in base_packages:
+        if http_proxy:
+            pip_install(pkg, proxy=http_proxy,
+                        venv=git_pip_venv_dir(projects_yaml))
+        else:
+            pip_install(pkg,
+                        venv=git_pip_venv_dir(projects_yaml))
 
     src_etc = os.path.join(git_src_dir(projects_yaml, 'cinder'), 'etc/cinder')
     configs = {
