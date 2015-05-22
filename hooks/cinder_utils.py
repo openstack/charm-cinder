@@ -481,9 +481,12 @@ def migrate_database():
     cmd = ['cinder-manage', 'db', 'sync']
     subprocess.check_call(cmd)
     # Notify peers so that services get restarted
-    log("Notifying peer(s) that db is initialised", level=DEBUG)
+    log("Notifying peer(s) that db is initialised and restarting services",
+        level=DEBUG)
     for r_id in relation_ids('cluster'):
-        enabled_services()
+        for svc in enabled_services():
+            service_restart(svc)
+
         key = 'cinder-db-initialised'
         relation_set(relation_id=r_id, **{key: str(uuid.uuid4())})
 
