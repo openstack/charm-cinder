@@ -14,10 +14,14 @@ TO_PATCH = [
     # helpers.core.hookenv
     'config',
     'log',
+    'relation_get',
+    'relation_set',
+    'local_unit',
     # helpers.core.host
     'mounts',
     'umount',
     'mkdir',
+    'service_restart',
     # ceph utils
     # storage_utils
     'create_lvm_physical_volume',
@@ -26,6 +30,7 @@ TO_PATCH = [
     'is_lvm_physical_volume',
     'list_lvm_volume_group',
     'relation_ids',
+    'relation_set',
     'remove_lvm_physical_volume',
     'ensure_loopback_device',
     'is_block_device',
@@ -406,11 +411,18 @@ class TestCinderUtils(CharmTestCase):
         cinder_utils.extend_lvm_volume_group('test', '/dev/sdb')
         _call.assert_called_with(['vgextend', 'test', '/dev/sdb'])
 
-    def test_migrate_database(self):
+    @patch.object(cinder_utils, 'uuid')
+    def test_migrate_database(self, mock_uuid):
         'It migrates database with cinder-manage'
+        uuid = 'a-great-uuid'
+        mock_uuid.uuid4.return_value = uuid
+        rid = 'cluster:0'
+        self.relation_ids.return_value = [rid]
+        args = {'cinder-db-initialised': uuid}
         with patch('subprocess.check_call') as check_call:
             cinder_utils.migrate_database()
             check_call.assert_called_with(['cinder-manage', 'db', 'sync'])
+            self.relation_set.assert_called_with(relation_id=rid, **args)
 
     @patch('os.path.exists')
     def test_register_configs_apache(self, exists):
@@ -663,3 +675,13 @@ class TestCinderUtils(CharmTestCase):
             call('cinder-scheduler'),
         ]
         self.assertEquals(service_restart.call_args_list, expected)
+
+    def test_check_db_initialised(self):
+        self.relation_get.return_value = {}
+        cinder_utils.check_db_initialised()
+        self.assertFalse(self.relation_set.called)
+
+        self.relation_get.return_value = {'cinder-db-initialised': '1234'}
+        cinder_utils.check_db_initialised()
+        calls = [call(**{'cinder-db-initialised': '1234'})]
+        self.relation_set.assert_has_calls(calls)

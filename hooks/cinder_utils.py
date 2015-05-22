@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import uuid
 
 from collections import OrderedDict
 from copy import copy
@@ -8,8 +9,12 @@ from copy import copy
 from charmhelpers.core.hookenv import (
     charm_dir,
     config,
+    local_unit,
+    relation_get,
+    relation_set,
     relation_ids,
     log,
+    DEBUG,
     service_name
 )
 
@@ -295,6 +300,15 @@ def restart_map():
     return OrderedDict(_map)
 
 
+def enabled_services():
+    m = restart_map()
+    svcs = set()
+    for t in m.iteritems():
+        svcs.update(t[1])
+
+    return list(svcs)
+
+
 def services():
     ''' Returns a list of services associate with this charm '''
     _services = []
@@ -441,10 +455,37 @@ def _parse_block_device(block_device):
         return ('/dev/{}'.format(block_device), 0)
 
 
+def check_db_initialised(passthrough=False):
+    """Check if we have received db init'd notify and restart services if we
+    have not already.
+    """
+    settings = relation_get() or {}
+    if settings:
+        key = 'cinder-db-initialised'
+        db_init = settings.get(key)
+        echoed_db_init = relation_get(unit=local_unit(), attribute=key)
+        if db_init and db_init != echoed_db_init:
+            if not passthrough:
+                log("Restarting cinder services following db initialisation",
+                    level=DEBUG)
+                for svc in enabled_services():
+                    service_restart(svc)
+            else:
+                log("Passthough db init", level=DEBUG)
+
+            relation_set(**{key: db_init})
+
+
 def migrate_database():
     'Runs cinder-manage to initialize a new database or migrate existing'
     cmd = ['cinder-manage', 'db', 'sync']
     subprocess.check_call(cmd)
+    # Notify peers so that services get restarted
+    log("Notifying peer(s) that db is initialised", level=DEBUG)
+    for r_id in relation_ids('cluster'):
+        enabled_services()
+        key = 'cinder-db-initialised'
+        relation_set(relation_id=r_id, **{key: str(uuid.uuid4())})
 
 
 def set_ceph_env_variables(service):
