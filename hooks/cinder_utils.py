@@ -5,6 +5,10 @@ import subprocess
 from collections import OrderedDict
 from copy import copy
 
+from charmhelpers.contrib.python.packages import (
+    pip_install,
+)
+
 from charmhelpers.core.hookenv import (
     charm_dir,
     config,
@@ -69,6 +73,8 @@ from charmhelpers.contrib.openstack.utils import (
     git_install_requested,
     git_clone_and_install,
     git_src_dir,
+    git_yaml_value,
+    git_pip_venv_dir,
     os_release,
 )
 
@@ -94,8 +100,12 @@ VOLUME_PACKAGES = ['cinder-volume']
 SCHEDULER_PACKAGES = ['cinder-scheduler']
 
 BASE_GIT_PACKAGES = [
+    'libffi-dev',
+    'libmysqlclient-dev',
+    'libssl-dev',
     'libxml2-dev',
     'libxslt1-dev',
+    'libyaml-dev',
     'lvm2',
     'python-dev',
     'python-pip',
@@ -564,6 +574,16 @@ def git_pre_install():
 
 def git_post_install(projects_yaml):
     """Perform cinder post-install setup."""
+    http_proxy = git_yaml_value(projects_yaml, 'http_proxy')
+    base_packages = ['mysql-python']
+    for pkg in base_packages:
+        if http_proxy:
+            pip_install(pkg, proxy=http_proxy,
+                        venv=git_pip_venv_dir(projects_yaml))
+        else:
+            pip_install(pkg,
+                        venv=git_pip_venv_dir(projects_yaml))
+
     src_etc = os.path.join(git_src_dir(projects_yaml, 'cinder'), 'etc/cinder')
     configs = {
         'src': src_etc,
@@ -573,6 +593,29 @@ def git_post_install(projects_yaml):
     if os.path.exists(configs['dest']):
         shutil.rmtree(configs['dest'])
     shutil.copytree(configs['src'], configs['dest'])
+
+    # NOTE(coreycb): Need to find better solution than bin symlinks.
+    symlinks = [
+        {'src': os.path.join(git_pip_venv_dir(projects_yaml),
+                             'bin/cinder-manage'),
+         'link': '/usr/local/bin/cinder-manage'},
+        {'src': os.path.join(git_pip_venv_dir(projects_yaml),
+                             'bin/cinder-rootwrap'),
+         'link': '/usr/local/bin/cinder-rootwrap'},
+        # NOTE(coreycb): This is ugly but couldn't find pypi package that
+        #                installs rbd.py and rados.py.
+        {'src': '/usr/lib/python2.7/dist-packages/rbd.py',
+         'link': os.path.join(git_pip_venv_dir(projects_yaml),
+                              'lib/python2.7/site-packages/rbd.py')},
+        {'src': '/usr/lib/python2.7/dist-packages/rados.py',
+         'link': os.path.join(git_pip_venv_dir(projects_yaml),
+                              'lib/python2.7/site-packages/rados.py')},
+    ]
+
+    for s in symlinks:
+        if os.path.lexists(s['link']):
+            os.remove(s['link'])
+        os.symlink(s['src'], s['link'])
 
     render('cinder.conf', '/etc/cinder/cinder.conf', {}, owner='cinder',
            group='cinder', perms=0o644)
@@ -585,13 +628,14 @@ def git_post_install(projects_yaml):
 
     os.chmod('/etc/sudoers.d', 0o750)
 
+    bin_dir = os.path.join(git_pip_venv_dir(projects_yaml), 'bin')
     cinder_api_context = {
         'service_description': 'Cinder API server',
         'service_name': 'Cinder',
         'user_name': 'cinder',
         'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-api',
-        'executable_name': '/usr/local/bin/cinder-api',
+        'executable_name': os.path.join(bin_dir, 'cinder-api'),
         'config_files': ['/etc/cinder/cinder.conf'],
         'log_file': '/var/log/cinder/cinder-api.log',
     }
@@ -602,7 +646,7 @@ def git_post_install(projects_yaml):
         'user_name': 'cinder',
         'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-backup',
-        'executable_name': '/usr/local/bin/cinder-backup',
+        'executable_name': os.path.join(bin_dir, 'cinder-backup'),
         'config_files': ['/etc/cinder/cinder.conf'],
         'log_file': '/var/log/cinder/cinder-backup.log',
     }
@@ -613,7 +657,7 @@ def git_post_install(projects_yaml):
         'user_name': 'cinder',
         'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-scheduler',
-        'executable_name': '/usr/local/bin/cinder-scheduler',
+        'executable_name': os.path.join(bin_dir, 'cinder-scheduler'),
         'config_files': ['/etc/cinder/cinder.conf'],
         'log_file': '/var/log/cinder/cinder-scheduler.log',
     }
@@ -624,7 +668,7 @@ def git_post_install(projects_yaml):
         'user_name': 'cinder',
         'start_dir': '/var/lib/cinder',
         'process_name': 'cinder-volume',
-        'executable_name': '/usr/local/bin/cinder-volume',
+        'executable_name': os.path.join(bin_dir, 'cinder-volume'),
         'config_files': ['/etc/cinder/cinder.conf'],
         'log_file': '/var/log/cinder/cinder-volume.log',
     }
