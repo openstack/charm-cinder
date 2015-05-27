@@ -80,11 +80,10 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             openstack_origin_git = {
                 'repositories': [
                     {'name': 'requirements',
-                     'repository':
-                     'git://git.openstack.org/openstack/requirements',
+                     'repository': 'git://github.com/openstack/requirements',
                      'branch': branch},
                     {'name': 'cinder',
-                     'repository': 'git://git.openstack.org/openstack/cinder',
+                     'repository': 'git://github.com/openstack/cinder',
                      'branch': branch},
                 ],
                 'directory': '/mnt/openstack-git',
