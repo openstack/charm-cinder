@@ -207,6 +207,19 @@ options:
       192.168.0.0/24)
       .
       This network will be used for public endpoints.
+  endpoint-public-name:
+    type: string
+    default:
+    description: |
+      The hostname or address of the public endpoints created for cinder
+      in the keystone identity provider.
+      .
+      This value will be used for public endpoints. For example, an
+      endpoint-public-name set to 'cinder.example.com' with ssl enabled will
+      create two public endpoints for cinder.
+      .
+      https://cinder.example.com:443/v1/$(tenant_id)s and
+      https://cinder.example.com:443/v2/$(tenant_id)s
   prefer-ipv6:
     type: boolean
     default: False
