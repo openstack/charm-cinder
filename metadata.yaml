@@ -30,6 +30,9 @@ requires:
   storage-backend:
     interface: cinder-backend
     scope: container
+  backup-backend:
+    interface: cinder-backup
+    scope: container
 peers:
   cluster:
     interface: cinder-ha
