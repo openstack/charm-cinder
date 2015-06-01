@@ -3,12 +3,15 @@ from charmhelpers.core.hookenv import (
     relation_ids,
     service_name,
     related_units,
-    relation_get
+    relation_get,
+    log,
+    DEBUG,
 )
 
 from charmhelpers.contrib.openstack.context import (
     OSContextGenerator,
     ApacheSSLContext as SSLContext,
+    SubordinateConfigContext as BaseSubordinateConfigContext,
 )
 
 from charmhelpers.contrib.openstack.utils import (
@@ -19,6 +22,9 @@ from charmhelpers.contrib.hahelpers.cluster import (
     determine_apache_port,
     determine_api_port,
 )
+
+CINDER_CONF_DIR = "/etc/cinder"
+CINDER_CONF = '%s/cinder.conf' % CINDER_CONF_DIR
 
 
 class ImageServiceContext(OSContextGenerator):
@@ -104,6 +110,26 @@ class StorageBackendContext(OSContextGenerator):
             return {'backends': ",".join(backends)}
         else:
             return {}
+
+
+class SubordinateConfigContext(OSContextGenerator):
+    def __call__(self):
+        cls = BaseSubordinateConfigContext
+        ctxt1 = cls(interface='storage-backend',
+                    service='cinder',
+                    config_file=CINDER_CONF)()
+        ctxt2 = cls(interface='backup-backend',
+                    service='cinder',
+                    config_file=CINDER_CONF)()
+
+        for key in ctxt2:
+            if key not in ctxt1:
+                ctxt1[key] = ctxt2[key]
+                ctxt1[key] += ctxt2[key]
+            else:
+                ctxt1[key].update(ctxt2[key])
+
+        return ctxt1
 
 
 class LoggingConfigContext(OSContextGenerator):
