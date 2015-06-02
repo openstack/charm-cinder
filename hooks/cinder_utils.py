@@ -122,6 +122,8 @@ DEFAULT_LOOPBACK_SIZE = '5G'
 # Cluster resource used to determine leadership when hacluster'd
 CLUSTER_RES = 'grp_cinder_vips'
 
+CINDER_DB_INITIALISED_RKEY = 'cinder-db-initialised'
+
 
 class CinderCharmError(Exception):
     pass
@@ -455,25 +457,24 @@ def _parse_block_device(block_device):
         return ('/dev/{}'.format(block_device), 0)
 
 
-def check_db_initialised(passthrough=False):
+def check_db_initialised():
     """Check if we have received db init'd notify and restart services if we
     have not already.
     """
     settings = relation_get() or {}
     if settings:
-        key = 'cinder-db-initialised'
-        db_init = settings.get(key)
-        echoed_db_init = relation_get(unit=local_unit(), attribute=key)
-        if db_init and db_init != echoed_db_init:
-            if not passthrough:
-                log("Restarting cinder services following db initialisation",
-                    level=DEBUG)
-                for svc in enabled_services():
-                    service_restart(svc)
-            else:
-                log("Passthough db init", level=DEBUG)
+        init_id = settings.get(CINDER_DB_INITIALISED_RKEY)
+        echoed_init_id = relation_get(unit=local_unit(),
+                                      attribute=CINDER_DB_INITIALISED_RKEY)
+        if (init_id and init_id != echoed_init_id and
+                local_unit() not in init_id):
+            log("Restarting cinder services following db initialisation",
+                level=DEBUG)
+            for svc in enabled_services():
+                service_restart(svc)
 
-            relation_set(**{key: db_init})
+            # Echo
+            relation_set(**{CINDER_DB_INITIALISED_RKEY: init_id})
 
 
 def migrate_database():
@@ -487,8 +488,8 @@ def migrate_database():
         for svc in enabled_services():
             service_restart(svc)
 
-        key = 'cinder-db-initialised'
-        relation_set(relation_id=r_id, **{key: str(uuid.uuid4())})
+        id = "%s-%s" % (local_unit(), uuid.uuid4())
+        relation_set(relation_id=r_id, **{CINDER_DB_INITIALISED_RKEY: id})
 
 
 def set_ceph_env_variables(service):

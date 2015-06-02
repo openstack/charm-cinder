@@ -369,7 +369,7 @@ def cluster_joined(relation_id=None):
 
     # Only do if this is fired by cluster rel
     if not relation_id:
-        check_db_initialised(passthrough=True)
+        check_db_initialised()
 
     if config('prefer-ipv6'):
         private_addr = get_ipv6_addr(exc_list=[config('vip')])[0]
