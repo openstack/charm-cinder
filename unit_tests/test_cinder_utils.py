@@ -411,6 +411,7 @@ class TestCinderUtils(CharmTestCase):
         cinder_utils.extend_lvm_volume_group('test', '/dev/sdb')
         _call.assert_called_with(['vgextend', 'test', '/dev/sdb'])
 
+    @patch.object(cinder_utils, 'local_unit', lambda *args: 'unit/0')
     @patch.object(cinder_utils, 'uuid')
     def test_migrate_database(self, mock_uuid):
         'It migrates database with cinder-manage'
@@ -418,7 +419,7 @@ class TestCinderUtils(CharmTestCase):
         mock_uuid.uuid4.return_value = uuid
         rid = 'cluster:0'
         self.relation_ids.return_value = [rid]
-        args = {'cinder-db-initialised': uuid}
+        args = {'cinder-db-initialised': "unit/0-%s" % uuid}
         with patch('subprocess.check_call') as check_call:
             cinder_utils.migrate_database()
             check_call.assert_called_with(['cinder-manage', 'db', 'sync'])
@@ -676,12 +677,25 @@ class TestCinderUtils(CharmTestCase):
         ]
         self.assertEquals(service_restart.call_args_list, expected)
 
+    @patch.object(cinder_utils, 'local_unit', lambda *args: 'unit/0')
+    def test_check_db_initialised_by_self(self):
+        self.relation_get.return_value = {}
+        cinder_utils.check_db_initialised()
+        self.assertFalse(self.relation_set.called)
+
+        self.relation_get.return_value = {'cinder-db-initialised':
+                                          'unit/0-1234'}
+        cinder_utils.check_db_initialised()
+        self.assertFalse(self.relation_set.called)
+
+    @patch.object(cinder_utils, 'local_unit', lambda *args: 'unit/0')
     def test_check_db_initialised(self):
         self.relation_get.return_value = {}
         cinder_utils.check_db_initialised()
         self.assertFalse(self.relation_set.called)
 
-        self.relation_get.return_value = {'cinder-db-initialised': '1234'}
+        self.relation_get.return_value = {'cinder-db-initialised':
+                                          'unit/1-1234'}
         cinder_utils.check_db_initialised()
-        calls = [call(**{'cinder-db-initialised': '1234'})]
+        calls = [call(**{'cinder-db-initialised': 'unit/1-1234'})]
         self.relation_set.assert_has_calls(calls)
