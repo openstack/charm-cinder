@@ -464,14 +464,17 @@ class TestJoinedHooks(CharmTestCase):
         self.relation_set.assert_called_with(**expected)
 
     @patch('charmhelpers.contrib.openstack.ip.config')
-    @patch('charmhelpers.contrib.openstack.ip.resolve_address')
-    def test_identity_service_joined_public_name(self, _resolve_address, _config):
+    @patch('charmhelpers.contrib.openstack.ip.unit_get')
+    @patch('charmhelpers.contrib.openstack.ip.is_clustered')
+    def test_identity_service_joined_public_name(self, _is_clustered,
+                                                 _unit_get, _config):
         self.os_release.return_value = 'icehouse'
         self.unit_get.return_value = 'cindernode1'
+        _unit_get.return_value = 'cindernode1'
         self.config.side_effect = self.test_config.get
         _config.side_effect = self.test_config.get
         self.test_config.set('endpoint-public-name', 'public.example.com')
-        _resolve_address.return_value = 'cindernode1'
+        _is_clustered.return_value = False
         hooks.hooks.execute(['hooks/identity-service-relation-joined'])
         expected = {
             'region': None,
