@@ -697,5 +697,5 @@ class TestCinderUtils(CharmTestCase):
         self.relation_get.return_value = {'cinder-db-initialised':
                                           'unit/1-1234'}
         cinder_utils.check_db_initialised()
-        calls = [call(**{'cinder-db-initialised': 'unit/1-1234'})]
+        calls = [call(**{'cinder-db-initialised-echo': 'unit/1-1234'})]
         self.relation_set.assert_has_calls(calls)

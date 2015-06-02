@@ -122,7 +122,8 @@ DEFAULT_LOOPBACK_SIZE = '5G'
 # Cluster resource used to determine leadership when hacluster'd
 CLUSTER_RES = 'grp_cinder_vips'
 
-CINDER_DB_INITIALISED_RKEY = 'cinder-db-initialised'
+CINDER_DB_INIT_RKEY = 'cinder-db-initialised'
+CINDER_DB_INIT_ECHO_RKEY = 'cinder-db-initialised-echo'
 
 
 class CinderCharmError(Exception):
@@ -463,9 +464,9 @@ def check_db_initialised():
     """
     settings = relation_get() or {}
     if settings:
-        init_id = settings.get(CINDER_DB_INITIALISED_RKEY)
+        init_id = settings.get(CINDER_DB_INIT_RKEY)
         echoed_init_id = relation_get(unit=local_unit(),
-                                      attribute=CINDER_DB_INITIALISED_RKEY)
+                                      attribute=CINDER_DB_INIT_ECHO_RKEY)
         if (init_id and init_id != echoed_init_id and
                 local_unit() not in init_id):
             log("Restarting cinder services following db initialisation",
@@ -473,8 +474,8 @@ def check_db_initialised():
             for svc in enabled_services():
                 service_restart(svc)
 
-            # Echo
-            relation_set(**{CINDER_DB_INITIALISED_RKEY: init_id})
+            # Set echo
+            relation_set(**{CINDER_DB_INIT_ECHO_RKEY: init_id})
 
 
 def migrate_database():
@@ -489,7 +490,7 @@ def migrate_database():
             service_restart(svc)
 
         id = "%s-%s" % (local_unit(), uuid.uuid4())
-        relation_set(relation_id=r_id, **{CINDER_DB_INITIALISED_RKEY: id})
+        relation_set(relation_id=r_id, **{CINDER_DB_INIT_RKEY: id})
 
 
 def set_ceph_env_variables(service):
