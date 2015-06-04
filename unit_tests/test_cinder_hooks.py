@@ -476,6 +476,8 @@ class TestJoinedHooks(CharmTestCase):
         self.test_config.set('os-public-hostname', 'public.example.com')
         _is_clustered.return_value = False
         hooks.hooks.execute(['hooks/identity-service-relation-joined'])
+        v1_url = 'http://public.example.com:8776/v1/$(tenant_id)s'
+        v2_url = 'http://public.example.com:8776/v2/$(tenant_id)s'
         expected = {
             'region': None,
             'service': None,
@@ -484,17 +486,15 @@ class TestJoinedHooks(CharmTestCase):
             'admin_url': None,
             'cinder_service': 'cinder',
             'cinder_region': 'RegionOne',
-            'cinder_public_url':
-                'http://public.example.com:8776/v1/$(tenant_id)s',
+            'cinder_public_url': v1_url,
             'cinder_admin_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
             'cinder_internal_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
             'cinderv2_service': 'cinderv2',
             'cinderv2_region': 'RegionOne',
-            'cinderv2_public_url':
-                'http://public.example.com:8776/v2/$(tenant_id)s',
+            'cinderv2_public_url': v2_url,
             'cinderv2_admin_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
-            'cinderv2_internal_url': 'http://cindernode1:8776/'
-                                     'v2/$(tenant_id)s',
+            'cinderv2_internal_url': ('http://cindernode1:8776/'
+                                      'v2/$(tenant_id)s'),
             'relation_id': None,
         }
         self.relation_set.assert_called_with(**expected)
