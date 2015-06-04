@@ -24,7 +24,8 @@ from cinder_utils import (
     CINDER_CONF,
     CINDER_API_CONF,
     ceph_config_file,
-    setup_ipv6
+    setup_ipv6,
+    check_db_initialised,
 )
 
 from charmhelpers.core.hookenv import (
@@ -40,7 +41,7 @@ from charmhelpers.core.hookenv import (
     unit_get,
     log,
     ERROR,
-    INFO
+    INFO,
 )
 
 from charmhelpers.fetch import (
@@ -365,6 +366,11 @@ def cluster_joined(relation_id=None):
                 relation_id=relation_id,
                 relation_settings={'{}-address'.format(addr_type): address}
             )
+
+    # Only do if this is fired by cluster rel
+    if not relation_id:
+        check_db_initialised()
+
     if config('prefer-ipv6'):
         private_addr = get_ipv6_addr(exc_list=[config('vip')])[0]
         relation_set(relation_id=relation_id,
@@ -375,6 +381,7 @@ def cluster_joined(relation_id=None):
             'cluster-relation-departed')
 @restart_on_change(restart_map(), stopstart=True)
 def cluster_changed():
+    check_db_initialised()
     CONFIGS.write_all()
 
 
