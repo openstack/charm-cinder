@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import uuid
 
 from collections import OrderedDict
 from copy import copy
@@ -12,8 +13,12 @@ from charmhelpers.contrib.python.packages import (
 from charmhelpers.core.hookenv import (
     charm_dir,
     config,
+    local_unit,
+    relation_get,
+    relation_set,
     relation_ids,
     log,
+    DEBUG,
     service_name
 )
 
@@ -126,6 +131,9 @@ DEFAULT_LOOPBACK_SIZE = '5G'
 
 # Cluster resource used to determine leadership when hacluster'd
 CLUSTER_RES = 'grp_cinder_vips'
+
+CINDER_DB_INIT_RKEY = 'cinder-db-initialised'
+CINDER_DB_INIT_ECHO_RKEY = 'cinder-db-initialised-echo'
 
 
 class CinderCharmError(Exception):
@@ -305,6 +313,15 @@ def restart_map():
     return OrderedDict(_map)
 
 
+def enabled_services():
+    m = restart_map()
+    svcs = set()
+    for t in m.iteritems():
+        svcs.update(t[1])
+
+    return list(svcs)
+
+
 def services():
     ''' Returns a list of services associate with this charm '''
     _services = []
@@ -451,10 +468,39 @@ def _parse_block_device(block_device):
         return ('/dev/{}'.format(block_device), 0)
 
 
+def check_db_initialised():
+    """Check if we have received db init'd notify and restart services if we
+    have not already.
+    """
+    settings = relation_get() or {}
+    if settings:
+        init_id = settings.get(CINDER_DB_INIT_RKEY)
+        echoed_init_id = relation_get(unit=local_unit(),
+                                      attribute=CINDER_DB_INIT_ECHO_RKEY)
+        if (init_id and init_id != echoed_init_id and
+                local_unit() not in init_id):
+            log("Restarting cinder services following db initialisation",
+                level=DEBUG)
+            for svc in enabled_services():
+                service_restart(svc)
+
+            # Set echo
+            relation_set(**{CINDER_DB_INIT_ECHO_RKEY: init_id})
+
+
 def migrate_database():
     'Runs cinder-manage to initialize a new database or migrate existing'
     cmd = ['cinder-manage', 'db', 'sync']
     subprocess.check_call(cmd)
+    # Notify peers so that services get restarted
+    log("Notifying peer(s) that db is initialised and restarting services",
+        level=DEBUG)
+    for r_id in relation_ids('cluster'):
+        for svc in enabled_services():
+            service_restart(svc)
+
+        id = "%s-%s" % (local_unit(), uuid.uuid4())
+        relation_set(relation_id=r_id, **{CINDER_DB_INIT_RKEY: id})
 
 
 def set_ceph_env_variables(service):

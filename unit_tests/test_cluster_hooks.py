@@ -63,6 +63,7 @@ class TestClusterHooks(CharmTestCase):
         super(TestClusterHooks, self).setUp(hooks, TO_PATCH)
         self.config.side_effect = self.test_config.get
 
+    @patch.object(hooks, 'check_db_initialised', lambda *args, **kwargs: None)
     @patch('charmhelpers.core.host.service')
     @patch('charmhelpers.core.host.file_hash')
     def test_cluster_hook(self, file_hash, service):
@@ -88,12 +89,14 @@ class TestClusterHooks(CharmTestCase):
             call('start', 'apache2')]
         self.assertEquals(ex, service.call_args_list)
 
+    @patch.object(hooks, 'check_db_initialised', lambda *args, **kwargs: None)
     def test_cluster_joined_hook(self):
         self.config.side_effect = self.test_config.get
         self.get_address_in_network.return_value = None
         hooks.hooks.execute(['hooks/cluster-relation-joined'])
         self.assertFalse(self.relation_set.called)
 
+    @patch.object(hooks, 'check_db_initialised', lambda *args, **kwargs: None)
     def test_cluster_joined_hook_multinet(self):
         self.config.side_effect = self.test_config.get
         self.get_address_in_network.side_effect = [
