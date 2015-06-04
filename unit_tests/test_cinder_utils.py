@@ -572,6 +572,7 @@ class TestCinderUtils(CharmTestCase):
     @patch.object(cinder_utils, 'git_src_dir')
     @patch.object(cinder_utils, 'service_restart')
     @patch.object(cinder_utils, 'render')
+    @patch.object(cinder_utils, 'pip_install')
     @patch('os.path.join')
     @patch('os.path.exists')
     @patch('shutil.copytree')
@@ -580,16 +581,25 @@ class TestCinderUtils(CharmTestCase):
     @patch('grp.getgrnam')
     @patch('os.chown')
     @patch('os.chmod')
-    def test_git_post_install(self, chmod, chown, grp, pwd, rmtree, copytree,
-                              exists, join, render, service_restart,
-                              git_src_dir):
+    @patch('os.symlink')
+    def test_git_post_install(self, symlink, chmod, chown, grp, pwd, rmtree,
+                              copytree, exists, join, pip_install, render,
+                              service_restart, git_src_dir):
         projects_yaml = openstack_origin_git
         join.return_value = 'joined-string'
         cinder_utils.git_post_install(projects_yaml)
+        pip_install('mysql-python', venv='joined-string')
         expected = [
             call('joined-string', '/etc/cinder'),
         ]
         copytree.assert_has_calls(expected)
+
+        expected = [
+            call('joined-string', '/usr/local/bin/cinder-manage'),
+            call('/usr/lib/python2.7/dist-packages/rbd.py', 'joined-string'),
+            call('/usr/lib/python2.7/dist-packages/rados.py', 'joined-string'),
+        ]
+        symlink.assert_has_calls(expected, any_order=True)
 
         cinder_api_context = {
             'service_description': 'Cinder API server',
@@ -597,7 +607,7 @@ class TestCinderUtils(CharmTestCase):
             'user_name': 'cinder',
             'start_dir': '/var/lib/cinder',
             'process_name': 'cinder-api',
-            'executable_name': '/usr/local/bin/cinder-api',
+            'executable_name': 'joined-string',
             'config_files': ['/etc/cinder/cinder.conf'],
             'log_file': '/var/log/cinder/cinder-api.log',
         }
@@ -608,7 +618,7 @@ class TestCinderUtils(CharmTestCase):
             'user_name': 'cinder',
             'start_dir': '/var/lib/cinder',
             'process_name': 'cinder-backup',
-            'executable_name': '/usr/local/bin/cinder-backup',
+            'executable_name': 'joined-string',
             'config_files': ['/etc/cinder/cinder.conf'],
             'log_file': '/var/log/cinder/cinder-backup.log',
         }
@@ -619,7 +629,7 @@ class TestCinderUtils(CharmTestCase):
             'user_name': 'cinder',
             'start_dir': '/var/lib/cinder',
             'process_name': 'cinder-scheduler',
-            'executable_name': '/usr/local/bin/cinder-scheduler',
+            'executable_name': 'joined-string',
             'config_files': ['/etc/cinder/cinder.conf'],
             'log_file': '/var/log/cinder/cinder-scheduler.log',
         }
@@ -630,7 +640,7 @@ class TestCinderUtils(CharmTestCase):
             'user_name': 'cinder',
             'start_dir': '/var/lib/cinder',
             'process_name': 'cinder-volume',
-            'executable_name': '/usr/local/bin/cinder-volume',
+            'executable_name': 'joined-string',
             'config_files': ['/etc/cinder/cinder.conf'],
             'log_file': '/var/log/cinder/cinder-volume.log',
         }
