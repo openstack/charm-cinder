@@ -48,7 +48,7 @@ TO_PATCH = [
     # charmhelpers.contrib.openstack.openstack_utils
     'configure_installation_source',
     # charmhelpers.contrib.hahelpers.cluster_utils
-    'eligible_leader',
+    'is_elected_leader',
     'get_hacluster_config',
     # charmhelpers.contrib.network.ip
     'get_iface_for_address',
