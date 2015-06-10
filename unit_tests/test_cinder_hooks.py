@@ -62,12 +62,13 @@ TO_PATCH = [
     'apt_install',
     'apt_update',
     'service_reload',
+    'service_restart',
     # charmhelpers.contrib.openstack.openstack_utils
     'configure_installation_source',
     'openstack_upgrade_available',
     'os_release',
     # charmhelpers.contrib.hahelpers.cluster_utils
-    'eligible_leader',
+    'is_elected_leader',
     'get_hacluster_config',
     'execd_preinstall',
     'get_ipv6_addr',
@@ -239,7 +240,7 @@ class TestChangedHooks(CharmTestCase):
         self.relation_get.return_value = 'cinder/1 cinder/2'
         self.local_unit.return_value = 'cinder/0'
         self.CONFIGS.complete_contexts.return_value = ['shared-db']
-        self.eligible_leader.return_value = True
+        self.is_elected_leader.return_value = True
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
         self.assertFalse(self.migrate_database.called)
 
@@ -248,7 +249,7 @@ class TestChangedHooks(CharmTestCase):
         self.relation_get.return_value = None
         self.local_unit.return_value = 'cinder/0'
         self.CONFIGS.complete_contexts.return_value = ['shared-db']
-        self.eligible_leader.return_value = True
+        self.is_elected_leader.return_value = True
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
         self.assertFalse(self.migrate_database.called)
 
@@ -262,7 +263,7 @@ class TestChangedHooks(CharmTestCase):
         'It does not migrate database when not leader'
         self.relation_get.return_value = 'cinder/0 cinder/1'
         self.local_unit.return_value = 'cinder/0'
-        self.eligible_leader.return_value = False
+        self.is_elected_leader.return_value = False
         self.CONFIGS.complete_contexts.return_value = ['shared-db']
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
         self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
@@ -270,7 +271,7 @@ class TestChangedHooks(CharmTestCase):
 
     def test_pgsql_db_changed_not_leader(self):
         'It does not migrate database when not leader'
-        self.eligible_leader.return_value = False
+        self.is_elected_leader.return_value = False
         self.CONFIGS.complete_contexts.return_value = ['pgsql-db']
         hooks.hooks.execute(['hooks/pgsql-db-relation-changed'])
         self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
@@ -557,6 +558,7 @@ class TestJoinedHooks(CharmTestCase):
                   call('/etc/cinder/cinder.conf')]:
             self.assertIn(c, self.CONFIGS.write.call_args_list)
         self.set_ceph_env_variables.assert_called_with(service='cinder')
+        self.service_restart.assert_called_with('cinder-volume')
 
     @patch("cinder_hooks.relation_get", autospec=True)
     def test_ceph_changed_broker_nonzero_rc(self, mock_relation_get):
@@ -594,7 +596,7 @@ class TestJoinedHooks(CharmTestCase):
 
     def test_ceph_changed_no_leadership(self):
         '''It does not attempt to create ceph pool if not leader'''
-        self.eligible_leader.return_value = False
+        self.is_elected_leader.return_value = False
         self.service_name.return_value = 'cinder'
         self.ensure_ceph_keyring.return_value = True
         hooks.hooks.execute(['hooks/ceph-relation-changed'])

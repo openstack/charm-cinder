@@ -45,7 +45,7 @@ from charmhelpers.core.host import (
 
 from charmhelpers.contrib.openstack.alternatives import install_alternative
 from charmhelpers.contrib.hahelpers.cluster import (
-    eligible_leader,
+    is_elected_leader,
 )
 
 from charmhelpers.contrib.storage.linux.utils import (
@@ -83,6 +83,9 @@ from charmhelpers.contrib.openstack.utils import (
     os_release,
 )
 
+from charmhelpers.core.decorators import (
+    retry_on_exception,
+)
 from charmhelpers.core.templating import render
 
 import cinder_contexts
@@ -488,6 +491,9 @@ def check_db_initialised():
             relation_set(**{CINDER_DB_INIT_ECHO_RKEY: init_id})
 
 
+# NOTE(jamespage): Retry deals with sync issues during one-shot HA deploys.
+#                  mysql might be restarting or suchlike.
+@retry_on_exception(5, base_delay=3, exc_type=subprocess.CalledProcessError)
 def migrate_database():
     'Runs cinder-manage to initialize a new database or migrate existing'
     cmd = ['cinder-manage', 'db', 'sync']
@@ -542,7 +548,7 @@ def do_openstack_upgrade(configs):
 
     # Stop/start services and migrate DB if leader
     [service_stop(s) for s in services()]
-    if eligible_leader(CLUSTER_RES):
+    if is_elected_leader(CLUSTER_RES):
         migrate_database()
     [service_start(s) for s in services()]
 
