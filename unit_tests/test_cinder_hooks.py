@@ -68,7 +68,6 @@ TO_PATCH = [
     'openstack_upgrade_available',
     'os_release',
     # charmhelpers.contrib.hahelpers.cluster_utils
-    'canonical_url',
     'is_elected_leader',
     'get_hacluster_config',
     'execd_preinstall',
@@ -413,12 +412,13 @@ class TestJoinedHooks(CharmTestCase):
                                              vhost='openstack',
                                              relation_id='amqp:1')
 
-    def test_identity_service_joined(self):
+    @patch.object(hooks, 'canonical_url')
+    def test_identity_service_joined(self, _canonical_url):
         'It properly requests unclustered endpoint via identity-service'
         self.os_release.return_value = 'havana'
         self.unit_get.return_value = 'cindernode1'
         self.config.side_effect = self.test_config.get
-        self.canonical_url.return_value = 'http://cindernode1'
+        _canonical_url.return_value = 'http://cindernode1'
         hooks.hooks.execute(['hooks/identity-service-relation-joined'])
         expected = {
             'region': None,
@@ -435,12 +435,13 @@ class TestJoinedHooks(CharmTestCase):
         }
         self.relation_set.assert_called_with(**expected)
 
-    def test_identity_service_joined_icehouse(self):
+    @patch.object(hooks, 'canonical_url')
+    def test_identity_service_joined_icehouse(self, _canonical_url):
         'It properly requests unclustered endpoint via identity-service'
         self.os_release.return_value = 'icehouse'
         self.unit_get.return_value = 'cindernode1'
         self.config.side_effect = self.test_config.get
-        self.canonical_url.return_value = 'http://cindernode1'
+        _canonical_url.return_value = 'http://cindernode1'
         hooks.hooks.execute(['hooks/identity-service-relation-joined'])
         expected = {
             'region': None,
@@ -459,6 +460,42 @@ class TestJoinedHooks(CharmTestCase):
             'cinderv2_admin_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
             'cinderv2_internal_url': 'http://cindernode1:8776/'
                                      'v2/$(tenant_id)s',
+            'relation_id': None,
+        }
+        self.relation_set.assert_called_with(**expected)
+
+    @patch('charmhelpers.contrib.openstack.ip.config')
+    @patch('charmhelpers.contrib.openstack.ip.unit_get')
+    @patch('charmhelpers.contrib.openstack.ip.is_clustered')
+    def test_identity_service_joined_public_name(self, _is_clustered,
+                                                 _unit_get, _config):
+        self.os_release.return_value = 'icehouse'
+        self.unit_get.return_value = 'cindernode1'
+        _unit_get.return_value = 'cindernode1'
+        self.config.side_effect = self.test_config.get
+        _config.side_effect = self.test_config.get
+        self.test_config.set('os-public-hostname', 'public.example.com')
+        _is_clustered.return_value = False
+        hooks.hooks.execute(['hooks/identity-service-relation-joined'])
+        v1_url = 'http://public.example.com:8776/v1/$(tenant_id)s'
+        v2_url = 'http://public.example.com:8776/v2/$(tenant_id)s'
+        expected = {
+            'region': None,
+            'service': None,
+            'public_url': None,
+            'internal_url': None,
+            'admin_url': None,
+            'cinder_service': 'cinder',
+            'cinder_region': 'RegionOne',
+            'cinder_public_url': v1_url,
+            'cinder_admin_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_internal_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinderv2_service': 'cinderv2',
+            'cinderv2_region': 'RegionOne',
+            'cinderv2_public_url': v2_url,
+            'cinderv2_admin_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
+            'cinderv2_internal_url': ('http://cindernode1:8776/'
+                                      'v2/$(tenant_id)s'),
             'relation_id': None,
         }
         self.relation_set.assert_called_with(**expected)
@@ -502,8 +539,10 @@ class TestJoinedHooks(CharmTestCase):
             self.assertNotIn(c, self.CONFIGS.write.call_args_list)
         self.assertFalse(self.set_ceph_env_variables.called)
 
+    @patch('charmhelpers.core.host.service')
     @patch("cinder_hooks.relation_get", autospec=True)
-    def test_ceph_changed_broker_success(self, mock_relation_get):
+    def test_ceph_changed_broker_success(self, mock_relation_get,
+                                         _service):
         'It ensures ceph assets created on ceph changed'
         self.CONFIGS.complete_contexts.return_value = ['ceph']
         self.service_name.return_value = 'cinder'
