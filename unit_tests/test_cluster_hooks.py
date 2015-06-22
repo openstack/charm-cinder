@@ -65,8 +65,8 @@ class TestClusterHooks(CharmTestCase):
 
     @patch.object(hooks, 'check_db_initialised', lambda *args, **kwargs: None)
     @patch('charmhelpers.core.host.service')
-    @patch('charmhelpers.core.host.file_hash')
-    def test_cluster_hook(self, file_hash, service):
+    @patch('charmhelpers.core.host.path_hash')
+    def test_cluster_hook(self, path_hash, service):
         'Ensure API restart before haproxy on cluster changed'
         # set first hash lookup on all files
         side_effects = []
@@ -74,7 +74,7 @@ class TestClusterHooks(CharmTestCase):
         [side_effects.append('foo') for f in RESTART_MAP.keys()]
         # set second hash lookup on all configs in restart_on_change
         [side_effects.append('bar') for f in RESTART_MAP.keys()]
-        file_hash.side_effect = side_effects
+        path_hash.side_effect = side_effects
         hooks.hooks.execute(['hooks/cluster-relation-changed'])
         ex = [
             call('stop', 'cinder-api'),
