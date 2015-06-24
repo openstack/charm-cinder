@@ -276,6 +276,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def test_110_users(self):
         """Verify expected users."""
+        u.log.debug('Checking keystone users...')
         user0 = {'name': 'cinder_cinderv2',
                  'enabled': True,
                  'tenantId': u.not_null,
@@ -300,6 +301,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def test_112_service_catalog(self):
         """Verify that the service catalog endpoint data"""
+        u.log.debug('Checking keystone service catalog...')
         endpoint_vol = {'adminURL': u.valid_url,
                         'region': 'RegionOne',
                         'publicURL': u.valid_url,
@@ -323,6 +325,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def test_114_cinder_endpoint(self):
         """Verify the cinder endpoint data."""
+        u.log.debug('Checking cinder endpoint...')
         endpoints = self.keystone.endpoints.list()
         admin_port = internal_port = public_port = '8776'
         expected = {'id': u.not_null,
@@ -336,14 +339,14 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                                        public_port, expected)
         if ret:
             amulet.raise_status(amulet.FAIL,
-                                msg='glance endpoint: {}'.format(ret))
+                                msg='cinder endpoint: {}'.format(ret))
 
     def test_202_cinder_glance_image_service_relation(self):
         """Verify the cinder:glance image-service relation data"""
+        u.log.debug('Checking cinder:glance image-service relation data...')
         unit = self.cinder_sentry
         relation = ['image-service', 'glance:image-service']
         expected = {'private-address': u.valid_ip}
-        u.log.debug('')
         ret = u.validate_relation_data(unit, relation, expected)
         if ret:
             msg = u.relation_error('cinder image-service', ret)
@@ -351,13 +354,13 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def test_203_glance_cinder_image_service_relation(self):
         """Verify the glance:cinder image-service relation data"""
+        u.log.debug('Checking glance:cinder image-service relation data...')
         unit = self.glance_sentry
         relation = ['image-service', 'cinder:image-service']
         expected = {
             'private-address': u.valid_ip,
             'glance-api-server': u.valid_url
         }
-        u.log.debug('')
         ret = u.validate_relation_data(unit, relation, expected)
         if ret:
             msg = u.relation_error('glance image-service', ret)
@@ -365,13 +368,13 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def test_204_mysql_cinder_db_relation(self):
         """Verify the mysql:glance shared-db relation data"""
+        u.log.debug('Checking mysql:cinder db relation data...')
         unit = self.mysql_sentry
         relation = ['shared-db', 'cinder:shared-db']
         expected = {
             'private-address': u.valid_ip,
             'db_host': u.valid_ip
         }
-        u.log.debug('')
         ret = u.validate_relation_data(unit, relation, expected)
         if ret:
             msg = u.relation_error('mysql shared-db', ret)
@@ -379,6 +382,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def test_205_cinder_mysql_db_relation(self):
         """Verify the cinder:mysql shared-db relation data"""
+        u.log.debug('Checking cinder:mysql db relation data...')
         unit = self.cinder_sentry
         relation = ['shared-db', 'mysql:shared-db']
         expected = {
@@ -387,7 +391,6 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             'username': 'cinder',
             'database': 'cinder'
         }
-        u.log.debug('')
         ret = u.validate_relation_data(unit, relation, expected)
         if ret:
             msg = u.relation_error('cinder shared-db', ret)
@@ -395,6 +398,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def test_206_keystone_cinder_id_relation(self):
         """Verify the keystone:cinder identity-service relation data"""
+        u.log.debug('Checking keystone:cinder id relation data...')
         unit = self.keystone_sentry
         relation = ['identity-service',
                     'cinder:identity-service']
@@ -412,7 +416,6 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             'service_tenant_id': u.not_null,
             'service_host': u.valid_ip
         }
-        u.log.debug('')
         ret = u.validate_relation_data(unit, relation, expected)
         if ret:
             msg = u.relation_error('identity-service cinder', ret)
@@ -420,6 +423,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def test_207_cinder_keystone_id_relation(self):
         """Verify the cinder:keystone identity-service relation data"""
+        u.log.debug('Checking cinder:keystone id relation data...')
         unit = self.cinder_sentry
         relation = ['identity-service',
                     'keystone:identity-service']
@@ -431,7 +435,6 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             'cinder_admin_url': u.valid_url,
             'private-address': u.valid_ip
         }
-        u.log.debug('')
         ret = u.validate_relation_data(unit, relation, expected)
         if ret:
             msg = u.relation_error('cinder identity-service', ret)
@@ -439,6 +442,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def test_208_rabbitmq_cinder_amqp_relation(self):
         """Verify the rabbitmq-server:cinder amqp relation data"""
+        u.log.debug('Checking rmq:cinder amqp relation data...')
         unit = self.rabbitmq_sentry
         relation = ['amqp', 'cinder:amqp']
         expected = {
@@ -446,7 +450,6 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             'password': u.not_null,
             'hostname': u.valid_ip
         }
-        u.log.debug('')
         ret = u.validate_relation_data(unit, relation, expected)
         if ret:
             msg = u.relation_error('amqp cinder', ret)
@@ -454,6 +457,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
     def test_209_cinder_rabbitmq_amqp_relation(self):
         """Verify the cinder:rabbitmq-server amqp relation data"""
+        u.log.debug('Checking cinder:rmq amqp relation data...')
         unit = self.cinder_sentry
         relation = ['amqp', 'rabbitmq-server:amqp']
         expected = {
@@ -461,7 +465,6 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             'vhost': 'openstack',
             'username': u.not_null
         }
-        u.log.debug('')
         ret = u.validate_relation_data(unit, relation, expected)
         if ret:
             msg = u.relation_error('cinder amqp', ret)
