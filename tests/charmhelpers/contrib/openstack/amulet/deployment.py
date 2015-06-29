@@ -79,9 +79,9 @@ class OpenStackAmuletDeployment(AmuletDeployment):
         services.append(this_service)
         use_source = ['mysql', 'mongodb', 'rabbitmq-server', 'ceph',
                       'ceph-osd', 'ceph-radosgw']
-        # Openstack subordinate charms do not expose an origin option as that
-        # is controlled by the principle
-        ignore = ['neutron-openvswitch']
+        # Most OpenStack subordinate charms do not expose an origin option
+        # as that is controlled by the principle.
+        ignore = ['cinder-ceph', 'hacluster', 'neutron-openvswitch']
 
         if self.openstack:
             for svc in services:
@@ -150,8 +150,9 @@ class OpenStackAmuletDeployment(AmuletDeployment):
             return releases[self.series]
 
     def get_ceph_expected_pools(self, radosgw=False):
-        """Return a list of expected ceph pools based on Ubuntu-OpenStack
-        release and whether ceph radosgw is flagged as present or not."""
+        """Return a list of expected ceph pools in a ceph + cinder + glance
+        test scenario, based on OpenStack release and whether ceph radosgw
+        is flagged as present or not."""
 
         if self._get_openstack_release() >= self.trusty_kilo:
             # Kilo or later
