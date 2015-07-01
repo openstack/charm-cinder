@@ -4,7 +4,9 @@ maintainer: Adam Gandelman <adamg@canonical.com>
 description: |
  Cinder is a storage service for the Openstack project
 tags:
-  - miscellaneous
+  - openstack
+  - storage
+  - misc
 provides:
   nrpe-external-master:
     interface: nrpe-external-master
