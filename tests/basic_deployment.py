@@ -86,7 +86,9 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                      'repository': 'git://github.com/openstack/cinder',
                      'branch': cinder_branch},
                 ],
-                'directory': '/mnt/openstack-git',
+                # Most tests use /mnt/openstack-git but cinder's using /dev/vdb
+                # to store block devices so leave /mnt alone.
+                'directory': '/tmp/openstack-git',
                 'http_proxy': amulet_http_proxy,
                 'https_proxy': amulet_http_proxy,
             }
