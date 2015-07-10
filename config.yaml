@@ -1,4 +1,17 @@
 options:
+  debug:
+    default: False
+    type: boolean
+    description: Enable debug logging.
+  verbose:
+    default: False
+    type: boolean
+    description: Enable verbose logging.      
+  use-syslog:
+    type: boolean
+    default: False
+    description: |
+      Setting this to True will allow supporting services to log to syslog.
   openstack-origin:
     default: distro
     type: string
@@ -7,18 +20,27 @@ options:
       distro (default), ppa:somecustom/ppa, a deb url sources entry,
       or a supported Cloud Archive release pocket.
 
-      Supported Cloud Archive sources include: cloud:precise-folsom,
-      cloud:precise-folsom/updates, cloud:precise-folsom/staging,
-      cloud:precise-folsom/proposed.
+      Supported Cloud Archive sources include:
 
-      When deploying to Precise, the default distro option will use
-      the cloud:precise-folsom/updates repository instead, since Cinder
-      was not available in the Ubuntu archive for Precise and is only
-      available via the Ubuntu Cloud Archive.
+      cloud:<series>-<openstack-release>
+      cloud:<series>-<openstack-release>/updates
+      cloud:<series>-<openstack-release>/staging
+      cloud:<series>-<openstack-release>/proposed
 
-      Note that when openstack-origin-git is specified, openstack
-      specific packages will be installed from source rather than
-      from the openstack-origin repository.
+      For series=Precise we support cloud archives for openstack-release:
+         * icehouse
+
+      For series=Trusty we support cloud archives for openstack-release:
+         * juno
+         * kilo
+         * ...
+
+      NOTE: updating this setting to a source that is known to provide
+      a later version of OpenStack will trigger a software upgrade.
+
+      NOTE: when openstack-origin-git is specified, openstack specific
+      packages will be installed from source rather than from the
+      openstack-origin repository.
   openstack-origin-git:
     default:
     type: string
@@ -111,20 +133,6 @@ options:
       actions e.g. the RBD driver requires requires this to support COW
       cloning of images. This option will default to v1 for backwards
       compatibility older glance services.
-  use-syslog:
-    type: boolean
-    default: False
-    description: |
-      By default, all services will log into their corresponding log files.
-      Setting this to True will force all services to log to the syslog.
-  debug:
-    default: False
-    type: boolean
-    description: Enable debug logging
-  verbose:
-    default: False
-    type: boolean
-    description: Enable verbose logging
   # HA configuration settings
   vip:
     type: string
@@ -180,7 +188,9 @@ options:
   config-flags:
     type: string
     default:
-    description: Comma separated list of key=value config flags to be set in cinder.conf.
+    description: |
+      Comma-separated list of key=value config flags. These values will be
+      placed in the cinder.conf [DEFAULT] section.
   # Network configuration options
   # by default all access is over 'private-address'
   os-admin-network:
@@ -213,11 +223,11 @@ options:
     description: |
       The hostname or address of the public endpoints created for cinder
       in the keystone identity provider.
-      .
+
       This value will be used for public endpoints. For example, an
       os-public-hostname set to 'cinder.example.com' with ssl enabled will
       create two public endpoints for cinder:
-      .
+
       https://cinder.example.com:443/v1/$(tenant_id)s and
       https://cinder.example.com:443/v2/$(tenant_id)s
   prefer-ipv6:
@@ -227,7 +237,7 @@ options:
       If True enables IPv6 support. The charm will expect network interfaces
       to be configured with an IPv6 address. If set to False (default) IPv4
       is expected.
-      .
+
       NOTE: these charms do not currently support IPv6 privacy extension. In
       order for this charm to function correctly, the privacy extension must be
       disabled and a non-temporary address must be configured/available on
