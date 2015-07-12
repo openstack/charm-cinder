@@ -72,13 +72,19 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         if self.git:
             branch = 'stable/' + self._get_openstack_release_string()
             amulet_http_proxy = os.environ.get('AMULET_HTTP_PROXY')
+            if self._get_openstack_release() == self.trusty_icehouse:
+                reqs_repo = 'git://github.com/coreycb/requirements'
+                cinder_repo = 'git://github.com/coreycb/cinder'
+            else:
+                reqs_repo = 'git://github.com/openstack/requirements'
+                cinder_repo = 'git://github.com/openstack/cinder'
             openstack_origin_git = {
                 'repositories': [
                     {'name': 'requirements',
-                     'repository': 'git://github.com/openstack/requirements',
+                     'repository': reqs_repo,
                      'branch': branch},
                     {'name': 'cinder',
-                     'repository': 'git://github.com/coreycb/cinder',
+                     'repository': cinder_repo,
                      'branch': branch},
                 ],
                 # Most tests use /mnt/openstack-git but cinder's using /dev/vdb
