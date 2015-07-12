@@ -70,21 +70,16 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                          'glance-api-version': '2',
                          'overwrite': 'true'}
         if self.git:
-            release = self._get_openstack_release_string()
-            reqs_branch = 'stable/' + release
-            if self._get_openstack_release() == self.trusty_icehouse:
-                cinder_branch = release + '-eol'
-            else:
-                cinder_branch = 'stable/' + release
+            branch = 'stable/' + self._get_openstack_release_string()
             amulet_http_proxy = os.environ.get('AMULET_HTTP_PROXY')
             openstack_origin_git = {
                 'repositories': [
                     {'name': 'requirements',
                      'repository': 'git://github.com/openstack/requirements',
-                     'branch': reqs_branch},
+                     'branch': branch},
                     {'name': 'cinder',
-                     'repository': 'git://github.com/openstack/cinder',
-                     'branch': cinder_branch},
+                     'repository': 'git://github.com/coreycb/cinder',
+                     'branch': branch},
                 ],
                 # Most tests use /mnt/openstack-git but cinder's using /dev/vdb
                 # to store block devices so leave /mnt alone.
