@@ -76,12 +76,11 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             cinder_repo = 'git://github.com/openstack/cinder'
             if self._get_openstack_release() == self.trusty_icehouse:
                 reqs_repo = 'git://github.com/coreycb/requirements'
+                cinder_repo = 'git://github.com/coreycb/cinder'
 
             release = self._get_openstack_release_string()
             reqs_branch = 'stable/' + release
             cinder_branch = 'stable/' + release
-            if self._get_openstack_release() == self.trusty_icehouse:
-                cinder_branch = release + '-eol'
 
             openstack_origin_git = {
                 'repositories': [
