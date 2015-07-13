@@ -72,18 +72,16 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         if self.git:
             amulet_http_proxy = os.environ.get('AMULET_HTTP_PROXY')
 
+            reqs_repo = 'git://github.com/openstack/requirements'
+            cinder_repo = 'git://github.com/openstack/cinder'
             if self._get_openstack_release() == self.trusty_icehouse:
                 reqs_repo = 'git://github.com/coreycb/requirements'
-            else:
-                reqs_repo = 'git://github.com/openstack/requirements'
-            cinder_repo = 'git://github.com/openstack/cinder'
 
             release = self._get_openstack_release_string()
             reqs_branch = 'stable/' + release
+            cinder_branch = 'stable/' + release
             if self._get_openstack_release() == self.trusty_icehouse:
                 cinder_branch = release + '-eol'
-            else:
-                cinder_branch = 'stable/' + release
 
             openstack_origin_git = {
                 'repositories': [
