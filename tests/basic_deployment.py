@@ -78,18 +78,16 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                 reqs_repo = 'git://github.com/coreycb/requirements'
                 cinder_repo = 'git://github.com/coreycb/cinder'
 
-            release = self._get_openstack_release_string()
-            reqs_branch = 'stable/' + release
-            cinder_branch = 'stable/' + release
+            branch = 'stable/' + self._get_openstack_release_string()
 
             openstack_origin_git = {
                 'repositories': [
                     {'name': 'requirements',
                      'repository': reqs_repo,
-                     'branch': reqs_branch},
+                     'branch': branch},
                     {'name': 'cinder',
                      'repository': cinder_repo,
-                     'branch': cinder_branch},
+                     'branch': branch},
                 ],
                 # Most tests use /mnt/openstack-git but cinder's using /dev/vdb
                 # to store block devices so leave /mnt alone.
