@@ -2,17 +2,17 @@
 PYTHON := /usr/bin/env python
 
 lint:
-	@flake8 --exclude hooks/charmhelpers actions hooks unit_tests tests
+	@flake8 --exclude hooks/charmhelpers,tests/charmhelpers \
+        actions hooks unit_tests tests
 	@charm proof
 
-unit_test:
+test:
+	@# Bundletester expects unit tests here.
 	@echo Starting unit tests...
 	@$(PYTHON) /usr/bin/nosetests --nologcapture --with-coverage unit_tests
 
-test:
+functional_test:
 	@echo Starting amulet deployment tests...
-	#NOTE(beisner): can remove -v after bug 1320357 is fixed
-	#   https://bugs.launchpad.net/amulet/+bug/1320357
 	@juju test -v -p AMULET_HTTP_PROXY,AMULET_OS_VIP --timeout 2700
 
 bin/charm_helpers_sync.py:
@@ -24,6 +24,6 @@ sync: bin/charm_helpers_sync.py
 	@$(PYTHON) bin/charm_helpers_sync.py -c charm-helpers-hooks.yaml
 	@$(PYTHON) bin/charm_helpers_sync.py -c charm-helpers-tests.yaml
 
-publish: lint unit_test
+publish: lint test
 	bzr push lp:charms/cinder
 	bzr push lp:charms/trusty/cinder
