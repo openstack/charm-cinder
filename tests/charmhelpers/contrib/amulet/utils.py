@@ -14,14 +14,17 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with charm-helpers.  If not, see <http://www.gnu.org/licenses/>.
 
+import amulet
 import ConfigParser
+import distro_info
 import io
 import logging
+import os
 import re
+import six
 import sys
 import time
-
-import six
+import urlparse
 
 
 class AmuletUtils(object):
@@ -33,6 +36,7 @@ class AmuletUtils(object):
 
     def __init__(self, log_level=logging.ERROR):
         self.log = self.get_logger(level=log_level)
+        self.ubuntu_releases = self.get_ubuntu_releases()
 
     def get_logger(self, name="amulet-logger", level=logging.DEBUG):
         """Get a logger object that will log to stdout."""
@@ -70,17 +74,84 @@ class AmuletUtils(object):
         else:
             return False
 
-    def validate_services(self, commands):
-        """Validate services.
+    def get_ubuntu_release_from_sentry(self, sentry_unit):
+        """Get Ubuntu release codename from sentry unit.
 
-           Verify the specified services are running on the corresponding
+        :param sentry_unit: amulet sentry/service unit pointer
+        :returns: list of strings - release codename, failure message
+        """
+        msg = None
+        cmd = 'lsb_release -cs'
+        release, code = sentry_unit.run(cmd)
+        if code == 0:
+            self.log.debug('{} lsb_release: {}'.format(
+                sentry_unit.info['unit_name'], release))
+        else:
+            msg = ('{} `{}` returned {} '
+                   '{}'.format(sentry_unit.info['unit_name'],
+                               cmd, release, code))
+        if release not in self.ubuntu_releases:
+            msg = ("Release ({}) not found in Ubuntu releases "
+                   "({})".format(release, self.ubuntu_releases))
+        return release, msg
+
+    def validate_services(self, commands):
+        """Validate that lists of commands succeed on service units.  Can be
+           used to verify system services are running on the corresponding
            service units.
-           """
+
+        :param commands: dict with sentry keys and arbitrary command list vals
+        :returns: None if successful, Failure string message otherwise
+        """
+        self.log.debug('Checking status of system services...')
+
+        # /!\ DEPRECATION WARNING (beisner):
+        # New and existing tests should be rewritten to use
+        # validate_services_by_name() as it is aware of init systems.
+        self.log.warn('/!\\ DEPRECATION WARNING:  use '
+                      'validate_services_by_name instead of validate_services '
+                      'due to init system differences.')
+
         for k, v in six.iteritems(commands):
             for cmd in v:
                 output, code = k.run(cmd)
                 self.log.debug('{} `{}` returned '
                                '{}'.format(k.info['unit_name'],
+                                           cmd, code))
+                if code != 0:
+                    return "command `{}` returned {}".format(cmd, str(code))
+        return None
+
+    def validate_services_by_name(self, sentry_services):
+        """Validate system service status by service name, automatically
+           detecting init system based on Ubuntu release codename.
+
+        :param sentry_services: dict with sentry keys and svc list values
+        :returns: None if successful, Failure string message otherwise
+        """
+        self.log.debug('Checking status of system services...')
+
+        # Point at which systemd became a thing
+        systemd_switch = self.ubuntu_releases.index('vivid')
+
+        for sentry_unit, services_list in six.iteritems(sentry_services):
+            # Get lsb_release codename from unit
+            release, ret = self.get_ubuntu_release_from_sentry(sentry_unit)
+            if ret:
+                return ret
+
+            for service_name in services_list:
+                if (self.ubuntu_releases.index(release) >= systemd_switch or
+                        service_name == "rabbitmq-server"):
+                    # init is systemd
+                    cmd = 'sudo service {} status'.format(service_name)
+                elif self.ubuntu_releases.index(release) < systemd_switch:
+                    # init is upstart
+                    cmd = 'sudo status {}'.format(service_name)
+
+                output, code = sentry_unit.run(cmd)
+                self.log.debug('{} `{}` returned '
+                               '{}'.format(sentry_unit.info['unit_name'],
                                            cmd, code))
                 if code != 0:
                     return "command `{}` returned {}".format(cmd, str(code))
@@ -103,7 +174,15 @@ class AmuletUtils(object):
 
            Verify that the specified section of the config file contains
            the expected option key:value pairs.
+
+           Compare expected dictionary data vs actual dictionary data.
+           The values in the 'expected' dictionary can be strings, bools, ints,
+           longs, or can be a function that evaluates a variable and returns a
+           bool.
            """
+        self.log.debug('Validating config file data ({} in {} on {})'
+                       '...'.format(section, config_file,
+                                    sentry_unit.info['unit_name']))
         config = self._get_config(sentry_unit, config_file)
 
         if section != 'DEFAULT' and not config.has_section(section):
@@ -112,9 +191,20 @@ class AmuletUtils(object):
         for k in expected.keys():
             if not config.has_option(section, k):
                 return "section [{}] is missing option {}".format(section, k)
-            if config.get(section, k) != expected[k]:
+
+            actual = config.get(section, k)
+            v = expected[k]
+            if (isinstance(v, six.string_types) or
+                    isinstance(v, bool) or
+                    isinstance(v, six.integer_types)):
+                # handle explicit values
+                if actual != v:
+                    return "section [{}] {}:{} != expected {}:{}".format(
+                           section, k, actual, k, expected[k])
+            # handle function pointers, such as not_null or valid_ip
+            elif not v(actual):
                 return "section [{}] {}:{} != expected {}:{}".format(
-                       section, k, config.get(section, k), k, expected[k])
+                       section, k, actual, k, expected[k])
         return None
 
     def _validate_dict_data(self, expected, actual):
@@ -122,7 +212,7 @@ class AmuletUtils(object):
 
            Compare expected dictionary data vs actual dictionary data.
            The values in the 'expected' dictionary can be strings, bools, ints,
-           longs, or can be a function that evaluate a variable and returns a
+           longs, or can be a function that evaluates a variable and returns a
            bool.
            """
         self.log.debug('actual: {}'.format(repr(actual)))
@@ -133,8 +223,10 @@ class AmuletUtils(object):
                 if (isinstance(v, six.string_types) or
                         isinstance(v, bool) or
                         isinstance(v, six.integer_types)):
+                    # handle explicit values
                     if v != actual[k]:
                         return "{}:{}".format(k, actual[k])
+                # handle function pointers, such as not_null or valid_ip
                 elif not v(actual[k]):
                     return "{}:{}".format(k, actual[k])
             else:
@@ -321,3 +413,121 @@ class AmuletUtils(object):
 
     def endpoint_error(self, name, data):
         return 'unexpected endpoint data in {} - {}'.format(name, data)
+
+    def get_ubuntu_releases(self):
+        """Return a list of all Ubuntu releases in order of release."""
+        _d = distro_info.UbuntuDistroInfo()
+        _release_list = _d.all
+        self.log.debug('Ubuntu release list: {}'.format(_release_list))
+        return _release_list
+
+    def file_to_url(self, file_rel_path):
+        """Convert a relative file path to a file URL."""
+        _abs_path = os.path.abspath(file_rel_path)
+        return urlparse.urlparse(_abs_path, scheme='file').geturl()
+
+    def check_commands_on_units(self, commands, sentry_units):
+        """Check that all commands in a list exit zero on all
+        sentry units in a list.
+
+        :param commands:  list of bash commands
+        :param sentry_units:  list of sentry unit pointers
+        :returns: None if successful; Failure message otherwise
+        """
+        self.log.debug('Checking exit codes for {} commands on {} '
+                       'sentry units...'.format(len(commands),
+                                                len(sentry_units)))
+        for sentry_unit in sentry_units:
+            for cmd in commands:
+                output, code = sentry_unit.run(cmd)
+                if code == 0:
+                    self.log.debug('{} `{}` returned {} '
+                                   '(OK)'.format(sentry_unit.info['unit_name'],
+                                                 cmd, code))
+                else:
+                    return ('{} `{}` returned {} '
+                            '{}'.format(sentry_unit.info['unit_name'],
+                                        cmd, code, output))
+        return None
+
+    def get_process_id_list(self, sentry_unit, process_name):
+        """Get a list of process ID(s) from a single sentry juju unit
+        for a single process name.
+
+        :param sentry_unit: Pointer to amulet sentry instance (juju unit)
+        :param process_name: Process name
+        :returns: List of process IDs
+        """
+        cmd = 'pidof {}'.format(process_name)
+        output, code = sentry_unit.run(cmd)
+        if code != 0:
+            msg = ('{} `{}` returned {} '
+                   '{}'.format(sentry_unit.info['unit_name'],
+                               cmd, code, output))
+            amulet.raise_status(amulet.FAIL, msg=msg)
+        return str(output).split()
+
+    def get_unit_process_ids(self, unit_processes):
+        """Construct a dict containing unit sentries, process names, and
+        process IDs."""
+        pid_dict = {}
+        for sentry_unit, process_list in unit_processes.iteritems():
+            pid_dict[sentry_unit] = {}
+            for process in process_list:
+                pids = self.get_process_id_list(sentry_unit, process)
+                pid_dict[sentry_unit].update({process: pids})
+        return pid_dict
+
+    def validate_unit_process_ids(self, expected, actual):
+        """Validate process id quantities for services on units."""
+        self.log.debug('Checking units for running processes...')
+        self.log.debug('Expected PIDs: {}'.format(expected))
+        self.log.debug('Actual PIDs: {}'.format(actual))
+
+        if len(actual) != len(expected):
+            return ('Unit count mismatch.  expected, actual: {}, '
+                    '{} '.format(len(expected), len(actual)))
+
+        for (e_sentry, e_proc_names) in expected.iteritems():
+            e_sentry_name = e_sentry.info['unit_name']
+            if e_sentry in actual.keys():
+                a_proc_names = actual[e_sentry]
+            else:
+                return ('Expected sentry ({}) not found in actual dict data.'
+                        '{}'.format(e_sentry_name, e_sentry))
+
+            if len(e_proc_names.keys()) != len(a_proc_names.keys()):
+                return ('Process name count mismatch.  expected, actual: {}, '
+                        '{}'.format(len(expected), len(actual)))
+
+            for (e_proc_name, e_pids_length), (a_proc_name, a_pids) in \
+                    zip(e_proc_names.items(), a_proc_names.items()):
+                if e_proc_name != a_proc_name:
+                    return ('Process name mismatch.  expected, actual: {}, '
+                            '{}'.format(e_proc_name, a_proc_name))
+
+                a_pids_length = len(a_pids)
+                if e_pids_length != a_pids_length:
+                    return ('PID count mismatch. {} ({}) expected, actual: '
+                            '{}, {} ({})'.format(e_sentry_name, e_proc_name,
+                                                 e_pids_length, a_pids_length,
+                                                 a_pids))
+                else:
+                    self.log.debug('PID check OK: {} {} {}: '
+                                   '{}'.format(e_sentry_name, e_proc_name,
+                                               e_pids_length, a_pids))
+        return None
+
+    def validate_list_of_identical_dicts(self, list_of_dicts):
+        """Check that all dicts within a list are identical."""
+        hashes = []
+        for _dict in list_of_dicts:
+            hashes.append(hash(frozenset(_dict.items())))
+
+        self.log.debug('Hashes: {}'.format(hashes))
+        if len(set(hashes)) == 1:
+            self.log.debug('Dicts within list are identical')
+        else:
+            return 'Dicts within list are not identical'
+
+        return None
