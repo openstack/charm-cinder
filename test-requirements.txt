@@ -3,5 +3,5 @@ coverage==3.7.1
 mock==1.0.1
 flake8==2.1.0
 # No version required
-testrepository
 charm-tools
+os-testr
