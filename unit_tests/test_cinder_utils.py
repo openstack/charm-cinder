@@ -2,6 +2,7 @@ from mock import patch, call, MagicMock, Mock
 
 from collections import OrderedDict
 import os
+import subprocess
 
 os.environ['JUJU_UNIT_NAME'] = 'cinder'
 import cinder_utils as cinder_utils
@@ -247,11 +248,12 @@ class TestCinderUtils(CharmTestCase):
         _check.assert_called_with(['fdisk', '-l', '/dev/vdb'], stderr=-2)
 
     @patch('cinder_utils.log_lvm_info', Mock())
+    @patch.object(cinder_utils, 'ensure_lvm_volume_group_non_existent')
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
     def test_configure_lvm_storage(self, extend_lvm, reduce_lvm,
-                                   clean_storage):
+                                   clean_storage, ensure_non_existent):
         devices = ['/dev/vdb', '/dev/vdc']
         self.is_lvm_physical_volume.return_value = False
         cinder_utils.configure_lvm_storage(devices, 'test', True, True)
@@ -266,6 +268,7 @@ class TestCinderUtils(CharmTestCase):
         self.create_lvm_volume_group.assert_called_with('test', '/dev/vdb')
         reduce_lvm.assert_called_with('test')
         extend_lvm.assert_called_with('test', '/dev/vdc')
+        ensure_non_existent.assert_called_with('test')
 
     @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'has_partition_table')
@@ -301,11 +304,12 @@ class TestCinderUtils(CharmTestCase):
         reduce_lvm.assert_called_with('test')
 
     @patch('cinder_utils.log_lvm_info', Mock())
+    @patch.object(cinder_utils, 'ensure_lvm_volume_group_non_existent')
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
     def test_configure_lvm_storage_loopback(self, extend_lvm, reduce_lvm,
-                                            clean_storage):
+                                            clean_storage, ensure_non_existent):
         devices = ['/mnt/loop0|10']
         self.ensure_loopback_device.return_value = '/dev/loop0'
         self.is_lvm_physical_volume.return_value = False
@@ -316,6 +320,7 @@ class TestCinderUtils(CharmTestCase):
         self.create_lvm_volume_group.assert_called_with('test', '/dev/loop0')
         reduce_lvm.assert_called_with('test')
         self.assertFalse(extend_lvm.called)
+        ensure_non_existent.assert_called_with('test')
 
     @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'clean_storage')
@@ -725,3 +730,47 @@ class TestCinderUtils(CharmTestCase):
         cinder_utils.log_lvm_info()
         _check.assert_called_with(['pvscan'])
         self.juju_log.assert_called_with("pvscan: %s" % output)
+
+    @patch.object(cinder_utils, 'lvm_volume_group_exists')
+    @patch.object(cinder_utils, 'remove_lvm_volume_group')
+    def test_ensure_non_existent_removes_if_present(self,
+                                                    remove_lvm_volume_group,
+                                                    volume_group_exists):
+        volume_group = "test"
+        volume_group_exists.return_value = True
+        cinder_utils.ensure_lvm_volume_group_non_existent(volume_group)
+        remove_lvm_volume_group.assert_called_with(volume_group)
+
+    @patch.object(cinder_utils, 'lvm_volume_group_exists')
+    @patch.object(cinder_utils, 'remove_lvm_volume_group')
+    def test_ensure_non_existent_removes_if_present(self,
+                                                    remove_lvm_volume_group,
+                                                    volume_group_exists):
+        volume_group = "test"
+        volume_group_exists.return_value = False
+        cinder_utils.ensure_lvm_volume_group_non_existent(volume_group)
+        self.assertFalse(remove_lvm_volume_group.called)
+
+    @patch('subprocess.check_call')
+    def test_lvm_volume_group_exists_finds_volume_group(self, _check):
+        volume_group = "test"
+        _check.return_value = True
+        result = cinder_utils.lvm_volume_group_exists(volume_group)
+        self.assertTrue(result)
+        _check.assert_called_with(['vgdisplay', volume_group])
+
+    @patch('subprocess.check_call')
+    def test_lvm_volume_group_exists_finds_no_volume_group(self, _check):
+        volume_group = "test"
+        def raise_error(x):
+            raise subprocess.CalledProcessError(1,x)
+        _check.side_effect = raise_error
+        result = cinder_utils.lvm_volume_group_exists(volume_group)
+        self.assertFalse(result)
+        _check.assert_called_with(['vgdisplay', volume_group])
+
+    @patch('subprocess.check_call')
+    def test_remove_lvm_volume_group(self, _check):
+        volume_group = "test"
+        cinder_utils.remove_lvm_volume_group(volume_group)
+        _check.assert_called_with(['vgremove', '--force', volume_group])
