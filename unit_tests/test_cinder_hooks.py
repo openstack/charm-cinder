@@ -156,7 +156,7 @@ class TestChangedHooks(CharmTestCase):
         self.assertTrue(conf_https.called)
         self.configure_lvm_storage.assert_called_with(['sdb'],
                                                       'cinder-volumes',
-                                                      False, False)
+                                                      False, False, False)
 
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'git_install_requested')
@@ -174,7 +174,7 @@ class TestChangedHooks(CharmTestCase):
         self.configure_lvm_storage.assert_called_with(
             ['sdb', '/dev/sdc', 'sde'],
             'cinder-new',
-            True, True)
+            True, True, False)
 
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'git_install_requested')
