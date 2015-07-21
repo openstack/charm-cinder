@@ -376,12 +376,6 @@ def remove_lvm_volume_group(volume_group):
     subprocess.check_call(['vgremove', '--force', volume_group])
 
 
-def log_lvm_info():
-    """Log some useful information about how LVM is setup."""
-    pvscan_output = subprocess.check_output(['pvscan'])
-    juju_log('pvscan: %s' % pvscan_output)
-
-
 def ensure_lvm_volume_group_non_existent(volume_group):
     """Remove volume_group if it exists.
     
@@ -391,6 +385,12 @@ def ensure_lvm_volume_group_non_existent(volume_group):
         return
 
     remove_lvm_volume_group(volume_group)
+
+
+def log_lvm_info():
+    """Log some useful information about how LVM is setup."""
+    pvscan_output = subprocess.check_output(['pvscan'])
+    juju_log('pvscan: %s' % pvscan_output)
 
 
 def configure_lvm_storage(block_devices, volume_group, overwrite=False,
