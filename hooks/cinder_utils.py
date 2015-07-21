@@ -355,6 +355,12 @@ def extend_lvm_volume_group(volume_group, block_device):
     subprocess.check_call(['vgextend', volume_group, block_device])
 
 
+def log_lvm_info():
+    """Log some useful information about how LVM is setup."""
+    pvscan_output = subprocess.check_output(['pvscan'])
+    juju_log('pvscan: %s' % pvscan_output)
+
+
 def configure_lvm_storage(block_devices, volume_group, overwrite=False,
                           remove_missing=False):
     ''' Configure LVM storage on the list of block devices provided
@@ -366,6 +372,7 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
     :param remove_missing: bool: Remove missing physical volumes from volume
                            group if logical volume not allocated on them
     '''
+    log_lvm_info()
     devices = []
     for block_device in block_devices:
         (block_device, size) = _parse_block_device(block_device)
@@ -397,6 +404,8 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
             # Mark vg as found
             vg_found = True
 
+    log_lvm_info()
+    
     if vg_found is False and len(new_devices) > 0:
         # Create new volume group from first device
         create_lvm_volume_group(volume_group, new_devices[0])
@@ -410,6 +419,8 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
         # Extend the volume group as required
         for new_device in new_devices:
             extend_lvm_volume_group(volume_group, new_device)
+
+    log_lvm_info()
 
 
 def prepare_volume(device):
