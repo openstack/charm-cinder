@@ -178,6 +178,24 @@ class TestChangedHooks(CharmTestCase):
 
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'git_install_requested')
+    def test_config_changed_uses_remove_missing_force(self, git_requested,
+                                                      conf_https):
+        'It writes out all config'
+        git_requested.return_value = False
+        self.openstack_upgrade_available.return_value = False
+        self.test_config.set('block-device', 'sdb /dev/sdc sde')
+        self.test_config.set('volume-group', 'cinder-new')
+        self.test_config.set('overwrite', 'True')
+        self.test_config.set('remove-missing', True)
+        self.test_config.set('remove-missing-force', True)
+        hooks.hooks.execute(['hooks/config-changed'])
+        self.configure_lvm_storage.assert_called_with(
+            ['sdb', '/dev/sdc', 'sde'],
+            'cinder-new',
+            True, True, True)
+
+    @patch.object(hooks, 'configure_https')
+    @patch.object(hooks, 'git_install_requested')
     def test_config_changed_upgrade_available(self, git_requested, conf_https):
         'It writes out all config with an available OS upgrade'
         git_requested.return_value = False
