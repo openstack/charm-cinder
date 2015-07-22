@@ -333,24 +333,18 @@ def services():
     return list(set(_services))
 
 
-def reduce_lvm_volume_group_missing(volume_group):
+def reduce_lvm_volume_group_missing(volume_group, extra_args=None):
     '''
     Remove all missing physical volumes from the volume group, if there
     are no logical volumes allocated on them.
 
     :param volume_group: str: Name of volume group to reduce.
+    :param extra_args: list: List of extra args to pass to vgreduce
     '''
-    subprocess.check_call(['vgreduce', '--removemissing', volume_group])
+    if extra_args is None:
+        extra_args = []
 
-
-def force_reduce_lvm_volume_group_missing(volume_group):
-    '''
-    Remove all missing physical volumes from the volume group, even if
-    logical volumes are allocated on them.
-
-    :param volume_group: str: Name of volume group to reduce.
-    '''
-    command = ['vgreduce', '--removemissing', '--force', volume_group]
+    command = ['vgreduce', '--removemissing'] + extra_args + [volume_group]
     subprocess.check_call(command)
 
 
@@ -419,18 +413,17 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
             vg_found = True
 
     log_lvm_info()
-    
+
     if vg_found is False and len(new_devices) > 0:
         # Create new volume group from first device
         create_lvm_volume_group(volume_group, new_devices[0])
         new_devices.remove(new_devices[0])
 
     # Remove missing physical volumes from volume group
-    if remove_missing:
-        if remove_missing_force:
-            force_reduce_lvm_volume_group_missing(volume_group)
-        else:
-            reduce_lvm_volume_group_missing(volume_group)
+    if remove_missing_force:
+        reduce_lvm_volume_group_missing(volume_group, extra_args=['--force'])
+    elif remove_missing:
+        reduce_lvm_volume_group_missing(volume_group)
 
     if len(new_devices) > 0:
         # Extend the volume group as required
