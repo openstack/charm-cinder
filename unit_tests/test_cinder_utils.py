@@ -309,7 +309,8 @@ class TestCinderUtils(CharmTestCase):
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
     def test_configure_lvm_storage_loopback(self, extend_lvm, reduce_lvm,
-                                            clean_storage, ensure_non_existent):
+                                            clean_storage,
+                                            ensure_non_existent):
         devices = ['/mnt/loop0|10']
         self.ensure_loopback_device.return_value = '/dev/loop0'
         self.is_lvm_physical_volume.return_value = False
@@ -743,9 +744,8 @@ class TestCinderUtils(CharmTestCase):
 
     @patch.object(cinder_utils, 'lvm_volume_group_exists')
     @patch.object(cinder_utils, 'remove_lvm_volume_group')
-    def test_ensure_non_existent_removes_if_present(self,
-                                                    remove_lvm_volume_group,
-                                                    volume_group_exists):
+    def test_ensure_non_existent_not_present(self, remove_lvm_volume_group,
+                                             volume_group_exists):
         volume_group = "test"
         volume_group_exists.return_value = False
         cinder_utils.ensure_lvm_volume_group_non_existent(volume_group)
@@ -762,8 +762,9 @@ class TestCinderUtils(CharmTestCase):
     @patch('subprocess.check_call')
     def test_lvm_volume_group_exists_finds_no_volume_group(self, _check):
         volume_group = "test"
+
         def raise_error(x):
-            raise subprocess.CalledProcessError(1,x)
+            raise subprocess.CalledProcessError(1, x)
         _check.side_effect = raise_error
         result = cinder_utils.lvm_volume_group_exists(volume_group)
         self.assertFalse(result)

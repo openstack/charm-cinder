@@ -357,8 +357,8 @@ def extend_lvm_volume_group(volume_group, block_device):
 
 def lvm_volume_group_exists(volume_group):
     """Check for the existence of a volume group.
-    
-    :param volume_group: str: Name of volume group to create.
+
+    :param volume_group: str: Name of volume group.
     """
     try:
         subprocess.check_call(['vgdisplay', volume_group])
@@ -370,16 +370,16 @@ def lvm_volume_group_exists(volume_group):
 
 def remove_lvm_volume_group(volume_group):
     """Remove a volume group.
-    
-    :param volume_group: str: Name of volume group to create.
+
+    :param volume_group: str: Name of volume group to remove.
     """
     subprocess.check_call(['vgremove', '--force', volume_group])
 
 
 def ensure_lvm_volume_group_non_existent(volume_group):
     """Remove volume_group if it exists.
-    
-    :param volume_group: str: Name of volume group to create.
+
+    :param volume_group: str: Name of volume group.
     """
     if not lvm_volume_group_exists(volume_group):
         return
@@ -437,7 +437,7 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
             vg_found = True
 
     log_lvm_info()
-    
+
     if vg_found is False and len(new_devices) > 0:
         if overwrite:
             ensure_lvm_volume_group_non_existent(volume_group)
