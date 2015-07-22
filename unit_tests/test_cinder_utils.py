@@ -411,20 +411,20 @@ class TestCinderUtils(CharmTestCase):
 
     @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
-    def test_configure_lvm_storage_used_dev(self, reduce_lvm):
+    def test_configure_lvm_storage_unforced_remove_default(self, reduce_lvm):
         """It doesn't force remove missing by default."""
         devices = ['/dev/vdb']
         cinder_utils.configure_lvm_storage(devices, 'test', False, True)
         reduce_lvm.assert_called_with('test')
 
     @patch('cinder_utils.log_lvm_info', Mock())
-    @patch.object(cinder_utils, 'force_reduce_lvm_volume_group_missing')
-    def test_configure_lvm_storage_used_dev(self, force_reduce_lvm):
+    @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
+    def test_configure_lvm_storage_force_removemissing(self, reduce_lvm):
         """It forces remove missing when asked to."""
         devices = ['/dev/vdb']
         cinder_utils.configure_lvm_storage(
             devices, 'test', False, True, remove_missing_force=True)
-        force_reduce_lvm.assert_called_with('test')
+        reduce_lvm.assert_called_with('test', extra_args=['--force'])
 
     @patch('subprocess.check_call')
     def test_reduce_lvm_volume_group_missing(self, _call):
@@ -432,9 +432,10 @@ class TestCinderUtils(CharmTestCase):
         _call.assert_called_with(['vgreduce', '--removemissing', 'test'])
 
     @patch('subprocess.check_call')
-    def test_force_reduce_lvm_volume_group_missing(self, _call):
-        cinder_utils.force_reduce_lvm_volume_group_missing('test')
-        expected_call_args = ['vgreduce', '--removemissing', '--force', 'test']
+    def test_reduce_lvm_volume_group_missing_extra_args(self, _call):
+        cinder_utils.reduce_lvm_volume_group_missing(
+            'test', extra_args=['--arg'])
+        expected_call_args = ['vgreduce', '--removemissing', '--arg', 'test']
         _call.assert_called_with(expected_call_args)
 
     @patch('subprocess.check_call')
