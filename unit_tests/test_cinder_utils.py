@@ -1,4 +1,4 @@
-from mock import patch, call, MagicMock
+from mock import patch, call, MagicMock, Mock
 
 from collections import OrderedDict
 import os
@@ -14,6 +14,7 @@ TO_PATCH = [
     # helpers.core.hookenv
     'config',
     'log',
+    'juju_log',
     'relation_get',
     'relation_set',
     'local_unit',
@@ -245,6 +246,7 @@ class TestCinderUtils(CharmTestCase):
         cinder_utils.has_partition_table(block_device)
         _check.assert_called_with(['fdisk', '-l', '/dev/vdb'], stderr=-2)
 
+    @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
@@ -265,6 +267,7 @@ class TestCinderUtils(CharmTestCase):
         reduce_lvm.assert_called_with('test')
         extend_lvm.assert_called_with('test', '/dev/vdc')
 
+    @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'has_partition_table')
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
@@ -287,6 +290,7 @@ class TestCinderUtils(CharmTestCase):
         reduce_lvm.assert_called_with('test')
         extend_lvm.assert_called_with('test', '/dev/vdc')
 
+    @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'has_partition_table')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     def test_configure_lvm_storage_used_dev(self, reduce_lvm, has_part):
@@ -296,6 +300,7 @@ class TestCinderUtils(CharmTestCase):
         cinder_utils.configure_lvm_storage(devices, 'test', False, True)
         reduce_lvm.assert_called_with('test')
 
+    @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
@@ -312,6 +317,7 @@ class TestCinderUtils(CharmTestCase):
         reduce_lvm.assert_called_with('test')
         self.assertFalse(extend_lvm.called)
 
+    @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
@@ -344,6 +350,7 @@ class TestCinderUtils(CharmTestCase):
         extend_lvm.assert_called_with('test', '/dev/vdc')
         self.assertFalse(self.create_lvm_volume_group.called)
 
+    @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
@@ -372,6 +379,7 @@ class TestCinderUtils(CharmTestCase):
         extend_lvm.assert_called_with('test', '/dev/vdc')
         self.assertFalse(self.create_lvm_volume_group.called)
 
+    @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
@@ -709,3 +717,11 @@ class TestCinderUtils(CharmTestCase):
         cinder_utils.check_db_initialised()
         calls = [call(**{'cinder-db-initialised-echo': 'unit/1-1234'})]
         self.relation_set.assert_has_calls(calls)
+
+    @patch('subprocess.check_output')
+    def test_log_lvm_info(self, _check):
+        output = "some output"
+        _check.return_value = output
+        cinder_utils.log_lvm_info()
+        _check.assert_called_with(['pvscan'])
+        self.juju_log.assert_called_with("pvscan: %s" % output)
