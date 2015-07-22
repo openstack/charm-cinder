@@ -378,7 +378,7 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
                            group if logical volume not allocated on them
     :param remove_missing_force: bool: Remove missing physical volumes from
                            volume group even if logical volumes are allocated
-                           on them. 'remove_missing' must also be True.
+                           on them. Overrides 'remove_missing' if set.
     '''
     log_lvm_info()
     devices = []
