@@ -156,7 +156,7 @@ class TestChangedHooks(CharmTestCase):
         self.assertTrue(conf_https.called)
         self.configure_lvm_storage.assert_called_with(['sdb'],
                                                       'cinder-volumes',
-                                                      False, False)
+                                                      False, False, False)
 
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'git_install_requested')
@@ -174,7 +174,22 @@ class TestChangedHooks(CharmTestCase):
         self.configure_lvm_storage.assert_called_with(
             ['sdb', '/dev/sdc', 'sde'],
             'cinder-new',
-            True, True)
+            True, True, False)
+
+    @patch.object(hooks, 'configure_https')
+    @patch.object(hooks, 'git_install_requested')
+    def test_config_changed_uses_remove_missing_force(self, git_requested,
+                                                      conf_https):
+        'It uses the remove-missing-force config option'
+        git_requested.return_value = False
+        self.openstack_upgrade_available.return_value = False
+        self.test_config.set('block-device', 'sdb')
+        self.test_config.set('remove-missing-force', True)
+        hooks.hooks.execute(['hooks/config-changed'])
+        self.configure_lvm_storage.assert_called_with(
+            ['sdb'],
+            'cinder-volumes',
+            False, False, True)
 
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'git_install_requested')

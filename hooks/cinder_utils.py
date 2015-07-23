@@ -333,14 +333,19 @@ def services():
     return list(set(_services))
 
 
-def reduce_lvm_volume_group_missing(volume_group):
+def reduce_lvm_volume_group_missing(volume_group, extra_args=None):
     '''
     Remove all missing physical volumes from the volume group, if there
     are no logical volumes allocated on them.
 
     :param volume_group: str: Name of volume group to reduce.
+    :param extra_args: list: List of extra args to pass to vgreduce
     '''
-    subprocess.check_call(['vgreduce', '--removemissing', volume_group])
+    if extra_args is None:
+        extra_args = []
+
+    command = ['vgreduce', '--removemissing'] + extra_args + [volume_group]
+    subprocess.check_call(command)
 
 
 def extend_lvm_volume_group(volume_group, block_device):
@@ -362,7 +367,7 @@ def log_lvm_info():
 
 
 def configure_lvm_storage(block_devices, volume_group, overwrite=False,
-                          remove_missing=False):
+                          remove_missing=False, remove_missing_force=False):
     ''' Configure LVM storage on the list of block devices provided
 
     :param block_devices: list: List of whitelisted block devices to detect
@@ -371,6 +376,9 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
                             not already in-use
     :param remove_missing: bool: Remove missing physical volumes from volume
                            group if logical volume not allocated on them
+    :param remove_missing_force: bool: Remove missing physical volumes from
+                           volume group even if logical volumes are allocated
+                           on them. Overrides 'remove_missing' if set.
     '''
     log_lvm_info()
     devices = []
@@ -412,7 +420,9 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
         new_devices.remove(new_devices[0])
 
     # Remove missing physical volumes from volume group
-    if remove_missing:
+    if remove_missing_force:
+        reduce_lvm_volume_group_missing(volume_group, extra_args=['--force'])
+    elif remove_missing:
         reduce_lvm_volume_group_missing(volume_group)
 
     if len(new_devices) > 0:
