@@ -129,7 +129,8 @@ def config_changed():
         configure_lvm_storage(block_devices,
                               conf['volume-group'],
                               conf['overwrite'] in ['true', 'True', True],
-                              conf['remove-missing'])
+                              conf['remove-missing'],
+                              conf['remove-missing-force'])
 
     if git_install_requested():
         if config_value_changed('openstack-origin-git'):

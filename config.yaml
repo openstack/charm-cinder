@@ -101,6 +101,13 @@ options:
     description: |
       If True, charm will attempt to remove missing physical volumes from
       volume group, if logical volumes are not allocated on them.
+  remove-missing-force:
+    default: False
+    type: boolean
+    description: |
+      If True, charm will attempt to remove missing physical volumes from
+      volume group, even when logical volumes are allocated on them. This
+      option overrides 'remove-missing' when set.
   database-user:
     default: cinder
     type: string
