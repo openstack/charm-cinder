@@ -360,6 +360,38 @@ def extend_lvm_volume_group(volume_group, block_device):
     subprocess.check_call(['vgextend', volume_group, block_device])
 
 
+def lvm_volume_group_exists(volume_group):
+    """Check for the existence of a volume group.
+
+    :param volume_group: str: Name of volume group.
+    """
+    try:
+        subprocess.check_call(['vgdisplay', volume_group])
+    except subprocess.CalledProcessError:
+        return False
+    else:
+        return True
+
+
+def remove_lvm_volume_group(volume_group):
+    """Remove a volume group.
+
+    :param volume_group: str: Name of volume group to remove.
+    """
+    subprocess.check_call(['vgremove', '--force', volume_group])
+
+
+def ensure_lvm_volume_group_non_existent(volume_group):
+    """Remove volume_group if it exists.
+
+    :param volume_group: str: Name of volume group.
+    """
+    if not lvm_volume_group_exists(volume_group):
+        return
+
+    remove_lvm_volume_group(volume_group)
+
+
 def log_lvm_info():
     """Log some useful information about how LVM is setup."""
     pvscan_output = subprocess.check_output(['pvscan'])
@@ -415,6 +447,9 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
     log_lvm_info()
 
     if vg_found is False and len(new_devices) > 0:
+        if overwrite:
+            ensure_lvm_volume_group_non_existent(volume_group)
+
         # Create new volume group from first device
         create_lvm_volume_group(volume_group, new_devices[0])
         new_devices.remove(new_devices[0])
