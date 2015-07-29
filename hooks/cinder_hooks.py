@@ -144,6 +144,7 @@ def config_changed():
                              upgrade_nonce=uuid.uuid4())
 
     CONFIGS.write_all()
+    service_restart('cinder-volume')
     configure_https()
     update_nrpe_config()
 
