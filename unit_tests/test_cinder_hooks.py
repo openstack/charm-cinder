@@ -183,8 +183,10 @@ class TestChangedHooks(CharmTestCase):
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'git_install_requested')
     @patch.object(hooks, 'config_value_changed')
-    def test_config_changed_uses_remove_missing_force(self, config_val_changed,
-                                                      git_requested, conf_https):
+    def test_config_changed_uses_remove_missing_force(self,
+                                                      config_val_changed,
+                                                      git_requested,
+                                                      conf_https):
         'It uses the remove-missing-force config option'
         git_requested.return_value = False
         self.openstack_upgrade_available.return_value = False
@@ -238,7 +240,8 @@ class TestChangedHooks(CharmTestCase):
     @patch.object(hooks, 'git_install_requested')
     @patch.object(hooks, 'config_value_changed')
     def test_config_changed_overwrite_changed(self, config_val_changed,
-                            git_requested, conf_https, _services):
+                                              git_requested, conf_https,
+                                              _services):
         'It uses the overwrite config option'
         git_requested.return_value = False
         self.openstack_upgrade_available.return_value = False
