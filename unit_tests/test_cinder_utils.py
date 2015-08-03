@@ -55,7 +55,7 @@ TO_PATCH = [
 
 
 MOUNTS = [
-    ['/mnt', '/dev/vdb']
+    ['/mnt', '/dev/fakevbd']
 ]
 
 DPKG_OPTIONS = [
@@ -64,9 +64,9 @@ DPKG_OPTIONS = [
 ]
 
 FDISKDISPLAY = """
-  Disk /dev/vdb doesn't contain a valid partition table
+  Disk /dev/fakevbd doesn't contain a valid partition table
 
-  Disk /dev/vdb: 21.5 GB, 21474836480 bytes
+  Disk /dev/fakevbd: 21.5 GB, 21474836480 bytes
   16 heads, 63 sectors/track, 41610 cylinders, total 41943040 sectors
   Units = sectors of 1 * 512 = 512 bytes
   Sector size (logical/physical): 512 bytes / 512 bytes
@@ -207,34 +207,34 @@ class TestCinderUtils(CharmTestCase):
         self.is_lvm_physical_volume.return_value = False
         self.zap_disk.return_value = True
         self.mounts.return_value = MOUNTS
-        cinder_utils.clean_storage('/dev/vdb')
-        self.umount.called_with('/dev/vdb', True)
+        cinder_utils.clean_storage('/dev/fakevbd')
+        self.umount.called_with('/dev/fakevbd', True)
 
     def test_clean_storage_lvm_wipe(self):
         'It removes traces of LVM when cleaning storage'
         self.mounts.return_value = []
         self.is_lvm_physical_volume.return_value = True
-        cinder_utils.clean_storage('/dev/vdb')
-        self.remove_lvm_physical_volume.assert_called_with('/dev/vdb')
-        self.deactivate_lvm_volume_group.assert_called_with('/dev/vdb')
-        self.zap_disk.assert_called_with('/dev/vdb')
+        cinder_utils.clean_storage('/dev/fakevbd')
+        self.remove_lvm_physical_volume.assert_called_with('/dev/fakevbd')
+        self.deactivate_lvm_volume_group.assert_called_with('/dev/fakevbd')
+        self.zap_disk.assert_called_with('/dev/fakevbd')
 
     def test_clean_storage_zap_disk(self):
         'It removes traces of LVM when cleaning storage'
         self.mounts.return_value = []
         self.is_lvm_physical_volume.return_value = False
-        cinder_utils.clean_storage('/dev/vdb')
-        self.zap_disk.assert_called_with('/dev/vdb')
+        cinder_utils.clean_storage('/dev/fakevbd')
+        self.zap_disk.assert_called_with('/dev/fakevbd')
 
     def test_parse_block_device(self):
         self.assertTrue(cinder_utils._parse_block_device(None),
                         (None, 0))
-        self.assertTrue(cinder_utils._parse_block_device('vdc'),
-                        ('/dev/vdc', 0))
-        self.assertTrue(cinder_utils._parse_block_device('/dev/vdc'),
-                        ('/dev/vdc', 0))
-        self.assertTrue(cinder_utils._parse_block_device('/dev/vdc'),
-                        ('/dev/vdc', 0))
+        self.assertTrue(cinder_utils._parse_block_device('fakevdc'),
+                        ('/dev/fakevdc', 0))
+        self.assertTrue(cinder_utils._parse_block_device('/dev/fakevdc'),
+                        ('/dev/fakevdc', 0))
+        self.assertTrue(cinder_utils._parse_block_device('/dev/fakevdc'),
+                        ('/dev/fakevdc', 0))
         self.assertTrue(cinder_utils._parse_block_device('/mnt/loop0|10'),
                         ('/mnt/loop0', 10))
         self.assertTrue(cinder_utils._parse_block_device('/mnt/loop0'),
@@ -243,9 +243,9 @@ class TestCinderUtils(CharmTestCase):
     @patch('subprocess.check_output')
     def test_has_partition_table(self, _check):
         _check.return_value = FDISKDISPLAY
-        block_device = '/dev/vdb'
+        block_device = '/dev/fakevbd'
         cinder_utils.has_partition_table(block_device)
-        _check.assert_called_with(['fdisk', '-l', '/dev/vdb'], stderr=-2)
+        _check.assert_called_with(['fdisk', '-l', '/dev/fakevbd'], stderr=-2)
 
     @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'ensure_lvm_volume_group_non_existent')
@@ -254,20 +254,20 @@ class TestCinderUtils(CharmTestCase):
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
     def test_configure_lvm_storage(self, extend_lvm, reduce_lvm,
                                    clean_storage, ensure_non_existent):
-        devices = ['/dev/vdb', '/dev/vdc']
+        devices = ['/dev/fakevbd', '/dev/fakevdc']
         self.is_lvm_physical_volume.return_value = False
         cinder_utils.configure_lvm_storage(devices, 'test', True, True)
         clean_storage.assert_has_calls(
-            [call('/dev/vdb'),
-             call('/dev/vdc')]
+            [call('/dev/fakevbd'),
+             call('/dev/fakevdc')]
         )
         self.create_lvm_physical_volume.assert_has_calls(
-            [call('/dev/vdb'),
-             call('/dev/vdc')]
+            [call('/dev/fakevbd'),
+             call('/dev/fakevdc')]
         )
-        self.create_lvm_volume_group.assert_called_with('test', '/dev/vdb')
+        self.create_lvm_volume_group.assert_called_with('test', '/dev/fakevbd')
         reduce_lvm.assert_called_with('test')
-        extend_lvm.assert_called_with('test', '/dev/vdc')
+        extend_lvm.assert_called_with('test', '/dev/fakevdc')
         ensure_non_existent.assert_called_with('test')
 
     @patch('cinder_utils.log_lvm_info', Mock())
@@ -277,27 +277,27 @@ class TestCinderUtils(CharmTestCase):
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
     def test_configure_lvm_storage_unused_dev(self, extend_lvm, reduce_lvm,
                                               clean_storage, has_part):
-        devices = ['/dev/vdb', '/dev/vdc']
+        devices = ['/dev/fakevbd', '/dev/fakevdc']
         self.is_lvm_physical_volume.return_value = False
         has_part.return_value = False
         cinder_utils.configure_lvm_storage(devices, 'test', False, True)
         clean_storage.assert_has_calls(
-            [call('/dev/vdb'),
-             call('/dev/vdc')]
+            [call('/dev/fakevbd'),
+             call('/dev/fakevdc')]
         )
         self.create_lvm_physical_volume.assert_has_calls(
-            [call('/dev/vdb'),
-             call('/dev/vdc')]
+            [call('/dev/fakevbd'),
+             call('/dev/fakevdc')]
         )
-        self.create_lvm_volume_group.assert_called_with('test', '/dev/vdb')
+        self.create_lvm_volume_group.assert_called_with('test', '/dev/fakevbd')
         reduce_lvm.assert_called_with('test')
-        extend_lvm.assert_called_with('test', '/dev/vdc')
+        extend_lvm.assert_called_with('test', '/dev/fakevdc')
 
     @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'has_partition_table')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     def test_configure_lvm_storage_used_dev(self, reduce_lvm, has_part):
-        devices = ['/dev/vdb', '/dev/vdc']
+        devices = ['/dev/fakevbd', '/dev/fakevdc']
         self.is_lvm_physical_volume.return_value = False
         has_part.return_value = True
         cinder_utils.configure_lvm_storage(devices, 'test', False, True)
@@ -323,66 +323,70 @@ class TestCinderUtils(CharmTestCase):
         self.assertFalse(extend_lvm.called)
         ensure_non_existent.assert_called_with('test')
 
+    @patch.object(cinder_utils, 'lvm_volume_group_exists')
     @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
     def test_configure_lvm_storage_existing_vg(self, extend_lvm, reduce_lvm,
-                                               clean_storage):
+                                               clean_storage, lvm_exists):
         def pv_lookup(device):
             devices = {
-                '/dev/vdb': True,
-                '/dev/vdc': False
+                '/dev/fakevbd': True,
+                '/dev/fakevdc': False
             }
             return devices[device]
 
         def vg_lookup(device):
             devices = {
-                '/dev/vdb': 'test',
-                '/dev/vdc': None
+                '/dev/fakevbd': 'test',
+                '/dev/fakevdc': None
             }
             return devices[device]
-        devices = ['/dev/vdb', '/dev/vdc']
+        devices = ['/dev/fakevbd', '/dev/fakevdc']
+        lvm_exists.return_value = False
         self.is_lvm_physical_volume.side_effect = pv_lookup
         self.list_lvm_volume_group.side_effect = vg_lookup
         cinder_utils.configure_lvm_storage(devices, 'test', True, True)
         clean_storage.assert_has_calls(
-            [call('/dev/vdc')]
+            [call('/dev/fakevdc')]
         )
         self.create_lvm_physical_volume.assert_has_calls(
-            [call('/dev/vdc')]
+            [call('/dev/fakevdc')]
         )
         reduce_lvm.assert_called_with('test')
-        extend_lvm.assert_called_with('test', '/dev/vdc')
+        extend_lvm.assert_called_with('test', '/dev/fakevdc')
         self.assertFalse(self.create_lvm_volume_group.called)
 
+    @patch.object(cinder_utils, 'lvm_volume_group_exists')
     @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
     def test_configure_lvm_storage_different_vg(self, extend_lvm, reduce_lvm,
-                                                clean_storage):
+                                                clean_storage, lvm_exists):
         def pv_lookup(device):
             devices = {
-                '/dev/vdb': True,
-                '/dev/vdc': True
+                '/dev/fakevbd': True,
+                '/dev/fakevdc': True
             }
             return devices[device]
 
         def vg_lookup(device):
             devices = {
-                '/dev/vdb': 'test',
-                '/dev/vdc': 'another'
+                '/dev/fakevbd': 'test',
+                '/dev/fakevdc': 'another'
             }
             return devices[device]
-        devices = ['/dev/vdb', '/dev/vdc']
+        devices = ['/dev/fakevbd', '/dev/fakevdc']
         self.is_lvm_physical_volume.side_effect = pv_lookup
         self.list_lvm_volume_group.side_effect = vg_lookup
+        lvm_exists.return_value = False
         cinder_utils.configure_lvm_storage(devices, 'test', True, True)
-        clean_storage.assert_called_with('/dev/vdc')
-        self.create_lvm_physical_volume.assert_called_with('/dev/vdc')
+        clean_storage.assert_called_with('/dev/fakevdc')
+        self.create_lvm_physical_volume.assert_called_with('/dev/fakevdc')
         reduce_lvm.assert_called_with('test')
-        extend_lvm.assert_called_with('test', '/dev/vdc')
+        extend_lvm.assert_called_with('test', '/dev/fakevdc')
         self.assertFalse(self.create_lvm_volume_group.called)
 
     @patch('cinder_utils.log_lvm_info', Mock())
@@ -394,18 +398,18 @@ class TestCinderUtils(CharmTestCase):
                                                        clean_storage):
         def pv_lookup(device):
             devices = {
-                '/dev/vdb': True,
-                '/dev/vdc': True
+                '/dev/fakevbd': True,
+                '/dev/fakevdc': True
             }
             return devices[device]
 
         def vg_lookup(device):
             devices = {
-                '/dev/vdb': 'test',
-                '/dev/vdc': 'another'
+                '/dev/fakevbd': 'test',
+                '/dev/fakevdc': 'another'
             }
             return devices[device]
-        devices = ['/dev/vdb', '/dev/vdc']
+        devices = ['/dev/fakevbd', '/dev/fakevdc']
         self.is_lvm_physical_volume.side_effect = pv_lookup
         self.list_lvm_volume_group.side_effect = vg_lookup
         cinder_utils.configure_lvm_storage(devices, 'test', False, False)
@@ -419,7 +423,7 @@ class TestCinderUtils(CharmTestCase):
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     def test_configure_lvm_storage_unforced_remove_default(self, reduce_lvm):
         """It doesn't force remove missing by default."""
-        devices = ['/dev/vdb']
+        devices = ['/dev/fakevbd']
         cinder_utils.configure_lvm_storage(devices, 'test', False, True)
         reduce_lvm.assert_called_with('test')
 
@@ -427,7 +431,7 @@ class TestCinderUtils(CharmTestCase):
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     def test_configure_lvm_storage_force_removemissing(self, reduce_lvm):
         """It forces remove missing when asked to."""
-        devices = ['/dev/vdb']
+        devices = ['/dev/fakevbd']
         cinder_utils.configure_lvm_storage(
             devices, 'test', False, True, remove_missing_force=True)
         reduce_lvm.assert_called_with('test', extra_args=['--force'])
