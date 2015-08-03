@@ -323,12 +323,13 @@ class TestCinderUtils(CharmTestCase):
         self.assertFalse(extend_lvm.called)
         ensure_non_existent.assert_called_with('test')
 
+    @patch.object(cinder_utils, 'lvm_volume_group_exists')
     @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
     def test_configure_lvm_storage_existing_vg(self, extend_lvm, reduce_lvm,
-                                               clean_storage):
+                                               clean_storage, lvm_exists):
         def pv_lookup(device):
             devices = {
                 '/dev/vdb': True,
@@ -343,6 +344,7 @@ class TestCinderUtils(CharmTestCase):
             }
             return devices[device]
         devices = ['/dev/vdb', '/dev/vdc']
+        lvm_exists.return_value = False
         self.is_lvm_physical_volume.side_effect = pv_lookup
         self.list_lvm_volume_group.side_effect = vg_lookup
         cinder_utils.configure_lvm_storage(devices, 'test', True, True)
@@ -356,12 +358,13 @@ class TestCinderUtils(CharmTestCase):
         extend_lvm.assert_called_with('test', '/dev/vdc')
         self.assertFalse(self.create_lvm_volume_group.called)
 
+    @patch.object(cinder_utils, 'lvm_volume_group_exists')
     @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
     def test_configure_lvm_storage_different_vg(self, extend_lvm, reduce_lvm,
-                                                clean_storage):
+                                                clean_storage, lvm_exists):
         def pv_lookup(device):
             devices = {
                 '/dev/vdb': True,
@@ -378,6 +381,7 @@ class TestCinderUtils(CharmTestCase):
         devices = ['/dev/vdb', '/dev/vdc']
         self.is_lvm_physical_volume.side_effect = pv_lookup
         self.list_lvm_volume_group.side_effect = vg_lookup
+        lvm_exists.return_value = False
         cinder_utils.configure_lvm_storage(devices, 'test', True, True)
         clean_storage.assert_called_with('/dev/vdc')
         self.create_lvm_physical_volume.assert_called_with('/dev/vdc')
