@@ -796,3 +796,7 @@ def git_post_install(projects_yaml):
     service_restart('tgtd')
 
     [service_restart(s) for s in services()]
+
+
+def filesystem_mounted(fs):
+    return subprocess.call(['grep', '-wqs', fs, '/proc/mounts']) == 0

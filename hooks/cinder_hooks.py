@@ -26,6 +26,7 @@ from cinder_utils import (
     ceph_config_file,
     setup_ipv6,
     check_db_initialised,
+    filesystem_mounted,
 )
 
 from charmhelpers.core.hookenv import (
@@ -53,6 +54,7 @@ from charmhelpers.core.host import (
     lsb_release,
     restart_on_change,
     service_reload,
+    umount,
 )
 
 from charmhelpers.contrib.openstack.utils import (
@@ -122,6 +124,10 @@ def config_changed():
         setup_ipv6()
         sync_db_with_multi_ipv6_addresses(config('database'),
                                           config('database-user'))
+
+    e_mountpoint = conf['ephemeral-unmount']
+    if e_mountpoint and filesystem_mounted(e_mountpoint):
+        umount(e_mountpoint)
 
     if (service_enabled('volume') and
             conf['block-device'] not in [None, 'None', 'none']):
