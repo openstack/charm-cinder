@@ -125,7 +125,7 @@ def config_changed():
         sync_db_with_multi_ipv6_addresses(config('database'),
                                           config('database-user'))
 
-    e_mountpoint = conf['ephemeral-unmount']
+    e_mountpoint = config('ephemeral-unmount')
     if e_mountpoint and filesystem_mounted(e_mountpoint):
         umount(e_mountpoint)
 
