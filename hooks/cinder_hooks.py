@@ -42,7 +42,6 @@ from charmhelpers.core.hookenv import (
     unit_get,
     log,
     ERROR,
-    INFO,
 )
 
 from charmhelpers.fetch import (
@@ -71,7 +70,6 @@ from charmhelpers.contrib.storage.linux.ceph import (
     request_complete,
     ensure_ceph_keyring,
     CephBrokerRq,
-    CephBrokerRsp,
     delete_keyring,
 )
 
