@@ -67,6 +67,8 @@ from charmhelpers.contrib.openstack.utils import (
 )
 
 from charmhelpers.contrib.storage.linux.ceph import (
+    send_request_if_needed,
+    request_complete,
     ensure_ceph_keyring,
     CephBrokerRq,
     CephBrokerRsp,
@@ -316,6 +318,14 @@ def ceph_joined():
     apt_install('ceph-common', fatal=True)
 
 
+def get_ceph_request():
+    service = service_name()
+    rq = CephBrokerRq()
+    replicas = config('ceph-osd-replication-count')
+    rq.add_op_create_pool(name=service, replica_count=replicas)
+    return rq
+
+
 @hooks.hook('ceph-relation-changed')
 @restart_on_change(restart_map())
 def ceph_changed(relation_id=None):
@@ -329,17 +339,8 @@ def ceph_changed(relation_id=None):
         juju_log('Could not create ceph keyring: peer not ready?')
         return
 
-    settings = relation_get(rid=relation_id)
-    if settings and 'broker_rsp' in settings:
-        rsp = CephBrokerRsp(settings['broker_rsp'])
-        # Non-zero return code implies failure
-        if rsp.exit_code:
-            log("Ceph broker request failed (rc=%s, msg=%s)" %
-                (rsp.exit_code, rsp.exit_msg), level=ERROR)
-            return
-
-        log("Ceph broker request succeeded (rc=%s, msg=%s)" %
-            (rsp.exit_code, rsp.exit_msg), level=INFO)
+    if request_complete(get_ceph_request()):
+        log('Request complete')
         set_ceph_env_variables(service=service)
         CONFIGS.write(CINDER_CONF)
         CONFIGS.write(ceph_config_file())
@@ -347,12 +348,7 @@ def ceph_changed(relation_id=None):
         # guarantee that ceph resources are ready.
         service_restart('cinder-volume')
     else:
-        rq = CephBrokerRq()
-        replicas = config('ceph-osd-replication-count')
-        rq.add_op_create_pool(name=service, replica_count=replicas)
-        for rid in relation_ids('ceph'):
-            relation_set(relation_id=rid, broker_req=rq.request)
-            log("Request(s) sent to Ceph broker (rid=%s)" % (rid))
+        send_request_if_needed(get_ceph_request())
 
 
 @hooks.hook('ceph-relation-broken')
