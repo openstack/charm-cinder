@@ -283,8 +283,8 @@ options:
       A comma-separated list of nagios servicegroups.
       If left empty, the nagios_context will be used as the servicegroup
   action-managed-upgrade:
-    default: False
     type: boolean
+    default: False
     description: |
       If True enables openstack upgrades for this charm via juju actions.
       You will still need to set the config variable for the openstack version
