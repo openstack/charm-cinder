@@ -235,42 +235,37 @@ class TestChangedHooks(CharmTestCase):
         self.assertFalse(self.do_openstack_upgrade.called)
         self.assertTrue(conf_https.called)
 
-<<<<<<< TREE
-=======
     @patch('charmhelpers.core.host.service')
     @patch.object(hooks, 'configure_https')
->>>>>>> MERGE-SOURCE
     @patch.object(hooks, 'git_install_requested')
-<<<<<<< TREE
-    def test_config_changed_with_openstack_upgrade_action(self, git_requested):
-=======
     @patch.object(hooks, 'config_value_changed')
     def test_config_changed_overwrite_changed(self, config_val_changed,
                                               git_requested, conf_https,
                                               _services):
         'It uses the overwrite config option'
->>>>>>> MERGE-SOURCE
         git_requested.return_value = False
-<<<<<<< TREE
-        self.openstack_upgrade_available.return_value = True
-        self.test_config.set('action-managed-upgrade', True)
-
-=======
         self.openstack_upgrade_available.return_value = False
         config_val_changed.return_value = True
->>>>>>> MERGE-SOURCE
         hooks.hooks.execute(['hooks/config-changed'])
-<<<<<<< TREE
-
-        self.assertFalse(self.do_openstack_upgrade.called)
-=======
         self.assertTrue(self.CONFIGS.write_all.called)
         self.assertTrue(conf_https.called)
         self.configure_lvm_storage.assert_called_with(['sdb'],
                                                       'cinder-volumes',
                                                       False, False, False)
         self.service_restart.assert_called_with('cinder-volume')
->>>>>>> MERGE-SOURCE
+
+    @patch.object(hooks, 'git_install_requested')
+    @patch.object(hooks, 'config_value_changed')
+    def test_config_changed_with_openstack_upgrade_action(self,
+                                                          config_value_changed,
+                                                          git_requested):
+        git_requested.return_value = False
+        self.openstack_upgrade_available.return_value = True
+        self.test_config.set('action-managed-upgrade', True)
+
+        hooks.hooks.execute(['hooks/config-changed'])
+
+        self.assertFalse(self.do_openstack_upgrade.called)
 
     def test_db_changed(self):
         'It writes out cinder.conf on db changed'
