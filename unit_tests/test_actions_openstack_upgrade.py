@@ -11,7 +11,11 @@ from test_utils import (
 )
 
 TO_PATCH = [
-    'config'
+    'config',
+    'juju_log',
+    'relation_set',
+    'relation_ids',
+    'uuid'
 ]
 
 
@@ -22,8 +26,6 @@ class TestCinderUpgradeActions(CharmTestCase):
                                                     TO_PATCH)
         self.config.side_effect = self.test_config.get
 
-    @patch.object(openstack_upgrade, 'relation_set')
-    @patch.object(openstack_upgrade, 'relation_ids')
     @patch.object(openstack_upgrade, 'action_set')
     @patch.object(openstack_upgrade, 'action_fail')
     @patch.object(openstack_upgrade, 'do_openstack_upgrade')
@@ -33,9 +35,11 @@ class TestCinderUpgradeActions(CharmTestCase):
     def test_openstack_upgrade(self, _config, config_changed,
                                openstack_upgrade_available,
                                do_openstack_upgrade, action_fail,
-                               action_set, relation_ids, relation_set):
+                               action_set):
         _config.return_value = None
         openstack_upgrade_available.return_value = True
+        self.relation_ids.return_value = ['relid1']
+        self.uuid.uuid4.return_value = 12345
 
         self.test_config.set('action-managed-upgrade', True)
 
@@ -43,6 +47,9 @@ class TestCinderUpgradeActions(CharmTestCase):
 
         self.assertTrue(do_openstack_upgrade.called)
         self.assertTrue(config_changed.called)
+        self.assertTrue(self.relation_ids.called)
+        self.relation_set.assert_called_with(relation_id='relid1',
+                                             upgrade_nonce=12345)
         self.assertFalse(action_fail.called)
 
     @patch.object(openstack_upgrade, 'action_set')
