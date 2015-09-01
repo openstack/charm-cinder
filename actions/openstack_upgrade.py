@@ -48,7 +48,8 @@ def openstack_upgrade():
                 try:
                     do_openstack_upgrade(configs=CONFIGS)
 
-                # NOTE(jamespage) tell any storage-backends we just upgraded
+                    # NOTE(jamespage) tell any storage-backends we just
+                    # upgraded
                     for rid in relation_ids('storage-backend'):
                         relation_set(relation_id=rid,
                                      upgrade_nonce=uuid.uuid4())
