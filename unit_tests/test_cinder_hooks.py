@@ -254,6 +254,19 @@ class TestChangedHooks(CharmTestCase):
                                                       False, False, False)
         self.service_restart.assert_called_with('cinder-volume')
 
+    @patch.object(hooks, 'git_install_requested')
+    @patch.object(hooks, 'config_value_changed')
+    def test_config_changed_with_openstack_upgrade_action(self,
+                                                          config_value_changed,
+                                                          git_requested):
+        git_requested.return_value = False
+        self.openstack_upgrade_available.return_value = True
+        self.test_config.set('action-managed-upgrade', True)
+
+        hooks.hooks.execute(['hooks/config-changed'])
+
+        self.assertFalse(self.do_openstack_upgrade.called)
+
     def test_db_changed(self):
         'It writes out cinder.conf on db changed'
         self.relation_get.return_value = 'cinder/0 cinder/1'
