@@ -149,6 +149,10 @@ def config_changed():
                 relation_set(relation_id=rid,
                              upgrade_nonce=uuid.uuid4())
 
+    # overwrite config is not in conf file. so We can't use restart_on_change
+    if config_value_changed('overwrite'):
+        service_restart('cinder-volume')
+
     CONFIGS.write_all()
     configure_https()
     update_nrpe_config()
