@@ -32,7 +32,7 @@ utils.register_configs = _register_configs
 TO_PATCH = [
     'check_call',
     'send_request_if_needed',
-    'request_complete',
+    'is_request_complete',
     # cinder_utils
     'configure_lvm_storage',
     'determine_packages',
@@ -539,7 +539,7 @@ class TestJoinedHooks(CharmTestCase):
         self.CONFIGS.complete_contexts.return_value = ['ceph']
         self.service_name.return_value = 'cinder'
         self.ensure_ceph_keyring.return_value = True
-        self.request_complete.return_value = False
+        self.is_request_complete.return_value = False
         self.ceph_config_file.return_value = '/var/lib/charm/cinder/ceph.conf'
         hooks.hooks.execute(['hooks/ceph-relation-changed'])
         self.ensure_ceph_keyring.assert_called_with(service='cinder',
@@ -577,7 +577,7 @@ class TestJoinedHooks(CharmTestCase):
         self.service_name.return_value = 'cinder'
         self.ensure_ceph_keyring.return_value = True
         self.ceph_config_file.return_value = '/var/lib/charm/cinder/ceph.conf'
-        self.request_complete.return_value = False
+        self.is_request_complete.return_value = False
         hooks.hooks.execute(['hooks/ceph-relation-changed'])
         self.ensure_ceph_keyring.assert_called_with(service='cinder',
                                                     user='cinder',
