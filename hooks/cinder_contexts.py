@@ -3,12 +3,15 @@ from charmhelpers.core.hookenv import (
     relation_ids,
     service_name,
     related_units,
-    relation_get
+    relation_get,
+    log,
+    WARNING,
 )
 
 from charmhelpers.contrib.openstack.context import (
     OSContextGenerator,
     ApacheSSLContext as SSLContext,
+    SubordinateConfigContext,
 )
 
 from charmhelpers.contrib.openstack.utils import (
@@ -110,3 +113,35 @@ class LoggingConfigContext(OSContextGenerator):
 
     def __call__(self):
         return {'debug': config('debug'), 'verbose': config('verbose')}
+
+
+class CinderSubordinateConfigContext(SubordinateConfigContext):
+
+    def __call__(self):
+        ctxt = super(CinderSubordinateConfigContext, self).__call__()
+
+        # If all backends are stateless we can allow host setting to be set
+        # across hosts/units to allow for HA volume failover.
+        has_rbd = False
+        stateless = False
+        for section, items in ctxt['sections'].iteritems():
+            for item in items:
+                if item[0] == 'volume_driver':
+                    if 'RBDDriver' in item[1]:
+                        has_rbd = True
+                        stateless = True
+                    else:
+                        stateless = False
+
+        if stateless:
+            if 'DEFAULT' in ctxt['sections']:
+                ctxt['sections']['DEFAULT'].append(('host', service_name()))
+            else:
+                ctxt['sections']['DEFAULT'] = [('host', service_name())]
+
+        elif has_rbd:
+            log("RBDDriver configured in one or more backends but unable to "
+                "set host param since there appear to also be stateful "
+                "backends configured.", level=WARNING)
+
+        return ctxt

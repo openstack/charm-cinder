@@ -172,7 +172,7 @@ CONFIG_FILES = OrderedDict([
                           cinder_contexts.CephContext(),
                           cinder_contexts.HAProxyContext(),
                           cinder_contexts.ImageServiceContext(),
-                          context.SubordinateConfigContext(
+                          cinder_contexts.CinderSubordinateConfigContext(
                               interface='storage-backend',
                               service='cinder',
                               config_file=CINDER_CONF),
