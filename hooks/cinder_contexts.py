@@ -122,7 +122,7 @@ class CinderSubordinateConfigContext(SubordinateConfigContext):
 
         # If all backends are stateless we can allow host setting to be set
         # across hosts/units to allow for HA volume failover but otherwise we
-        # have to leave it as unique.
+        # have to leave it as unique (LP: #1493931).
         rids = []
         for interface in self.interfaces:
             rids.extend(relation_ids(interface))
@@ -149,7 +149,7 @@ class CinderSubordinateConfigContext(SubordinateConfigContext):
                 ctxt['sections']['DEFAULT'] = [('host', service_name())]
 
         elif any_stateless:
-            log("One or more statless backends configured but unable to "
+            log("One or more stateless backends configured but unable to "
                 "set host param since there appear to also be stateful "
                 "backends configured.", level=WARNING)
 
