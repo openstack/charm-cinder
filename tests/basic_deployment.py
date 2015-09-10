@@ -68,7 +68,8 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         """Configure all of the services."""
         cinder_config = {'block-device': 'vdb',
                          'glance-api-version': '2',
-                         'overwrite': 'true'}
+                         'overwrite': 'true',
+                         'ephemeral-unmount': '/mnt'}
         if self.git:
             amulet_http_proxy = os.environ.get('AMULET_HTTP_PROXY')
 
