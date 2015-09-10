@@ -26,6 +26,7 @@ from cinder_utils import (
     ceph_config_file,
     setup_ipv6,
     check_db_initialised,
+    filesystem_mounted,
 )
 
 from charmhelpers.core.hookenv import (
@@ -53,6 +54,7 @@ from charmhelpers.core.host import (
     lsb_release,
     restart_on_change,
     service_reload,
+    umount,
 )
 
 from charmhelpers.contrib.openstack.utils import (
@@ -123,24 +125,33 @@ def config_changed():
         sync_db_with_multi_ipv6_addresses(config('database'),
                                           config('database-user'))
 
+    e_mountpoint = config('ephemeral-unmount')
+    if e_mountpoint and filesystem_mounted(e_mountpoint):
+        umount(e_mountpoint)
+
     if (service_enabled('volume') and
             conf['block-device'] not in [None, 'None', 'none']):
         block_devices = conf['block-device'].split()
         configure_lvm_storage(block_devices,
                               conf['volume-group'],
                               conf['overwrite'] in ['true', 'True', True],
-                              conf['remove-missing'])
+                              conf['remove-missing'],
+                              conf['remove-missing-force'])
 
     if git_install_requested():
         if config_value_changed('openstack-origin-git'):
             git_install(config('openstack-origin-git'))
-    else:
+    elif not config('action-managed-upgrade'):
         if openstack_upgrade_available('cinder-common'):
             do_openstack_upgrade(configs=CONFIGS)
             # NOTE(jamespage) tell any storage-backends we just upgraded
             for rid in relation_ids('storage-backend'):
                 relation_set(relation_id=rid,
                              upgrade_nonce=uuid.uuid4())
+
+    # overwrite config is not in conf file. so We can't use restart_on_change
+    if config_value_changed('overwrite'):
+        service_restart('cinder-volume')
 
     CONFIGS.write_all()
     configure_https()

@@ -147,7 +147,9 @@ class TestChangedHooks(CharmTestCase):
 
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'git_install_requested')
-    def test_config_changed(self, git_requested, conf_https):
+    @patch.object(hooks, 'config_value_changed')
+    def test_config_changed(self, config_val_changed,
+                            git_requested, conf_https):
         'It writes out all config'
         git_requested.return_value = False
         self.openstack_upgrade_available.return_value = False
@@ -156,11 +158,13 @@ class TestChangedHooks(CharmTestCase):
         self.assertTrue(conf_https.called)
         self.configure_lvm_storage.assert_called_with(['sdb'],
                                                       'cinder-volumes',
-                                                      False, False)
+                                                      False, False, False)
 
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'git_install_requested')
-    def test_config_changed_block_devices(self, git_requested, conf_https):
+    @patch.object(hooks, 'config_value_changed')
+    def test_config_changed_block_devices(self, config_val_changed,
+                                          git_requested, conf_https):
         'It writes out all config'
         git_requested.return_value = False
         self.openstack_upgrade_available.return_value = False
@@ -174,11 +178,31 @@ class TestChangedHooks(CharmTestCase):
         self.configure_lvm_storage.assert_called_with(
             ['sdb', '/dev/sdc', 'sde'],
             'cinder-new',
-            True, True)
+            True, True, False)
 
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'git_install_requested')
-    def test_config_changed_upgrade_available(self, git_requested, conf_https):
+    @patch.object(hooks, 'config_value_changed')
+    def test_config_changed_uses_remove_missing_force(self,
+                                                      config_val_changed,
+                                                      git_requested,
+                                                      conf_https):
+        'It uses the remove-missing-force config option'
+        git_requested.return_value = False
+        self.openstack_upgrade_available.return_value = False
+        self.test_config.set('block-device', 'sdb')
+        self.test_config.set('remove-missing-force', True)
+        hooks.hooks.execute(['hooks/config-changed'])
+        self.configure_lvm_storage.assert_called_with(
+            ['sdb'],
+            'cinder-volumes',
+            False, False, True)
+
+    @patch.object(hooks, 'configure_https')
+    @patch.object(hooks, 'git_install_requested')
+    @patch.object(hooks, 'config_value_changed')
+    def test_config_changed_upgrade_available(self, config_val_changed,
+                                              git_requested, conf_https):
         'It writes out all config with an available OS upgrade'
         git_requested.return_value = False
         self.openstack_upgrade_available.return_value = True
@@ -210,6 +234,38 @@ class TestChangedHooks(CharmTestCase):
         self.git_install.assert_called_with(projects_yaml)
         self.assertFalse(self.do_openstack_upgrade.called)
         self.assertTrue(conf_https.called)
+
+    @patch('charmhelpers.core.host.service')
+    @patch.object(hooks, 'configure_https')
+    @patch.object(hooks, 'git_install_requested')
+    @patch.object(hooks, 'config_value_changed')
+    def test_config_changed_overwrite_changed(self, config_val_changed,
+                                              git_requested, conf_https,
+                                              _services):
+        'It uses the overwrite config option'
+        git_requested.return_value = False
+        self.openstack_upgrade_available.return_value = False
+        config_val_changed.return_value = True
+        hooks.hooks.execute(['hooks/config-changed'])
+        self.assertTrue(self.CONFIGS.write_all.called)
+        self.assertTrue(conf_https.called)
+        self.configure_lvm_storage.assert_called_with(['sdb'],
+                                                      'cinder-volumes',
+                                                      False, False, False)
+        self.service_restart.assert_called_with('cinder-volume')
+
+    @patch.object(hooks, 'git_install_requested')
+    @patch.object(hooks, 'config_value_changed')
+    def test_config_changed_with_openstack_upgrade_action(self,
+                                                          config_value_changed,
+                                                          git_requested):
+        git_requested.return_value = False
+        self.openstack_upgrade_available.return_value = True
+        self.test_config.set('action-managed-upgrade', True)
+
+        hooks.hooks.execute(['hooks/config-changed'])
+
+        self.assertFalse(self.do_openstack_upgrade.called)
 
     def test_db_changed(self):
         'It writes out cinder.conf on db changed'
@@ -310,7 +366,7 @@ class TestChangedHooks(CharmTestCase):
         hooks.configure_https()
         calls = [call('a2dissite', 'openstack_https_frontend'),
                  call('service', 'apache2', 'reload')]
-        self.check_call.assert_called_has_calls(calls)
+        self.check_call.assert_has_calls(calls)
         identity_joined.assert_called_with(rid='identity-service:0')
 
     @patch.object(hooks, 'identity_joined')
@@ -321,7 +377,7 @@ class TestChangedHooks(CharmTestCase):
         hooks.configure_https()
         calls = [call('a2dissite', 'openstack_https_frontend'),
                  call('service', 'apache2', 'reload')]
-        self.check_call.assert_called_has_calls(calls)
+        self.check_call.assert_has_calls(calls)
         identity_joined.assert_called_with(rid='identity-service:0')
 
     def test_image_service_changed(self):
@@ -367,7 +423,7 @@ class TestJoinedHooks(CharmTestCase):
         self.test_config.set('prefer-ipv6', True)
         self.test_config.set('vip', 'dummy_vip')
         hooks.hooks.execute(['hooks/shared-db-relation-joined'])
-        self.sync_db_with_multi_ipv6_addresses.assert_called_with_once(
+        self.sync_db_with_multi_ipv6_addresses.assert_called_with(
             'cinder', 'cinder')
 
     def test_db_joined_with_postgresql(self):

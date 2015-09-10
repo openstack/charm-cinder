@@ -44,7 +44,7 @@ class OpenStackAmuletDeployment(AmuletDeployment):
            Determine if the local branch being tested is derived from its
            stable or next (dev) branch, and based on this, use the corresonding
            stable or next branches for the other_services."""
-        base_charms = ['mysql', 'mongodb']
+        base_charms = ['mysql', 'mongodb', 'nrpe']
 
         if self.series in ['precise', 'trusty']:
             base_series = self.series
@@ -79,9 +79,9 @@ class OpenStackAmuletDeployment(AmuletDeployment):
         services.append(this_service)
         use_source = ['mysql', 'mongodb', 'rabbitmq-server', 'ceph',
                       'ceph-osd', 'ceph-radosgw']
-        # Openstack subordinate charms do not expose an origin option as that
-        # is controlled by the principle
-        ignore = ['neutron-openvswitch']
+        # Most OpenStack subordinate charms do not expose an origin option
+        # as that is controlled by the principle.
+        ignore = ['cinder-ceph', 'hacluster', 'neutron-openvswitch', 'nrpe']
 
         if self.openstack:
             for svc in services:
@@ -148,3 +148,36 @@ class OpenStackAmuletDeployment(AmuletDeployment):
             return os_origin.split('%s-' % self.series)[1].split('/')[0]
         else:
             return releases[self.series]
+
+    def get_ceph_expected_pools(self, radosgw=False):
+        """Return a list of expected ceph pools in a ceph + cinder + glance
+        test scenario, based on OpenStack release and whether ceph radosgw
+        is flagged as present or not."""
+
+        if self._get_openstack_release() >= self.trusty_kilo:
+            # Kilo or later
+            pools = [
+                'rbd',
+                'cinder',
+                'glance'
+            ]
+        else:
+            # Juno or earlier
+            pools = [
+                'data',
+                'metadata',
+                'rbd',
+                'cinder',
+                'glance'
+            ]
+
+        if radosgw:
+            pools.extend([
+                '.rgw.root',
+                '.rgw.control',
+                '.rgw',
+                '.rgw.gc',
+                '.users.uid'
+            ])
+
+        return pools
