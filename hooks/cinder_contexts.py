@@ -5,7 +5,6 @@ from charmhelpers.core.hookenv import (
     related_units,
     relation_get,
     log,
-    DEBUG,
     WARNING,
 )
 
@@ -132,16 +131,14 @@ class CinderSubordinateConfigContext(SubordinateConfigContext):
         any_stateless = False
         for rid in rids:
             for unit in related_units(rid):
-                val = relation_get('stateless', rid=rid, unit=unit)
-                if type(val) is bool:
-                    log("%s is bool", level=DEBUG)
+                val = relation_get('stateless', rid=rid, unit=unit) or ""
+                if val.lower() == 'True':
+                    if stateless is None:
+                        stateless = True
+                    else:
+                        stateless = stateless and True
                 else:
-                    log("%s is not bool", level=WARNING)
-
-                if val and stateless is None:
-                    stateless = True
-                else:
-                    stateless = stateless and val
+                    stateless = False
 
                 any_stateless = any_stateless or stateless
 
