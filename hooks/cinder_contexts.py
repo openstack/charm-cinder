@@ -132,7 +132,7 @@ class CinderSubordinateConfigContext(SubordinateConfigContext):
         for rid in rids:
             for unit in related_units(rid):
                 val = relation_get('stateless', rid=rid, unit=unit) or ""
-                if val.lower() == 'True':
+                if val.lower() == 'true':
                     if stateless is None:
                         stateless = True
                     else:
