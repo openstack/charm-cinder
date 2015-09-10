@@ -5,6 +5,7 @@ from charmhelpers.core.hookenv import (
     related_units,
     relation_get,
     log,
+    DEBUG,
     WARNING,
 )
 
@@ -121,17 +122,28 @@ class CinderSubordinateConfigContext(SubordinateConfigContext):
         ctxt = super(CinderSubordinateConfigContext, self).__call__()
 
         # If all backends are stateless we can allow host setting to be set
-        # across hosts/units to allow for HA volume failover.
-        has_rbd = False
-        stateless = False
-        for section, items in ctxt['sections'].iteritems():
-            for item in items:
-                if item[0] == 'volume_driver':
-                    if 'RBDDriver' in item[1]:
-                        has_rbd = True
-                        stateless = True
-                    else:
-                        stateless = False
+        # across hosts/units to allow for HA volume failover but otherwise we
+        # have to leave it as unique.
+        rids = []
+        for interface in self.interfaces:
+            rids.extend(relation_ids(interface))
+
+        stateless = None
+        any_stateless = False
+        for rid in rids:
+            for unit in related_units(rid):
+                val = relation_get('stateless', rid=rid, unit=unit)
+                if type(val) is bool:
+                    log("%s is bool", level=DEBUG)
+                else:
+                    log("%s is not bool", level=WARNING)
+
+                if val and stateless is None:
+                    stateless = True
+                else:
+                    stateless = stateless and val
+
+                any_stateless = any_stateless or stateless
 
         if stateless:
             if 'DEFAULT' in ctxt['sections']:
@@ -139,8 +151,8 @@ class CinderSubordinateConfigContext(SubordinateConfigContext):
             else:
                 ctxt['sections']['DEFAULT'] = [('host', service_name())]
 
-        elif has_rbd:
-            log("RBDDriver configured in one or more backends but unable to "
+        elif any_stateless:
+            log("One or more statless backends configured but unable to "
                 "set host param since there appear to also be stateful "
                 "backends configured.", level=WARNING)
 
