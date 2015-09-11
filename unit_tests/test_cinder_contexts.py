@@ -156,18 +156,18 @@ class TestCinderContext(CharmTestCase):
              'private-address': '10.5.8.191',
              'stateless': 'True',
              'subordinate_configuration':
-                 '{"cinder": '
-                 '{"/etc/cinder/cinder.conf": '
-                 '{"sections": '
-                 '{"cinder-ceph": '
-                 '[["volume_backend_name", '
-                 '"cinder-ceph"], '
-                 '["volume_driver", '
-                 '"cinder.volume.drivers.rbd.RBDDriver"], '
-                 '["rbd_pool", '
-                 '"cinder-ceph"], '
-                 '["rbd_user", '
-                 '"cinder-ceph"]]}}}}'}
+             '{"cinder": '
+             '{"/etc/cinder/cinder.conf": '
+             '{"sections": '
+             '{"cinder-ceph": '
+             '[["volume_backend_name", '
+             '"cinder-ceph"], '
+             '["volume_driver", '
+             '"cinder.volume.drivers.rbd.RBDDriver"], '
+             '["rbd_pool", '
+             '"cinder-ceph"], '
+             '["rbd_user", '
+             '"cinder-ceph"]]}}}}'}
 
         def fake_rel_get(attribute=None, unit=None, rid=None):
             return settings.get(attribute)
@@ -209,18 +209,18 @@ class TestCinderContext(CharmTestCase):
              'private-address': '10.5.8.191',
              'stateless': 'False',
              'subordinate_configuration':
-                 '{"cinder": '
-                 '{"/etc/cinder/cinder.conf": '
-                 '{"sections": '
-                 '{"cinder-ceph": '
-                 '[["volume_backend_name", '
-                 '"cinder-ceph"], '
-                 '["volume_driver", '
-                 '"cinder.volume.drivers.rbd.RBDDriver"], '
-                 '["rbd_pool", '
-                 '"cinder-ceph"], '
-                 '["rbd_user", '
-                 '"cinder-ceph"]]}}}}'}
+             '{"cinder": '
+             '{"/etc/cinder/cinder.conf": '
+             '{"sections": '
+             '{"cinder-ceph": '
+             '[["volume_backend_name", '
+             '"cinder-ceph"], '
+             '["volume_driver", '
+             '"cinder.volume.drivers.rbd.RBDDriver"], '
+             '["rbd_pool", '
+             '"cinder-ceph"], '
+             '["rbd_user", '
+             '"cinder-ceph"]]}}}}'}
 
         def fake_rel_get(attribute=None, unit=None, rid=None):
             return settings.get(attribute)
@@ -288,31 +288,31 @@ class TestCinderContext(CharmTestCase):
              'private-address': '10.5.8.191',
              'stateless': 'True',
              'subordinate_configuration':
-                 '{"cinder": '
-                 '{"/etc/cinder/cinder.conf": '
-                 '{"sections": '
-                 '{"cinder-ceph": '
-                 '[["volume_backend_name", '
-                 '"cinder-ceph"], '
-                 '["volume_driver", '
-                 '"cinder.volume.drivers.rbd.RBDDriver"], '
-                 '["rbd_pool", '
-                 '"cinder-ceph"], '
-                 '["rbd_user", '
-                 '"cinder-ceph"]]}}}}'}
+             '{"cinder": '
+             '{"/etc/cinder/cinder.conf": '
+             '{"sections": '
+             '{"cinder-ceph": '
+             '[["volume_backend_name", '
+             '"cinder-ceph"], '
+             '["volume_driver", '
+             '"cinder.volume.drivers.rbd.RBDDriver"], '
+             '["rbd_pool", '
+             '"cinder-ceph"], '
+             '["rbd_user", '
+             '"cinder-ceph"]]}}}}'}
 
         cinder_other_settings = \
             {'backend_name': 'cinder-other',
              'private-address': '10.5.8.192',
              'subordinate_configuration':
-                 '{"cinder": '
-                 '{"/etc/cinder/cinder.conf": '
-                 '{"sections": '
-                 '{"cinder-other": '
-                 '[["volume_backend_name", '
-                 '"cinder-other"], '
-                 '["volume_driver", '
-                 '"cinder.volume.drivers.OtherDriver"]]}}}}'}
+             '{"cinder": '
+             '{"/etc/cinder/cinder.conf": '
+             '{"sections": '
+             '{"cinder-other": '
+             '[["volume_backend_name", '
+             '"cinder-other"], '
+             '["volume_driver", '
+             '"cinder.volume.drivers.OtherDriver"]]}}}}'}
 
         def fake_rel_get(attribute=None, unit=None, rid=None):
             if unit == 'cinder-ceph/0':
