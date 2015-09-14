@@ -6,20 +6,10 @@ os.environ['JUJU_UNIT_NAME'] = 'cinder'
 from test_utils import RESTART_MAP
 import cinder_utils as utils
 
-# Need to do some early patching to get the module loaded.
-_restart_map = utils.restart_map
-_register_configs = utils.register_configs
-
-utils.restart_map = MagicMock()
-utils.restart_map.return_value = RESTART_MAP
-utils.register_configs = MagicMock()
-
-import git_reinstall
-
-# Unpatch it now that its loaded.
-utils.restart_map = _restart_map
-utils.register_configs = _register_configs
-
+with patch('cinder_utils.register_configs') as register_configs:
+    with patch('cinder_utils.restart_map') as restart_map:
+        restart_map.return_value = RESTART_MAP
+        import git_reinstall
 
 from test_utils import (
     CharmTestCase
