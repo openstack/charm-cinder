@@ -4,7 +4,8 @@ import os
 os.environ['JUJU_UNIT_NAME'] = 'cinder'
 
 with patch('cinder_utils.register_configs') as register_configs:
-    import openstack_upgrade
+    with patch('cinder_utils.restart_map') as restart_map:
+        import openstack_upgrade
 
 from test_utils import (
     CharmTestCase
