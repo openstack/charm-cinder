@@ -1,5 +1,5 @@
 import os
-from mock import patch, call, MagicMock
+from mock import patch, call
 
 from test_utils import (
     CharmTestCase,

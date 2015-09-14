@@ -1,10 +1,9 @@
-from mock import patch, MagicMock
+from mock import patch
 import os
 
 os.environ['JUJU_UNIT_NAME'] = 'cinder'
 
 from test_utils import RESTART_MAP
-import cinder_utils as utils
 
 with patch('cinder_utils.register_configs') as register_configs:
     with patch('cinder_utils.restart_map') as restart_map:
