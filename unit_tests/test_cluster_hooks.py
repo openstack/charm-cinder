@@ -10,6 +10,7 @@ os.environ['JUJU_UNIT_NAME'] = 'cinder'
 
 with patch('cinder_utils.register_configs') as register_configs:
     with patch('cinder_utils.restart_map') as restart_map:
+        restart_map.return_value = RESTART_MAP
         import cinder_hooks as hooks
 
 hooks.hooks._config_save = False
@@ -78,7 +79,6 @@ class TestClusterHooks(CharmTestCase):
             call('start', 'cinder-scheduler'),
             call('start', 'haproxy'),
             call('start', 'apache2')]
-        print(hooks.restart_map())
         self.assertEquals(ex, service.call_args_list)
 
     @patch.object(hooks, 'check_db_initialised', lambda *args, **kwargs: None)
