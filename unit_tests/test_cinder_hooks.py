@@ -6,28 +6,16 @@ from mock import (
 )
 import yaml
 
-import cinder_utils as utils
 from test_utils import (
     CharmTestCase,
-    RESTART_MAP
 )
 
-# Need to do some early patching to get the module loaded.
-_restart_map = utils.restart_map
-_register_configs = utils.register_configs
-
-utils.restart_map = MagicMock()
-utils.restart_map.return_value = RESTART_MAP
-utils.register_configs = MagicMock()
-
-import cinder_hooks as hooks
-hooks.hooks._config_save = False
+with patch('cinder_utils.register_configs') as register_configs:
+    with patch('cinder_utils.restart_map') as restart_map:
+        import cinder_hooks as hooks
 
 hooks.hooks._config_save = False
-
-# Unpatch it now that its loaded.
-utils.restart_map = _restart_map
-utils.register_configs = _register_configs
+import cinder_utils as utils
 
 TO_PATCH = [
     'check_call',
@@ -364,9 +352,10 @@ class TestChangedHooks(CharmTestCase):
         self.CONFIGS.complete_contexts.return_value = ['https']
         self.relation_ids.return_value = ['identity-service:0']
         hooks.configure_https()
-        calls = [call('a2dissite', 'openstack_https_frontend'),
-                 call('service', 'apache2', 'reload')]
-        self.check_call.assert_has_calls(calls)
+        self.check_call.assert_called_with(['a2ensite',
+                                            'openstack_https_frontend'])
+        self.service_reload.assert_called_with('apache2',
+                                               restart_on_failure=True)
         identity_joined.assert_called_with(rid='identity-service:0')
 
     @patch.object(hooks, 'identity_joined')
@@ -375,9 +364,10 @@ class TestChangedHooks(CharmTestCase):
         self.CONFIGS.complete_contexts.return_value = []
         self.relation_ids.return_value = ['identity-service:0']
         hooks.configure_https()
-        calls = [call('a2dissite', 'openstack_https_frontend'),
-                 call('service', 'apache2', 'reload')]
-        self.check_call.assert_has_calls(calls)
+        self.check_call.assert_called_with(['a2dissite',
+                                            'openstack_https_frontend'])
+        self.service_reload.assert_called_with('apache2',
+                                               restart_on_failure=True)
         identity_joined.assert_called_with(rid='identity-service:0')
 
     def test_image_service_changed(self):
