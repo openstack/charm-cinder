@@ -34,8 +34,7 @@ def openstack_upgrade():
 
     if (do_action_openstack_upgrade(do_openstack_upgrade,
                                     CONFIGS, package='cinder-common')):
-        # NOTE(jamespage) tell any storage-backends we just
-        # upgraded
+        # tell any storage-backends we just upgraded
         for rid in relation_ids('storage-backend'):
             relation_set(relation_id=rid,
                          upgrade_nonce=uuid.uuid4())
