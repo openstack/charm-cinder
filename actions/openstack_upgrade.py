@@ -4,8 +4,13 @@ import uuid
 
 sys.path.append('hooks/')
 
+from charmhelpers.contrib.openstack.utils import (
+    do_action_openstack_upgrade,
+)
+
 from charmhelpers.core.hookenv import (
-    config,
+    relation_ids,
+    relation_set,
 )
 
 from cinder_hooks import config_changed
@@ -27,10 +32,8 @@ def openstack_upgrade():
     code to run, otherwise a full service level upgrade will fire
     on config-changed."""
 
-    if (do_action_openstack_upgrade('cinder-common',
-                                    config('action-managed-upgrade'),
-                                    do_openstack_upgrade(),
-                                    CONFIGS)):
+    if (do_action_openstack_upgrade(do_openstack_upgrade,
+                                    CONFIGS, package='cinder-common')):
         # NOTE(jamespage) tell any storage-backends we just
         # upgraded
         for rid in relation_ids('storage-backend'):
