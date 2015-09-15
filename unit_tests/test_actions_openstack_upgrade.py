@@ -11,6 +11,8 @@ from test_utils import (
 )
 
 TO_PATCH = [
+    'config_changed',
+    'do_action_openstack_upgrade',
     'register_configs',
     'relation_set',
     'relation_ids',
@@ -24,92 +26,29 @@ class TestCinderUpgradeActions(CharmTestCase):
         super(TestCinderUpgradeActions, self).setUp(openstack_upgrade,
                                                     TO_PATCH)
 
-    @patch.object(openstack_upgrade, 'config_changed')
-    @patch('charmhelpers.contrib.openstack.utils.do_action_openstack_upgrade')
-    def test_openstack_upgrade(self, do_action_upgrade, config_changed):
-        do_action_upgrade.return_value = True
+    @patch('charmhelpers.contrib.openstack.utils.config')
+    @patch('charmhelpers.contrib.openstack.utils.action_set')
+    def test_openstack_upgrade_true(self, action_set, config):
+        self.do_action_openstack_upgrade.return_value = True
         self.relation_ids.return_value = ['relid1']
         self.uuid.uuid4.return_value = 12345
 
         openstack_upgrade.openstack_upgrade()
 
-        self.assertTrue(do_action_openstack_upgrade.called)
+        self.assertTrue(self.do_action_openstack_upgrade.called)
         self.assertTrue(self.relation_ids.called)
         self.relation_set.assert_called_with(relation_id='relid1',
                                              upgrade_nonce=12345)
-        self.assertTrue(config_changed.called)
-    """
+        self.assertTrue(self.config_changed.called)
 
-    @patch.object(openstack_upgrade, 'action_set')
-    @patch.object(openstack_upgrade, 'do_openstack_upgrade')
-    @patch.object(openstack_upgrade, 'openstack_upgrade_available')
-    @patch.object(openstack_upgrade, 'config_changed')
     @patch('charmhelpers.contrib.openstack.utils.config')
-    def test_openstack_upgrade_not_configured(self, _config, config_changed,
-                                              openstack_upgrade_available,
-                                              do_openstack_upgrade,
-                                              action_set):
-        _config.return_value = None
-        openstack_upgrade_available.return_value = True
+    @patch('charmhelpers.contrib.openstack.utils.action_set')
+    def test_openstack_upgrade_false(self, action_set, config):
+        self.do_action_openstack_upgrade.return_value = False
 
         openstack_upgrade.openstack_upgrade()
 
-        msg = ('action-managed-upgrade config is False, skipped upgrade.')
-
-        action_set.assert_called_with({'outcome': msg})
-        self.assertFalse(do_openstack_upgrade.called)
-
-    @patch.object(openstack_upgrade, 'action_set')
-    @patch.object(openstack_upgrade, 'do_openstack_upgrade')
-    @patch.object(openstack_upgrade, 'openstack_upgrade_available')
-    @patch.object(openstack_upgrade, 'config_changed')
-    @patch('charmhelpers.contrib.openstack.utils.config')
-    def test_openstack_upgrade_git_install(self, _config, config_changed,
-                                           openstack_upgrade_available,
-                                           do_openstack_upgrade,
-                                           action_set):
-
-        self.test_config.set('action-managed-upgrade', True)
-        self.test_config.set('openstack-origin-git', True)
-
-        openstack_upgrade.openstack_upgrade()
-
-        msg = ('installed from source, skipped upgrade.')
-        action_set.assert_called_with({'outcome': msg})
-        self.assertFalse(do_openstack_upgrade.called)
-
-    @patch.object(openstack_upgrade, 'action_set')
-    @patch.object(openstack_upgrade, 'action_fail')
-    @patch.object(openstack_upgrade, 'do_openstack_upgrade')
-    @patch.object(openstack_upgrade, 'openstack_upgrade_available')
-    @patch.object(openstack_upgrade, 'config_changed')
-    @patch('traceback.format_exc')
-    @patch('charmhelpers.contrib.openstack.utils.config')
-    def test_openstack_upgrade_exception(self, _config, format_exc,
-                                         config_changed,
-                                         openstack_upgrade_available,
-                                         do_openstack_upgrade,
-                                         action_fail, action_set):
-        _config.return_value = None
-        self.test_config.set('action-managed-upgrade', True)
-        openstack_upgrade_available.return_value = True
-
-        e = OSError('something bad happened')
-        do_openstack_upgrade.side_effect = e
-        traceback = (
-            "Traceback (most recent call last):\n"
-            "  File \"actions/openstack_upgrade.py\", line 37, in openstack_upgrade\n"  # noqa
-            "    openstack_upgrade(config(\'openstack-origin-git\'))\n"
-            "  File \"/usr/lib/python2.7/dist-packages/mock.py\", line 964, in __call__\n"  # noqa
-            "    return _mock_self._mock_call(*args, **kwargs)\n"
-            "  File \"/usr/lib/python2.7/dist-packages/mock.py\", line 1019, in _mock_call\n"  # noqa
-            "    raise effect\n"
-            "OSError: something bad happened\n")
-        format_exc.return_value = traceback
-
-        openstack_upgrade.openstack_upgrade()
-
-        msg = 'do_openstack_upgrade resulted in an unexpected error'
-        action_fail.assert_called_with(msg)
-        action_set.assert_called_with({'traceback': traceback})
-    """
+        self.assertTrue(self.do_action_openstack_upgrade.called)
+        self.assertFalse(self.relation_ids.called)
+        self.assertFalse(self.relation_set.called)
+        self.assertFalse(self.config_changed.called)
