@@ -11,6 +11,7 @@ from test_utils import (
 )
 
 TO_PATCH = [
+    'register_configs',
     'relation_set',
     'relation_ids',
     'uuid'
@@ -24,10 +25,9 @@ class TestCinderUpgradeActions(CharmTestCase):
                                                     TO_PATCH)
 
     @patch.object(openstack_upgrade, 'config_changed')
-    @patch('charmhelpers.contrib.openstack.utils.config')
     @patch('charmhelpers.contrib.openstack.utils.do_action_openstack_upgrade')
-    def test_openstack_upgrade(self, do_action_upgrade,
-                               openstack_upgrade_available, config_changed):
+    def test_openstack_upgrade(self, do_action_upgrade, config_changed):
+        do_action_upgrade.return_value = True
         self.relation_ids.return_value = ['relid1']
         self.uuid.uuid4.return_value = 12345
 
