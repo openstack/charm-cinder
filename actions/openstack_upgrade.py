@@ -32,8 +32,9 @@ def openstack_upgrade():
     code to run, otherwise a full service level upgrade will fire
     on config-changed."""
 
-    if (do_action_openstack_upgrade(do_openstack_upgrade,
-                                    CONFIGS, package='cinder-common')):
+    if (do_action_openstack_upgrade('cinder-common',
+                                    do_openstack_upgrade,
+                                    CONFIGS)):
         # tell any storage-backends we just upgraded
         for rid in relation_ids('storage-backend'):
             relation_set(relation_id=rid,
