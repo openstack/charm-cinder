@@ -13,15 +13,14 @@ from charmhelpers.core.hookenv import (
     relation_set,
 )
 
-from cinder_hooks import config_changed
+from cinder_hooks import (
+    config_changed,
+    CONFIGS,
+)
 
 from cinder_utils import (
     do_openstack_upgrade,
-    register_configs
 )
-
-
-CONFIGS = register_configs()
 
 
 def openstack_upgrade():
