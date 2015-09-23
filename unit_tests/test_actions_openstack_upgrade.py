@@ -13,7 +13,6 @@ from test_utils import (
 TO_PATCH = [
     'config_changed',
     'do_openstack_upgrade',
-    'register_configs',
     'relation_set',
     'relation_ids',
     'uuid'
@@ -26,12 +25,13 @@ class TestCinderUpgradeActions(CharmTestCase):
         super(TestCinderUpgradeActions, self).setUp(openstack_upgrade,
                                                     TO_PATCH)
 
+    @patch('charmhelpers.contrib.openstack.utils.juju_log')
     @patch('charmhelpers.contrib.openstack.utils.config')
     @patch('charmhelpers.contrib.openstack.utils.action_set')
     @patch('charmhelpers.contrib.openstack.utils.git_install_requested')
     @patch('charmhelpers.contrib.openstack.utils.openstack_upgrade_available')
     def test_openstack_upgrade_true(self, upgrade_avail, git_requested,
-                                    action_set, config):
+                                    action_set, config, log):
         git_requested.return_value = False
         upgrade_avail.return_value = True
         config.return_value = True
@@ -46,12 +46,13 @@ class TestCinderUpgradeActions(CharmTestCase):
                                              upgrade_nonce=12345)
         self.assertTrue(self.config_changed.called)
 
+    @patch('charmhelpers.contrib.openstack.utils.juju_log')
     @patch('charmhelpers.contrib.openstack.utils.config')
     @patch('charmhelpers.contrib.openstack.utils.action_set')
     @patch('charmhelpers.contrib.openstack.utils.git_install_requested')
     @patch('charmhelpers.contrib.openstack.utils.openstack_upgrade_available')
     def test_openstack_upgrade_false(self, upgrade_avail, git_requested,
-                                     action_set, config):
+                                     action_set, config, log):
         git_requested.return_value = False
         upgrade_avail.return_value = True
         config.return_value = False
