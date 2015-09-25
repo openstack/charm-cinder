@@ -28,7 +28,7 @@ from cinder_utils import (
     check_db_initialised,
     filesystem_mounted,
     REQUIRED_INTERFACES,
-    check_ha_settings,
+    check_optional_relations,
 )
 
 from charmhelpers.core.hookenv import (
@@ -104,7 +104,8 @@ CONFIGS = register_configs()
 
 
 @hooks.hook('install.real')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES, charm_func=check_ha_settings)
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def install():
     status_set('maintenance', 'Executing pre-install')
     execd_preinstall()
@@ -124,7 +125,8 @@ def install():
 
 
 @hooks.hook('config-changed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES, charm_func=check_ha_settings)
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map(), stopstart=True)
 def config_changed():
     conf = config()
@@ -177,7 +179,8 @@ def config_changed():
 
 
 @hooks.hook('shared-db-relation-joined')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES, charm_func=check_ha_settings)
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def db_joined():
     if is_relation_made('pgsql-db'):
         # error, postgresql is used
@@ -198,7 +201,8 @@ def db_joined():
 
 
 @hooks.hook('pgsql-db-relation-joined')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES, charm_func=check_ha_settings)
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def pgsql_db_joined():
     if is_relation_made('shared-db'):
         # raise error
@@ -212,7 +216,8 @@ def pgsql_db_joined():
 
 
 @hooks.hook('shared-db-relation-changed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES, charm_func=check_ha_settings)
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def db_changed():
     if 'shared-db' not in CONFIGS.complete_contexts():
@@ -233,7 +238,8 @@ def db_changed():
 
 
 @hooks.hook('pgsql-db-relation-changed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES, charm_func=check_ha_settings)
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def pgsql_db_changed():
     if 'pgsql-db' not in CONFIGS.complete_contexts():
@@ -246,7 +252,8 @@ def pgsql_db_changed():
 
 
 @hooks.hook('amqp-relation-joined')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES, charm_func=check_ha_settings)
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def amqp_joined(relation_id=None):
     conf = config()
     relation_set(relation_id=relation_id,
@@ -254,7 +261,8 @@ def amqp_joined(relation_id=None):
 
 
 @hooks.hook('amqp-relation-changed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES, charm_func=check_ha_settings)
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def amqp_changed():
     if 'amqp' not in CONFIGS.complete_contexts():
@@ -264,7 +272,8 @@ def amqp_changed():
 
 
 @hooks.hook('amqp-relation-departed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES, charm_func=check_ha_settings)
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def amqp_departed():
     if 'amqp' not in CONFIGS.complete_contexts():
@@ -274,7 +283,8 @@ def amqp_departed():
 
 
 @hooks.hook('identity-service-relation-joined')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES, charm_func=check_ha_settings)
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def identity_joined(rid=None):
     public_url = '{}:{}/v1/$(tenant_id)s'.format(
         canonical_url(CONFIGS, PUBLIC),
@@ -325,7 +335,8 @@ def identity_joined(rid=None):
 
 
 @hooks.hook('identity-service-relation-changed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES, charm_func=check_ha_settings)
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def identity_changed():
     if 'identity-service' not in CONFIGS.complete_contexts():
@@ -413,7 +424,8 @@ def cluster_changed():
 
 
 @hooks.hook('ha-relation-joined')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES, charm_func=check_ha_settings)
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def ha_joined(relation_id=None):
     cluster_config = get_hacluster_config()
 
@@ -471,7 +483,8 @@ def ha_joined(relation_id=None):
 
 
 @hooks.hook('ha-relation-changed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES, charm_func=check_ha_settings)
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def ha_changed():
     clustered = relation_get('clustered')
     if not clustered or clustered in [None, 'None', '']:
