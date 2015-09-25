@@ -46,6 +46,7 @@ from charmhelpers.core.host import (
 from charmhelpers.contrib.openstack.alternatives import install_alternative
 from charmhelpers.contrib.hahelpers.cluster import (
     is_elected_leader,
+    get_hacluster_config,
 )
 
 from charmhelpers.contrib.storage.linux.utils import (
@@ -154,6 +155,15 @@ APACHE_SITE_24_CONF = '/etc/apache2/sites-available/' \
     'openstack_https_frontend.conf'
 
 TEMPLATES = 'templates/'
+
+# The interface is said to be satisfied if anyone of the interfaces in
+# the
+# list has a complete context.
+REQUIRED_INTERFACES = {
+    'database': ['shared-db', 'pgsql-db'],
+    'message': ['amqp'],
+    'identity': ['identity-service'],
+}
 
 
 def ceph_config_file():
@@ -800,3 +810,16 @@ def git_post_install(projects_yaml):
 
 def filesystem_mounted(fs):
     return subprocess.call(['grep', '-wqs', fs, '/proc/mounts']) == 0
+
+
+def check_ha_settings(configs):
+    if relation_ids('ha'):
+        try:
+            get_hacluster_config()
+            return 'active', 'hacluster configs complete.'
+        except:
+            return ('blocked',
+                    'hacluster missing configuration: '
+                    'vip, vip_iface, vip_cidr')
+    else:
+        return 'unknown', 'No ha clustering'
