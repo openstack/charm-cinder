@@ -825,13 +825,11 @@ def check_optional_relations(configs):
                     'hacluster missing configuration: '
                     'vip, vip_iface, vip_cidr')
 
-    if relation_ids('ceph'):
-        required_interfaces['storage-backend'] = ['ceph']
+    if relation_ids('storage-backend') or relation_ids('ceph'):
+        required_interfaces['storage-backend'] = ['storage-backend', 'ceph']
 
     if relation_ids('image-service'):
         required_interfaces['image'] = ['image-service']
-
-    # Storage-backend?
 
     if required_interfaces:
         set_os_workload_status(configs, required_interfaces)
