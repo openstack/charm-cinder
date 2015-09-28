@@ -497,6 +497,8 @@ def ha_changed():
 
 
 @hooks.hook('image-service-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def image_service_changed():
     CONFIGS.write(CINDER_CONF)
@@ -507,6 +509,8 @@ def image_service_changed():
             'image-service-relation-broken',
             'shared-db-relation-broken',
             'pgsql-db-relation-broken')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map(), stopstart=True)
 def relation_broken():
     CONFIGS.write_all()
@@ -544,6 +548,8 @@ def upgrade_charm():
 
 @hooks.hook('storage-backend-relation-changed')
 @hooks.hook('storage-backend-relation-broken')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def storage_backend():
     CONFIGS.write(CINDER_CONF)
