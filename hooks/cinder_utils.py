@@ -19,7 +19,8 @@ from charmhelpers.core.hookenv import (
     relation_ids,
     log,
     DEBUG,
-    service_name
+    service_name,
+    status_get,
 )
 
 from charmhelpers.fetch import (
@@ -46,6 +47,7 @@ from charmhelpers.core.host import (
 from charmhelpers.contrib.openstack.alternatives import install_alternative
 from charmhelpers.contrib.hahelpers.cluster import (
     is_elected_leader,
+    get_hacluster_config,
 )
 
 from charmhelpers.contrib.storage.linux.utils import (
@@ -81,6 +83,7 @@ from charmhelpers.contrib.openstack.utils import (
     git_yaml_value,
     git_pip_venv_dir,
     os_release,
+    set_os_workload_status,
 )
 
 from charmhelpers.core.decorators import (
@@ -154,6 +157,15 @@ APACHE_SITE_24_CONF = '/etc/apache2/sites-available/' \
     'openstack_https_frontend.conf'
 
 TEMPLATES = 'templates/'
+
+# The interface is said to be satisfied if anyone of the interfaces in
+# the
+# list has a complete context.
+REQUIRED_INTERFACES = {
+    'database': ['shared-db', 'pgsql-db'],
+    'message': ['amqp'],
+    'identity': ['identity-service'],
+}
 
 
 def ceph_config_file():
@@ -799,3 +811,27 @@ def git_post_install(projects_yaml):
 
 def filesystem_mounted(fs):
     return subprocess.call(['grep', '-wqs', fs, '/proc/mounts']) == 0
+
+
+def check_optional_relations(configs):
+    required_interfaces = {}
+    if relation_ids('ha'):
+        required_interfaces['ha'] = ['cluster']
+        try:
+            get_hacluster_config()
+        except:
+            return ('blocked',
+                    'hacluster missing configuration: '
+                    'vip, vip_iface, vip_cidr')
+
+    if relation_ids('storage-backend') or relation_ids('ceph'):
+        required_interfaces['storage-backend'] = ['storage-backend', 'ceph']
+
+    if relation_ids('image-service'):
+        required_interfaces['image'] = ['image-service']
+
+    if required_interfaces:
+        set_os_workload_status(configs, required_interfaces)
+        return status_get()
+    else:
+        return 'unknown', 'No optional relations'

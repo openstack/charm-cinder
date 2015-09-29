@@ -27,6 +27,8 @@ from cinder_utils import (
     setup_ipv6,
     check_db_initialised,
     filesystem_mounted,
+    REQUIRED_INTERFACES,
+    check_optional_relations,
 )
 
 from charmhelpers.core.hookenv import (
@@ -42,6 +44,7 @@ from charmhelpers.core.hookenv import (
     unit_get,
     log,
     ERROR,
+    status_set,
 )
 
 from charmhelpers.fetch import (
@@ -63,6 +66,7 @@ from charmhelpers.contrib.openstack.utils import (
     openstack_upgrade_available,
     sync_db_with_multi_ipv6_addresses,
     os_release,
+    os_workload_status,
 )
 
 from charmhelpers.contrib.storage.linux.ceph import (
@@ -100,7 +104,10 @@ CONFIGS = register_configs()
 
 
 @hooks.hook('install.real')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def install():
+    status_set('maintenance', 'Executing pre-install')
     execd_preinstall()
     conf = config()
     src = conf['openstack-origin']
@@ -109,18 +116,23 @@ def install():
         src = 'cloud:precise-folsom'
     configure_installation_source(src)
 
+    status_set('maintenance', 'Installing apt packages')
     apt_update()
     apt_install(determine_packages(), fatal=True)
 
+    status_set('maintenance', 'Git install')
     git_install(config('openstack-origin-git'))
 
 
 @hooks.hook('config-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map(), stopstart=True)
 def config_changed():
     conf = config()
 
     if conf['prefer-ipv6']:
+        status_set('maintenance', 'configuring ipv6')
         setup_ipv6()
         sync_db_with_multi_ipv6_addresses(config('database'),
                                           config('database-user'))
@@ -131,6 +143,7 @@ def config_changed():
 
     if (service_enabled('volume') and
             conf['block-device'] not in [None, 'None', 'none']):
+        status_set('maintenance', 'Configuring lvm storage')
         block_devices = conf['block-device'].split()
         configure_lvm_storage(block_devices,
                               conf['volume-group'],
@@ -140,9 +153,11 @@ def config_changed():
 
     if git_install_requested():
         if config_value_changed('openstack-origin-git'):
+            status_set('maintenance', 'Running Git install')
             git_install(config('openstack-origin-git'))
     elif not config('action-managed-upgrade'):
         if openstack_upgrade_available('cinder-common'):
+            status_set('maintenance', 'Running openstack upgrade')
             do_openstack_upgrade(configs=CONFIGS)
             # NOTE(jamespage) tell any storage-backends we just upgraded
             for rid in relation_ids('storage-backend'):
@@ -164,6 +179,8 @@ def config_changed():
 
 
 @hooks.hook('shared-db-relation-joined')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def db_joined():
     if is_relation_made('pgsql-db'):
         # error, postgresql is used
@@ -184,6 +201,8 @@ def db_joined():
 
 
 @hooks.hook('pgsql-db-relation-joined')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def pgsql_db_joined():
     if is_relation_made('shared-db'):
         # raise error
@@ -197,6 +216,8 @@ def pgsql_db_joined():
 
 
 @hooks.hook('shared-db-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def db_changed():
     if 'shared-db' not in CONFIGS.complete_contexts():
@@ -217,6 +238,8 @@ def db_changed():
 
 
 @hooks.hook('pgsql-db-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def pgsql_db_changed():
     if 'pgsql-db' not in CONFIGS.complete_contexts():
@@ -229,6 +252,8 @@ def pgsql_db_changed():
 
 
 @hooks.hook('amqp-relation-joined')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def amqp_joined(relation_id=None):
     conf = config()
     relation_set(relation_id=relation_id,
@@ -236,6 +261,8 @@ def amqp_joined(relation_id=None):
 
 
 @hooks.hook('amqp-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def amqp_changed():
     if 'amqp' not in CONFIGS.complete_contexts():
@@ -245,6 +272,8 @@ def amqp_changed():
 
 
 @hooks.hook('amqp-relation-departed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def amqp_departed():
     if 'amqp' not in CONFIGS.complete_contexts():
@@ -254,6 +283,8 @@ def amqp_departed():
 
 
 @hooks.hook('identity-service-relation-joined')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def identity_joined(rid=None):
     public_url = '{}:{}/v1/$(tenant_id)s'.format(
         canonical_url(CONFIGS, PUBLIC),
@@ -304,6 +335,8 @@ def identity_joined(rid=None):
 
 
 @hooks.hook('identity-service-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def identity_changed():
     if 'identity-service' not in CONFIGS.complete_contexts():
@@ -314,6 +347,8 @@ def identity_changed():
 
 
 @hooks.hook('ceph-relation-joined')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def ceph_joined():
     if not os.path.isdir('/etc/ceph'):
         os.mkdir('/etc/ceph')
@@ -329,6 +364,8 @@ def get_ceph_request():
 
 
 @hooks.hook('ceph-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def ceph_changed(relation_id=None):
     if 'ceph' not in CONFIGS.complete_contexts():
@@ -354,6 +391,8 @@ def ceph_changed(relation_id=None):
 
 
 @hooks.hook('ceph-relation-broken')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def ceph_broken():
     service = service_name()
     delete_keyring(service=service)
@@ -391,6 +430,8 @@ def cluster_changed():
 
 
 @hooks.hook('ha-relation-joined')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def ha_joined(relation_id=None):
     cluster_config = get_hacluster_config()
 
@@ -448,6 +489,8 @@ def ha_joined(relation_id=None):
 
 
 @hooks.hook('ha-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def ha_changed():
     clustered = relation_get('clustered')
     if not clustered or clustered in [None, 'None', '']:
@@ -460,6 +503,8 @@ def ha_changed():
 
 
 @hooks.hook('image-service-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def image_service_changed():
     CONFIGS.write(CINDER_CONF)
@@ -470,6 +515,8 @@ def image_service_changed():
             'image-service-relation-broken',
             'shared-db-relation-broken',
             'pgsql-db-relation-broken')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map(), stopstart=True)
 def relation_broken():
     CONFIGS.write_all()
@@ -507,6 +554,8 @@ def upgrade_charm():
 
 @hooks.hook('storage-backend-relation-changed')
 @hooks.hook('storage-backend-relation-broken')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def storage_backend():
     CONFIGS.write(CINDER_CONF)
