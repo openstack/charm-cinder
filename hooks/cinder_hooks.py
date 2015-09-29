@@ -347,6 +347,8 @@ def identity_changed():
 
 
 @hooks.hook('ceph-relation-joined')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def ceph_joined():
     if not os.path.isdir('/etc/ceph'):
         os.mkdir('/etc/ceph')
@@ -362,6 +364,8 @@ def get_ceph_request():
 
 
 @hooks.hook('ceph-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def ceph_changed(relation_id=None):
     if 'ceph' not in CONFIGS.complete_contexts():
@@ -387,6 +391,8 @@ def ceph_changed(relation_id=None):
 
 
 @hooks.hook('ceph-relation-broken')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def ceph_broken():
     service = service_name()
     delete_keyring(service=service)
