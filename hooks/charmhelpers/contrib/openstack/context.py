@@ -50,6 +50,8 @@ from charmhelpers.core.sysctl import create as sysctl_create
 from charmhelpers.core.strutils import bool_from_string
 
 from charmhelpers.core.host import (
+    get_bond_master,
+    is_phy_iface,
     list_nics,
     get_nic_hwaddr,
     mkdir,
@@ -122,21 +124,24 @@ def config_flags_parser(config_flags):
          of specifying multiple key value pairs within the same string. For
          example, a string in the format of 'key1=value1, key2=value2' will
          return a dict of:
-         {'key1': 'value1',
-          'key2': 'value2'}.
+
+             {'key1': 'value1',
+              'key2': 'value2'}.
 
       2. A string in the above format, but supporting a comma-delimited list
          of values for the same key. For example, a string in the format of
          'key1=value1, key2=value3,value4,value5' will return a dict of:
-         {'key1', 'value1',
-          'key2', 'value2,value3,value4'}
+
+             {'key1', 'value1',
+              'key2', 'value2,value3,value4'}
 
       3. A string containing a colon character (:) prior to an equal
          character (=) will be treated as yaml and parsed as such. This can be
          used to specify more complex key value pairs. For example,
          a string in the format of 'key1: subkey1=value1, subkey2=value2' will
          return a dict of:
-         {'key1', 'subkey1=value1, subkey2=value2'}
+
+             {'key1', 'subkey1=value1, subkey2=value2'}
 
     The provided config_flags string may be a list of comma-separated values
     which themselves may be comma-separated list of values.
@@ -189,9 +194,49 @@ def config_flags_parser(config_flags):
 class OSContextGenerator(object):
     """Base class for all context generators."""
     interfaces = []
+    related = False
+    complete = False
+    missing_data = []
 
     def __call__(self):
         raise NotImplementedError
+
+    def context_complete(self, ctxt):
+        """Check for missing data for the required context data.
+        Set self.missing_data if it exists and return False.
+        Set self.complete if no missing data and return True.
+        """
+        # Fresh start
+        self.complete = False
+        self.missing_data = []
+        for k, v in six.iteritems(ctxt):
+            if v is None or v == '':
+                if k not in self.missing_data:
+                    self.missing_data.append(k)
+
+        if self.missing_data:
+            self.complete = False
+            log('Missing required data: %s' % ' '.join(self.missing_data), level=INFO)
+        else:
+            self.complete = True
+        return self.complete
+
+    def get_related(self):
+        """Check if any of the context interfaces have relation ids.
+        Set self.related and return True if one of the interfaces
+        has relation ids.
+        """
+        # Fresh start
+        self.related = False
+        try:
+            for interface in self.interfaces:
+                if relation_ids(interface):
+                    self.related = True
+            return self.related
+        except AttributeError as e:
+            log("{} {}"
+                "".format(self, e), 'INFO')
+            return self.related
 
 
 class SharedDBContext(OSContextGenerator):
@@ -208,6 +253,7 @@ class SharedDBContext(OSContextGenerator):
         self.database = database
         self.user = user
         self.ssl_dir = ssl_dir
+        self.rel_name = self.interfaces[0]
 
     def __call__(self):
         self.database = self.database or config('database')
@@ -240,7 +286,8 @@ class SharedDBContext(OSContextGenerator):
         if self.relation_prefix:
             password_setting = self.relation_prefix + '_password'
 
-        for rid in relation_ids('shared-db'):
+        for rid in relation_ids(self.interfaces[0]):
+            self.related = True
             for unit in related_units(rid):
                 rdata = relation_get(rid=rid, unit=unit)
                 host = rdata.get('db_host')
@@ -252,7 +299,7 @@ class SharedDBContext(OSContextGenerator):
                     'database_password': rdata.get(password_setting),
                     'database_type': 'mysql'
                 }
-                if context_complete(ctxt):
+                if self.context_complete(ctxt):
                     db_ssl(rdata, ctxt, self.ssl_dir)
                     return ctxt
         return {}
@@ -273,6 +320,7 @@ class PostgresqlDBContext(OSContextGenerator):
 
         ctxt = {}
         for rid in relation_ids(self.interfaces[0]):
+            self.related = True
             for unit in related_units(rid):
                 rel_host = relation_get('host', rid=rid, unit=unit)
                 rel_user = relation_get('user', rid=rid, unit=unit)
@@ -282,7 +330,7 @@ class PostgresqlDBContext(OSContextGenerator):
                         'database_user': rel_user,
                         'database_password': rel_passwd,
                         'database_type': 'postgresql'}
-                if context_complete(ctxt):
+                if self.context_complete(ctxt):
                     return ctxt
 
         return {}
@@ -343,6 +391,7 @@ class IdentityServiceContext(OSContextGenerator):
             ctxt['signing_dir'] = cachedir
 
         for rid in relation_ids(self.rel_name):
+            self.related = True
             for unit in related_units(rid):
                 rdata = relation_get(rid=rid, unit=unit)
                 serv_host = rdata.get('service_host')
@@ -361,7 +410,7 @@ class IdentityServiceContext(OSContextGenerator):
                              'service_protocol': svc_protocol,
                              'auth_protocol': auth_protocol})
 
-                if context_complete(ctxt):
+                if self.context_complete(ctxt):
                     # NOTE(jamespage) this is required for >= icehouse
                     # so a missing value just indicates keystone needs
                     # upgrading
@@ -400,6 +449,7 @@ class AMQPContext(OSContextGenerator):
         ctxt = {}
         for rid in relation_ids(self.rel_name):
             ha_vip_only = False
+            self.related = True
             for unit in related_units(rid):
                 if relation_get('clustered', rid=rid, unit=unit):
                     ctxt['clustered'] = True
@@ -432,7 +482,7 @@ class AMQPContext(OSContextGenerator):
                 ha_vip_only = relation_get('ha-vip-only',
                                            rid=rid, unit=unit) is not None
 
-                if context_complete(ctxt):
+                if self.context_complete(ctxt):
                     if 'rabbit_ssl_ca' in ctxt:
                         if not self.ssl_dir:
                             log("Charm not setup for ssl support but ssl ca "
@@ -464,7 +514,7 @@ class AMQPContext(OSContextGenerator):
             ctxt['oslo_messaging_flags'] = config_flags_parser(
                 oslo_messaging_flags)
 
-        if not context_complete(ctxt):
+        if not self.complete:
             return {}
 
         return ctxt
@@ -480,13 +530,15 @@ class CephContext(OSContextGenerator):
 
         log('Generating template context for ceph', level=DEBUG)
         mon_hosts = []
-        auth = None
-        key = None
-        use_syslog = str(config('use-syslog')).lower()
+        ctxt = {
+            'use_syslog': str(config('use-syslog')).lower()
+        }
         for rid in relation_ids('ceph'):
             for unit in related_units(rid):
-                auth = relation_get('auth', rid=rid, unit=unit)
-                key = relation_get('key', rid=rid, unit=unit)
+                if not ctxt.get('auth'):
+                    ctxt['auth'] = relation_get('auth', rid=rid, unit=unit)
+                if not ctxt.get('key'):
+                    ctxt['key'] = relation_get('key', rid=rid, unit=unit)
                 ceph_pub_addr = relation_get('ceph-public-address', rid=rid,
                                              unit=unit)
                 unit_priv_addr = relation_get('private-address', rid=rid,
@@ -495,15 +547,12 @@ class CephContext(OSContextGenerator):
                 ceph_addr = format_ipv6_addr(ceph_addr) or ceph_addr
                 mon_hosts.append(ceph_addr)
 
-        ctxt = {'mon_hosts': ' '.join(sorted(mon_hosts)),
-                'auth': auth,
-                'key': key,
-                'use_syslog': use_syslog}
+        ctxt['mon_hosts'] = ' '.join(sorted(mon_hosts))
 
         if not os.path.isdir('/etc/ceph'):
             os.mkdir('/etc/ceph')
 
-        if not context_complete(ctxt):
+        if not self.context_complete(ctxt):
             return {}
 
         ensure_packages(['ceph-common'])
@@ -890,9 +939,19 @@ class NeutronContext(OSContextGenerator):
                 'neutron_url': '%s://%s:%s' % (proto, host, '9696')}
         return ctxt
 
-    def __call__(self):
-        self._ensure_packages()
+    def pg_ctxt(self):
+        driver = neutron_plugin_attribute(self.plugin, 'driver',
+                                          self.network_manager)
+        config = neutron_plugin_attribute(self.plugin, 'config',
+                                          self.network_manager)
+        ovs_ctxt = {'core_plugin': driver,
+                    'neutron_plugin': 'plumgrid',
+                    'neutron_security_groups': self.neutron_security_groups,
+                    'local_ip': unit_private_ip(),
+                    'config': config}
+        return ovs_ctxt
 
+    def __call__(self):
         if self.network_manager not in ['quantum', 'neutron']:
             return {}
 
@@ -911,6 +970,8 @@ class NeutronContext(OSContextGenerator):
             ctxt.update(self.calico_ctxt())
         elif self.plugin == 'vsp':
             ctxt.update(self.nuage_ctxt())
+        elif self.plugin == 'plumgrid':
+            ctxt.update(self.pg_ctxt())
 
         alchemy_flags = config('neutron-alchemy-flags')
         if alchemy_flags:
@@ -922,7 +983,6 @@ class NeutronContext(OSContextGenerator):
 
 
 class NeutronPortContext(OSContextGenerator):
-    NIC_PREFIXES = ['eth', 'bond']
 
     def resolve_ports(self, ports):
         """Resolve NICs not yet bound to bridge(s)
@@ -934,7 +994,18 @@ class NeutronPortContext(OSContextGenerator):
 
         hwaddr_to_nic = {}
         hwaddr_to_ip = {}
-        for nic in list_nics(self.NIC_PREFIXES):
+        for nic in list_nics():
+            # Ignore virtual interfaces (bond masters will be identified from
+            # their slaves)
+            if not is_phy_iface(nic):
+                continue
+
+            _nic = get_bond_master(nic)
+            if _nic:
+                log("Replacing iface '%s' with bond master '%s'" % (nic, _nic),
+                    level=DEBUG)
+                nic = _nic
+
             hwaddr = get_nic_hwaddr(nic)
             hwaddr_to_nic[hwaddr] = nic
             addresses = get_ipv4_addr(nic, fatal=False)
@@ -960,7 +1031,8 @@ class NeutronPortContext(OSContextGenerator):
                 # trust it to be the real external network).
                 resolved.append(entry)
 
-        return resolved
+        # Ensure no duplicates
+        return list(set(resolved))
 
 
 class OSConfigFlagContext(OSContextGenerator):
@@ -1050,13 +1122,22 @@ class SubordinateConfigContext(OSContextGenerator):
         :param config_file : Service's config file to query sections
         :param interface   : Subordinate interface to inspect
         """
-        self.service = service
         self.config_file = config_file
-        self.interface = interface
+        if isinstance(service, list):
+            self.services = service
+        else:
+            self.services = [service]
+        if isinstance(interface, list):
+            self.interfaces = interface
+        else:
+            self.interfaces = [interface]
 
     def __call__(self):
         ctxt = {'sections': {}}
-        for rid in relation_ids(self.interface):
+        rids = []
+        for interface in self.interfaces:
+            rids.extend(relation_ids(interface))
+        for rid in rids:
             for unit in related_units(rid):
                 sub_config = relation_get('subordinate_configuration',
                                           rid=rid, unit=unit)
@@ -1068,29 +1149,32 @@ class SubordinateConfigContext(OSContextGenerator):
                             'setting from %s' % rid, level=ERROR)
                         continue
 
-                    if self.service not in sub_config:
-                        log('Found subordinate_config on %s but it contained'
-                            'nothing for %s service' % (rid, self.service),
-                            level=INFO)
-                        continue
+                    for service in self.services:
+                        if service not in sub_config:
+                            log('Found subordinate_config on %s but it contained'
+                                'nothing for %s service' % (rid, service),
+                                level=INFO)
+                            continue
 
-                    sub_config = sub_config[self.service]
-                    if self.config_file not in sub_config:
-                        log('Found subordinate_config on %s but it contained'
-                            'nothing for %s' % (rid, self.config_file),
-                            level=INFO)
-                        continue
+                        sub_config = sub_config[service]
+                        if self.config_file not in sub_config:
+                            log('Found subordinate_config on %s but it contained'
+                                'nothing for %s' % (rid, self.config_file),
+                                level=INFO)
+                            continue
 
-                    sub_config = sub_config[self.config_file]
-                    for k, v in six.iteritems(sub_config):
-                        if k == 'sections':
-                            for section, config_dict in six.iteritems(v):
-                                log("adding section '%s'" % (section),
-                                    level=DEBUG)
-                                ctxt[k][section] = config_dict
-                        else:
-                            ctxt[k] = v
-
+                        sub_config = sub_config[self.config_file]
+                        for k, v in six.iteritems(sub_config):
+                            if k == 'sections':
+                                for section, config_list in six.iteritems(v):
+                                    log("adding section '%s'" % (section),
+                                        level=DEBUG)
+                                    if ctxt[k].get(section):
+                                        ctxt[k][section].extend(config_list)
+                                    else:
+                                        ctxt[k][section] = config_list
+                            else:
+                                ctxt[k] = v
         log("%d section(s) found" % (len(ctxt['sections'])), level=DEBUG)
         return ctxt
 
@@ -1267,15 +1351,19 @@ class DataPortContext(NeutronPortContext):
     def __call__(self):
         ports = config('data-port')
         if ports:
+            # Map of {port/mac:bridge}
             portmap = parse_data_port_mappings(ports)
-            ports = portmap.values()
+            ports = portmap.keys()
+            # Resolve provided ports or mac addresses and filter out those
+            # already attached to a bridge.
             resolved = self.resolve_ports(ports)
+            # FIXME: is this necessary?
             normalized = {get_nic_hwaddr(port): port for port in resolved
                           if port not in ports}
             normalized.update({port: port for port in resolved
                                if port in ports})
             if resolved:
-                return {bridge: normalized[port] for bridge, port in
+                return {bridge: normalized[port] for port, bridge in
                         six.iteritems(portmap) if port in normalized.keys()}
 
         return None
@@ -1323,6 +1411,6 @@ class NetworkServiceContext(OSContextGenerator):
                     'auth_protocol':
                     rdata.get('auth_protocol') or 'http',
                 }
-                if context_complete(ctxt):
+                if self.context_complete(ctxt):
                     return ctxt
         return {}

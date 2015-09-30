@@ -48,7 +48,7 @@ TO_PATCH = [
     # charmhelpers.contrib.openstack.openstack_utils
     'configure_installation_source',
     # charmhelpers.contrib.hahelpers.cluster_utils
-    'eligible_leader',
+    'is_elected_leader',
     'get_hacluster_config',
     # charmhelpers.contrib.network.ip
     'get_iface_for_address',
@@ -63,9 +63,10 @@ class TestClusterHooks(CharmTestCase):
         super(TestClusterHooks, self).setUp(hooks, TO_PATCH)
         self.config.side_effect = self.test_config.get
 
+    @patch.object(hooks, 'check_db_initialised', lambda *args, **kwargs: None)
     @patch('charmhelpers.core.host.service')
-    @patch('charmhelpers.core.host.file_hash')
-    def test_cluster_hook(self, file_hash, service):
+    @patch('charmhelpers.core.host.path_hash')
+    def test_cluster_hook(self, path_hash, service):
         'Ensure API restart before haproxy on cluster changed'
         # set first hash lookup on all files
         side_effects = []
@@ -73,7 +74,7 @@ class TestClusterHooks(CharmTestCase):
         [side_effects.append('foo') for f in RESTART_MAP.keys()]
         # set second hash lookup on all configs in restart_on_change
         [side_effects.append('bar') for f in RESTART_MAP.keys()]
-        file_hash.side_effect = side_effects
+        path_hash.side_effect = side_effects
         hooks.hooks.execute(['hooks/cluster-relation-changed'])
         ex = [
             call('stop', 'cinder-api'),
@@ -88,12 +89,14 @@ class TestClusterHooks(CharmTestCase):
             call('start', 'apache2')]
         self.assertEquals(ex, service.call_args_list)
 
+    @patch.object(hooks, 'check_db_initialised', lambda *args, **kwargs: None)
     def test_cluster_joined_hook(self):
         self.config.side_effect = self.test_config.get
         self.get_address_in_network.return_value = None
         hooks.hooks.execute(['hooks/cluster-relation-joined'])
         self.assertFalse(self.relation_set.called)
 
+    @patch.object(hooks, 'check_db_initialised', lambda *args, **kwargs: None)
     def test_cluster_joined_hook_multinet(self):
         self.config.side_effect = self.test_config.get
         self.get_address_in_network.side_effect = [
