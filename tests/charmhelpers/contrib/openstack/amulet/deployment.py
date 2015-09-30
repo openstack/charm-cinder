@@ -44,20 +44,31 @@ class OpenStackAmuletDeployment(AmuletDeployment):
            Determine if the local branch being tested is derived from its
            stable or next (dev) branch, and based on this, use the corresonding
            stable or next branches for the other_services."""
-        base_charms = ['mysql', 'mongodb']
+
+        # Charms outside the lp:~openstack-charmers namespace
+        base_charms = ['mysql', 'mongodb', 'nrpe']
+
+        # Force these charms to current series even when using an older series.
+        # ie. Use trusty/nrpe even when series is precise, as the P charm
+        # does not possess the necessary external master config and hooks.
+        force_series_current = ['nrpe']
 
         if self.series in ['precise', 'trusty']:
             base_series = self.series
         else:
             base_series = self.current_next
 
-        if self.stable:
-            for svc in other_services:
+        for svc in other_services:
+            if svc['name'] in force_series_current:
+                base_series = self.current_next
+            # If a location has been explicitly set, use it
+            if svc.get('location'):
+                continue
+            if self.stable:
                 temp = 'lp:charms/{}/{}'
                 svc['location'] = temp.format(base_series,
                                               svc['name'])
-        else:
-            for svc in other_services:
+            else:
                 if svc['name'] in base_charms:
                     temp = 'lp:charms/{}/{}'
                     svc['location'] = temp.format(base_series,
@@ -66,6 +77,7 @@ class OpenStackAmuletDeployment(AmuletDeployment):
                     temp = 'lp:~openstack-charmers/charms/{}/{}/next'
                     svc['location'] = temp.format(self.current_next,
                                                   svc['name'])
+
         return other_services
 
     def _add_services(self, this_service, other_services):
@@ -77,21 +89,23 @@ class OpenStackAmuletDeployment(AmuletDeployment):
 
         services = other_services
         services.append(this_service)
+
+        # Charms which should use the source config option
         use_source = ['mysql', 'mongodb', 'rabbitmq-server', 'ceph',
                       'ceph-osd', 'ceph-radosgw']
-        # Openstack subordinate charms do not expose an origin option as that
-        # is controlled by the principle
-        ignore = ['neutron-openvswitch']
+
+        # Charms which can not use openstack-origin, ie. many subordinates
+        no_origin = ['cinder-ceph', 'hacluster', 'neutron-openvswitch', 'nrpe']
 
         if self.openstack:
             for svc in services:
-                if svc['name'] not in use_source + ignore:
+                if svc['name'] not in use_source + no_origin:
                     config = {'openstack-origin': self.openstack}
                     self.d.configure(svc['name'], config)
 
         if self.source:
             for svc in services:
-                if svc['name'] in use_source and svc['name'] not in ignore:
+                if svc['name'] in use_source and svc['name'] not in no_origin:
                     config = {'source': self.source}
                     self.d.configure(svc['name'], config)
 
@@ -110,7 +124,8 @@ class OpenStackAmuletDeployment(AmuletDeployment):
         (self.precise_essex, self.precise_folsom, self.precise_grizzly,
          self.precise_havana, self.precise_icehouse,
          self.trusty_icehouse, self.trusty_juno, self.utopic_juno,
-         self.trusty_kilo, self.vivid_kilo) = range(10)
+         self.trusty_kilo, self.vivid_kilo, self.trusty_liberty,
+         self.wily_liberty) = range(12)
 
         releases = {
             ('precise', None): self.precise_essex,
@@ -121,8 +136,10 @@ class OpenStackAmuletDeployment(AmuletDeployment):
             ('trusty', None): self.trusty_icehouse,
             ('trusty', 'cloud:trusty-juno'): self.trusty_juno,
             ('trusty', 'cloud:trusty-kilo'): self.trusty_kilo,
+            ('trusty', 'cloud:trusty-liberty'): self.trusty_liberty,
             ('utopic', None): self.utopic_juno,
-            ('vivid', None): self.vivid_kilo}
+            ('vivid', None): self.vivid_kilo,
+            ('wily', None): self.wily_liberty}
         return releases[(self.series, self.openstack)]
 
     def _get_openstack_release_string(self):
@@ -138,9 +155,43 @@ class OpenStackAmuletDeployment(AmuletDeployment):
             ('trusty', 'icehouse'),
             ('utopic', 'juno'),
             ('vivid', 'kilo'),
+            ('wily', 'liberty'),
         ])
         if self.openstack:
             os_origin = self.openstack.split(':')[1]
             return os_origin.split('%s-' % self.series)[1].split('/')[0]
         else:
             return releases[self.series]
+
+    def get_ceph_expected_pools(self, radosgw=False):
+        """Return a list of expected ceph pools in a ceph + cinder + glance
+        test scenario, based on OpenStack release and whether ceph radosgw
+        is flagged as present or not."""
+
+        if self._get_openstack_release() >= self.trusty_kilo:
+            # Kilo or later
+            pools = [
+                'rbd',
+                'cinder',
+                'glance'
+            ]
+        else:
+            # Juno or earlier
+            pools = [
+                'data',
+                'metadata',
+                'rbd',
+                'cinder',
+                'glance'
+            ]
+
+        if radosgw:
+            pools.extend([
+                '.rgw.root',
+                '.rgw.control',
+                '.rgw',
+                '.rgw.gc',
+                '.users.uid'
+            ])
+
+        return pools

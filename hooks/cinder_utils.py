@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import uuid
 
 from collections import OrderedDict
 from copy import copy
@@ -12,9 +13,14 @@ from charmhelpers.contrib.python.packages import (
 from charmhelpers.core.hookenv import (
     charm_dir,
     config,
+    local_unit,
+    relation_get,
+    relation_set,
     relation_ids,
     log,
-    service_name
+    DEBUG,
+    service_name,
+    status_get,
 )
 
 from charmhelpers.fetch import (
@@ -40,7 +46,8 @@ from charmhelpers.core.host import (
 
 from charmhelpers.contrib.openstack.alternatives import install_alternative
 from charmhelpers.contrib.hahelpers.cluster import (
-    eligible_leader,
+    is_elected_leader,
+    get_hacluster_config,
 )
 
 from charmhelpers.contrib.storage.linux.utils import (
@@ -76,8 +83,12 @@ from charmhelpers.contrib.openstack.utils import (
     git_yaml_value,
     git_pip_venv_dir,
     os_release,
+    set_os_workload_status,
 )
 
+from charmhelpers.core.decorators import (
+    retry_on_exception,
+)
 from charmhelpers.core.templating import render
 
 import cinder_contexts
@@ -127,6 +138,9 @@ DEFAULT_LOOPBACK_SIZE = '5G'
 # Cluster resource used to determine leadership when hacluster'd
 CLUSTER_RES = 'grp_cinder_vips'
 
+CINDER_DB_INIT_RKEY = 'cinder-db-initialised'
+CINDER_DB_INIT_ECHO_RKEY = 'cinder-db-initialised-echo'
+
 
 class CinderCharmError(Exception):
     pass
@@ -143,6 +157,15 @@ APACHE_SITE_24_CONF = '/etc/apache2/sites-available/' \
     'openstack_https_frontend.conf'
 
 TEMPLATES = 'templates/'
+
+# The interface is said to be satisfied if anyone of the interfaces in
+# the
+# list has a complete context.
+REQUIRED_INTERFACES = {
+    'database': ['shared-db', 'pgsql-db'],
+    'message': ['amqp'],
+    'identity': ['identity-service'],
+}
 
 
 def ceph_config_file():
@@ -161,7 +184,10 @@ CONFIG_FILES = OrderedDict([
                           cinder_contexts.CephContext(),
                           cinder_contexts.HAProxyContext(),
                           cinder_contexts.ImageServiceContext(),
-                          cinder_contexts.SubordinateConfigContext(),
+                          cinder_contexts.CinderSubordinateConfigContext(
+                              interface=['storage-backend', 'backup-backend'],
+                              service='cinder',
+                              config_file=CINDER_CONF),
                           cinder_contexts.StorageBackendContext(),
                           cinder_contexts.LoggingConfigContext(),
                           context.IdentityServiceContext(
@@ -302,6 +328,15 @@ def restart_map():
     return OrderedDict(_map)
 
 
+def enabled_services():
+    m = restart_map()
+    svcs = set()
+    for t in m.iteritems():
+        svcs.update(t[1])
+
+    return list(svcs)
+
+
 def services():
     ''' Returns a list of services associate with this charm '''
     _services = []
@@ -310,14 +345,19 @@ def services():
     return list(set(_services))
 
 
-def reduce_lvm_volume_group_missing(volume_group):
+def reduce_lvm_volume_group_missing(volume_group, extra_args=None):
     '''
     Remove all missing physical volumes from the volume group, if there
     are no logical volumes allocated on them.
 
     :param volume_group: str: Name of volume group to reduce.
+    :param extra_args: list: List of extra args to pass to vgreduce
     '''
-    subprocess.check_call(['vgreduce', '--removemissing', volume_group])
+    if extra_args is None:
+        extra_args = []
+
+    command = ['vgreduce', '--removemissing'] + extra_args + [volume_group]
+    subprocess.check_call(command)
 
 
 def extend_lvm_volume_group(volume_group, block_device):
@@ -332,8 +372,46 @@ def extend_lvm_volume_group(volume_group, block_device):
     subprocess.check_call(['vgextend', volume_group, block_device])
 
 
+def lvm_volume_group_exists(volume_group):
+    """Check for the existence of a volume group.
+
+    :param volume_group: str: Name of volume group.
+    """
+    try:
+        subprocess.check_call(['vgdisplay', volume_group])
+    except subprocess.CalledProcessError:
+        return False
+    else:
+        return True
+
+
+def remove_lvm_volume_group(volume_group):
+    """Remove a volume group.
+
+    :param volume_group: str: Name of volume group to remove.
+    """
+    subprocess.check_call(['vgremove', '--force', volume_group])
+
+
+def ensure_lvm_volume_group_non_existent(volume_group):
+    """Remove volume_group if it exists.
+
+    :param volume_group: str: Name of volume group.
+    """
+    if not lvm_volume_group_exists(volume_group):
+        return
+
+    remove_lvm_volume_group(volume_group)
+
+
+def log_lvm_info():
+    """Log some useful information about how LVM is setup."""
+    pvscan_output = subprocess.check_output(['pvscan'])
+    juju_log('pvscan: %s' % pvscan_output)
+
+
 def configure_lvm_storage(block_devices, volume_group, overwrite=False,
-                          remove_missing=False):
+                          remove_missing=False, remove_missing_force=False):
     ''' Configure LVM storage on the list of block devices provided
 
     :param block_devices: list: List of whitelisted block devices to detect
@@ -342,7 +420,11 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
                             not already in-use
     :param remove_missing: bool: Remove missing physical volumes from volume
                            group if logical volume not allocated on them
+    :param remove_missing_force: bool: Remove missing physical volumes from
+                           volume group even if logical volumes are allocated
+                           on them. Overrides 'remove_missing' if set.
     '''
+    log_lvm_info()
     devices = []
     for block_device in block_devices:
         (block_device, size) = _parse_block_device(block_device)
@@ -374,19 +456,28 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
             # Mark vg as found
             vg_found = True
 
+    log_lvm_info()
+
     if vg_found is False and len(new_devices) > 0:
+        if overwrite:
+            ensure_lvm_volume_group_non_existent(volume_group)
+
         # Create new volume group from first device
         create_lvm_volume_group(volume_group, new_devices[0])
         new_devices.remove(new_devices[0])
 
     # Remove missing physical volumes from volume group
-    if remove_missing:
+    if remove_missing_force:
+        reduce_lvm_volume_group_missing(volume_group, extra_args=['--force'])
+    elif remove_missing:
         reduce_lvm_volume_group_missing(volume_group)
 
     if len(new_devices) > 0:
         # Extend the volume group as required
         for new_device in new_devices:
             extend_lvm_volume_group(volume_group, new_device)
+
+    log_lvm_info()
 
 
 def prepare_volume(device):
@@ -448,10 +539,42 @@ def _parse_block_device(block_device):
         return ('/dev/{}'.format(block_device), 0)
 
 
+def check_db_initialised():
+    """Check if we have received db init'd notify and restart services if we
+    have not already.
+    """
+    settings = relation_get() or {}
+    if settings:
+        init_id = settings.get(CINDER_DB_INIT_RKEY)
+        echoed_init_id = relation_get(unit=local_unit(),
+                                      attribute=CINDER_DB_INIT_ECHO_RKEY)
+        if (init_id and init_id != echoed_init_id and
+                local_unit() not in init_id):
+            log("Restarting cinder services following db initialisation",
+                level=DEBUG)
+            for svc in enabled_services():
+                service_restart(svc)
+
+            # Set echo
+            relation_set(**{CINDER_DB_INIT_ECHO_RKEY: init_id})
+
+
+# NOTE(jamespage): Retry deals with sync issues during one-shot HA deploys.
+#                  mysql might be restarting or suchlike.
+@retry_on_exception(5, base_delay=3, exc_type=subprocess.CalledProcessError)
 def migrate_database():
     'Runs cinder-manage to initialize a new database or migrate existing'
     cmd = ['cinder-manage', 'db', 'sync']
     subprocess.check_call(cmd)
+    # Notify peers so that services get restarted
+    log("Notifying peer(s) that db is initialised and restarting services",
+        level=DEBUG)
+    for r_id in relation_ids('cluster'):
+        for svc in enabled_services():
+            service_restart(svc)
+
+        id = "%s-%s" % (local_unit(), uuid.uuid4())
+        relation_set(relation_id=r_id, **{CINDER_DB_INIT_RKEY: id})
 
 
 def set_ceph_env_variables(service):
@@ -493,7 +616,7 @@ def do_openstack_upgrade(configs):
 
     # Stop/start services and migrate DB if leader
     [service_stop(s) for s in services()]
-    if eligible_leader(CLUSTER_RES):
+    if is_elected_leader(CLUSTER_RES):
         migrate_database()
     [service_start(s) for s in services()]
 
@@ -504,12 +627,11 @@ def setup_ipv6():
         raise Exception("IPv6 is not supported in the charms for Ubuntu "
                         "versions less than Trusty 14.04")
 
-    # NOTE(xianghui): Need to install haproxy(1.5.3) from trusty-backports
-    # to support ipv6 address, so check is required to make sure not
-    # breaking other versions, IPv6 only support for >= Trusty
-    if ubuntu_rel == 'trusty':
-        add_source('deb http://archive.ubuntu.com/ubuntu trusty-backports'
-                   ' main')
+    # Need haproxy >= 1.5.3 for ipv6 so for Trusty if we are <= Kilo we need to
+    # use trusty-backports otherwise we can use the UCA.
+    if ubuntu_rel == 'trusty' and os_release('cinder') < 'liberty':
+        add_source('deb http://archive.ubuntu.com/ubuntu trusty-backports '
+                   'main')
         apt_update()
         apt_install('haproxy/trusty-backports', fatal=True)
 
@@ -685,3 +807,31 @@ def git_post_install(projects_yaml):
     service_restart('tgtd')
 
     [service_restart(s) for s in services()]
+
+
+def filesystem_mounted(fs):
+    return subprocess.call(['grep', '-wqs', fs, '/proc/mounts']) == 0
+
+
+def check_optional_relations(configs):
+    required_interfaces = {}
+    if relation_ids('ha'):
+        required_interfaces['ha'] = ['cluster']
+        try:
+            get_hacluster_config()
+        except:
+            return ('blocked',
+                    'hacluster missing configuration: '
+                    'vip, vip_iface, vip_cidr')
+
+    if relation_ids('storage-backend') or relation_ids('ceph'):
+        required_interfaces['storage-backend'] = ['storage-backend', 'ceph']
+
+    if relation_ids('image-service'):
+        required_interfaces['image'] = ['image-service']
+
+    if required_interfaces:
+        set_os_workload_status(configs, required_interfaces)
+        return status_get()
+    else:
+        return 'unknown', 'No optional relations'

@@ -24,7 +24,11 @@ from cinder_utils import (
     CINDER_CONF,
     CINDER_API_CONF,
     ceph_config_file,
-    setup_ipv6
+    setup_ipv6,
+    check_db_initialised,
+    filesystem_mounted,
+    REQUIRED_INTERFACES,
+    check_optional_relations,
 )
 
 from charmhelpers.core.hookenv import (
@@ -40,7 +44,7 @@ from charmhelpers.core.hookenv import (
     unit_get,
     log,
     ERROR,
-    INFO
+    status_set,
 )
 
 from charmhelpers.fetch import (
@@ -52,6 +56,7 @@ from charmhelpers.core.host import (
     lsb_release,
     restart_on_change,
     service_reload,
+    umount,
 )
 
 from charmhelpers.contrib.openstack.utils import (
@@ -61,17 +66,19 @@ from charmhelpers.contrib.openstack.utils import (
     openstack_upgrade_available,
     sync_db_with_multi_ipv6_addresses,
     os_release,
+    os_workload_status,
 )
 
 from charmhelpers.contrib.storage.linux.ceph import (
+    send_request_if_needed,
+    is_request_complete,
     ensure_ceph_keyring,
     CephBrokerRq,
-    CephBrokerRsp,
     delete_keyring,
 )
 
 from charmhelpers.contrib.hahelpers.cluster import (
-    eligible_leader,
+    is_elected_leader,
     get_hacluster_config,
 )
 
@@ -96,8 +103,11 @@ hooks = Hooks()
 CONFIGS = register_configs()
 
 
-@hooks.hook('install')
+@hooks.hook('install.real')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def install():
+    status_set('maintenance', 'Executing pre-install')
     execd_preinstall()
     conf = config()
     src = conf['openstack-origin']
@@ -106,35 +116,48 @@ def install():
         src = 'cloud:precise-folsom'
     configure_installation_source(src)
 
+    status_set('maintenance', 'Installing apt packages')
     apt_update()
     apt_install(determine_packages(), fatal=True)
 
+    status_set('maintenance', 'Git install')
     git_install(config('openstack-origin-git'))
 
 
 @hooks.hook('config-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map(), stopstart=True)
 def config_changed():
     conf = config()
 
     if conf['prefer-ipv6']:
+        status_set('maintenance', 'configuring ipv6')
         setup_ipv6()
         sync_db_with_multi_ipv6_addresses(config('database'),
                                           config('database-user'))
 
+    e_mountpoint = config('ephemeral-unmount')
+    if e_mountpoint and filesystem_mounted(e_mountpoint):
+        umount(e_mountpoint)
+
     if (service_enabled('volume') and
             conf['block-device'] not in [None, 'None', 'none']):
+        status_set('maintenance', 'Configuring lvm storage')
         block_devices = conf['block-device'].split()
         configure_lvm_storage(block_devices,
                               conf['volume-group'],
                               conf['overwrite'] in ['true', 'True', True],
-                              conf['remove-missing'])
+                              conf['remove-missing'],
+                              conf['remove-missing-force'])
 
     if git_install_requested():
         if config_value_changed('openstack-origin-git'):
+            status_set('maintenance', 'Running Git install')
             git_install(config('openstack-origin-git'))
-    else:
+    elif not config('action-managed-upgrade'):
         if openstack_upgrade_available('cinder-common'):
+            status_set('maintenance', 'Running openstack upgrade')
             do_openstack_upgrade(configs=CONFIGS)
             # NOTE(jamespage) tell any storage-backends we just upgraded
             for rid in relation_ids('storage-backend'):
@@ -144,6 +167,10 @@ def config_changed():
             for rid in relation_ids('backup-backend'):
                 relation_set(relation_id=rid,
                              upgrade_nonce=uuid.uuid4())
+
+    # overwrite config is not in conf file. so We can't use restart_on_change
+    if config_value_changed('overwrite'):
+        service_restart('cinder-volume')
 
     CONFIGS.write_all()
     configure_https()
@@ -156,6 +183,8 @@ def config_changed():
 
 
 @hooks.hook('shared-db-relation-joined')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def db_joined():
     if is_relation_made('pgsql-db'):
         # error, postgresql is used
@@ -176,6 +205,8 @@ def db_joined():
 
 
 @hooks.hook('pgsql-db-relation-joined')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def pgsql_db_joined():
     if is_relation_made('shared-db'):
         # raise error
@@ -189,13 +220,15 @@ def pgsql_db_joined():
 
 
 @hooks.hook('shared-db-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def db_changed():
     if 'shared-db' not in CONFIGS.complete_contexts():
         juju_log('shared-db relation incomplete. Peer not ready?')
         return
     CONFIGS.write(CINDER_CONF)
-    if eligible_leader(CLUSTER_RES):
+    if is_elected_leader(CLUSTER_RES):
         # Bugs 1353135 & 1187508. Dbs can appear to be ready before the units
         # acl entry has been added. So, if the db supports passing a list of
         # permitted units then check if we're in the list.
@@ -209,18 +242,22 @@ def db_changed():
 
 
 @hooks.hook('pgsql-db-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def pgsql_db_changed():
     if 'pgsql-db' not in CONFIGS.complete_contexts():
         juju_log('pgsql-db relation incomplete. Peer not ready?')
         return
     CONFIGS.write(CINDER_CONF)
-    if eligible_leader(CLUSTER_RES):
+    if is_elected_leader(CLUSTER_RES):
         juju_log('Cluster leader, performing db sync')
         migrate_database()
 
 
 @hooks.hook('amqp-relation-joined')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def amqp_joined(relation_id=None):
     conf = config()
     relation_set(relation_id=relation_id,
@@ -228,6 +265,8 @@ def amqp_joined(relation_id=None):
 
 
 @hooks.hook('amqp-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def amqp_changed():
     if 'amqp' not in CONFIGS.complete_contexts():
@@ -237,6 +276,8 @@ def amqp_changed():
 
 
 @hooks.hook('amqp-relation-departed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def amqp_departed():
     if 'amqp' not in CONFIGS.complete_contexts():
@@ -246,6 +287,8 @@ def amqp_departed():
 
 
 @hooks.hook('identity-service-relation-joined')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def identity_joined(rid=None):
     public_url = '{}:{}/v1/$(tenant_id)s'.format(
         canonical_url(CONFIGS, PUBLIC),
@@ -296,6 +339,8 @@ def identity_joined(rid=None):
 
 
 @hooks.hook('identity-service-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def identity_changed():
     if 'identity-service' not in CONFIGS.complete_contexts():
@@ -306,13 +351,25 @@ def identity_changed():
 
 
 @hooks.hook('ceph-relation-joined')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def ceph_joined():
     if not os.path.isdir('/etc/ceph'):
         os.mkdir('/etc/ceph')
     apt_install('ceph-common', fatal=True)
 
 
+def get_ceph_request():
+    service = service_name()
+    rq = CephBrokerRq()
+    replicas = config('ceph-osd-replication-count')
+    rq.add_op_create_pool(name=service, replica_count=replicas)
+    return rq
+
+
 @hooks.hook('ceph-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def ceph_changed(relation_id=None):
     if 'ceph' not in CONFIGS.complete_contexts():
@@ -325,17 +382,8 @@ def ceph_changed(relation_id=None):
         juju_log('Could not create ceph keyring: peer not ready?')
         return
 
-    settings = relation_get(rid=relation_id)
-    if settings and 'broker_rsp' in settings:
-        rsp = CephBrokerRsp(settings['broker_rsp'])
-        # Non-zero return code implies failure
-        if rsp.exit_code:
-            log("Ceph broker request failed (rc=%s, msg=%s)" %
-                (rsp.exit_code, rsp.exit_msg), level=ERROR)
-            return
-
-        log("Ceph broker request succeeded (rc=%s, msg=%s)" %
-            (rsp.exit_code, rsp.exit_msg), level=INFO)
+    if is_request_complete(get_ceph_request()):
+        log('Request complete')
         set_ceph_env_variables(service=service)
         CONFIGS.write(CINDER_CONF)
         CONFIGS.write(ceph_config_file())
@@ -343,15 +391,12 @@ def ceph_changed(relation_id=None):
         # guarantee that ceph resources are ready.
         service_restart('cinder-volume')
     else:
-        rq = CephBrokerRq()
-        replicas = config('ceph-osd-replication-count')
-        rq.add_op_create_pool(name=service, replica_count=replicas)
-        for rid in relation_ids('ceph'):
-            relation_set(relation_id=rid, broker_req=rq.request)
-            log("Request(s) sent to Ceph broker (rid=%s)" % (rid))
+        send_request_if_needed(get_ceph_request())
 
 
 @hooks.hook('ceph-relation-broken')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def ceph_broken():
     service = service_name()
     delete_keyring(service=service)
@@ -369,6 +414,11 @@ def cluster_joined(relation_id=None):
                 relation_id=relation_id,
                 relation_settings={'{}-address'.format(addr_type): address}
             )
+
+    # Only do if this is fired by cluster rel
+    if not relation_id:
+        check_db_initialised()
+
     if config('prefer-ipv6'):
         private_addr = get_ipv6_addr(exc_list=[config('vip')])[0]
         relation_set(relation_id=relation_id,
@@ -379,10 +429,13 @@ def cluster_joined(relation_id=None):
             'cluster-relation-departed')
 @restart_on_change(restart_map(), stopstart=True)
 def cluster_changed():
+    check_db_initialised()
     CONFIGS.write_all()
 
 
 @hooks.hook('ha-relation-joined')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def ha_joined(relation_id=None):
     cluster_config = get_hacluster_config()
 
@@ -440,6 +493,8 @@ def ha_joined(relation_id=None):
 
 
 @hooks.hook('ha-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 def ha_changed():
     clustered = relation_get('clustered')
     if not clustered or clustered in [None, 'None', '']:
@@ -452,6 +507,8 @@ def ha_changed():
 
 
 @hooks.hook('image-service-relation-changed')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def image_service_changed():
     CONFIGS.write(CINDER_CONF)
@@ -462,6 +519,8 @@ def image_service_changed():
             'image-service-relation-broken',
             'shared-db-relation-broken',
             'pgsql-db-relation-broken')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map(), stopstart=True)
 def relation_broken():
     CONFIGS.write_all()
@@ -499,6 +558,8 @@ def upgrade_charm():
 
 @hooks.hook('storage-backend-relation-changed')
 @hooks.hook('storage-backend-relation-broken')
+@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def storage_backend():
     CONFIGS.write(CINDER_CONF)

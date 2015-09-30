@@ -5,13 +5,13 @@ from charmhelpers.core.hookenv import (
     related_units,
     relation_get,
     log,
-    DEBUG,
+    WARNING,
 )
 
 from charmhelpers.contrib.openstack.context import (
     OSContextGenerator,
     ApacheSSLContext as SSLContext,
-    SubordinateConfigContext as BaseSubordinateConfigContext,
+    SubordinateConfigContext,
 )
 
 from charmhelpers.contrib.openstack.utils import (
@@ -22,9 +22,6 @@ from charmhelpers.contrib.hahelpers.cluster import (
     determine_apache_port,
     determine_api_port,
 )
-
-CINDER_CONF_DIR = "/etc/cinder"
-CINDER_CONF = '%s/cinder.conf' % CINDER_CONF_DIR
 
 
 class ImageServiceContext(OSContextGenerator):
@@ -112,27 +109,48 @@ class StorageBackendContext(OSContextGenerator):
             return {}
 
 
-class SubordinateConfigContext(OSContextGenerator):
-    def __call__(self):
-        cls = BaseSubordinateConfigContext
-        ctxt1 = cls(interface='storage-backend',
-                    service='cinder',
-                    config_file=CINDER_CONF)()
-        ctxt2 = cls(interface='backup-backend',
-                    service='cinder',
-                    config_file=CINDER_CONF)()
-
-        for key in ctxt2:
-            if key not in ctxt1:
-                ctxt1[key] = ctxt2[key]
-                ctxt1[key] += ctxt2[key]
-            else:
-                ctxt1[key].update(ctxt2[key])
-
-        return ctxt1
-
-
 class LoggingConfigContext(OSContextGenerator):
 
     def __call__(self):
         return {'debug': config('debug'), 'verbose': config('verbose')}
+
+
+class CinderSubordinateConfigContext(SubordinateConfigContext):
+
+    def __call__(self):
+        ctxt = super(CinderSubordinateConfigContext, self).__call__()
+
+        # If all backends are stateless we can allow host setting to be set
+        # across hosts/units to allow for HA volume failover but otherwise we
+        # have to leave it as unique (LP: #1493931).
+        rids = []
+        for interface in self.interfaces:
+            rids.extend(relation_ids(interface))
+
+        stateless = None
+        any_stateless = False
+        for rid in rids:
+            for unit in related_units(rid):
+                val = relation_get('stateless', rid=rid, unit=unit) or ""
+                if val.lower() == 'true':
+                    if stateless is None:
+                        stateless = True
+                    else:
+                        stateless = stateless and True
+                else:
+                    stateless = False
+
+                any_stateless = any_stateless or stateless
+
+        if stateless:
+            if 'DEFAULT' in ctxt['sections']:
+                ctxt['sections']['DEFAULT'].append(('host', service_name()))
+            else:
+                ctxt['sections']['DEFAULT'] = [('host', service_name())]
+
+        elif any_stateless:
+            log("One or more stateless backends configured but unable to "
+                "set host param since there appear to also be stateful "
+                "backends configured.", level=WARNING)
+
+        return ctxt

@@ -31,6 +31,8 @@ utils.register_configs = _register_configs
 
 TO_PATCH = [
     'check_call',
+    'send_request_if_needed',
+    'is_request_complete',
     # cinder_utils
     'configure_lvm_storage',
     'determine_packages',
@@ -62,13 +64,13 @@ TO_PATCH = [
     'apt_install',
     'apt_update',
     'service_reload',
+    'service_restart',
     # charmhelpers.contrib.openstack.openstack_utils
     'configure_installation_source',
     'openstack_upgrade_available',
     'os_release',
     # charmhelpers.contrib.hahelpers.cluster_utils
-    'canonical_url',
-    'eligible_leader',
+    'is_elected_leader',
     'get_hacluster_config',
     'execd_preinstall',
     'get_ipv6_addr',
@@ -147,7 +149,9 @@ class TestChangedHooks(CharmTestCase):
 
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'git_install_requested')
-    def test_config_changed(self, git_requested, conf_https):
+    @patch.object(hooks, 'config_value_changed')
+    def test_config_changed(self, config_val_changed,
+                            git_requested, conf_https):
         'It writes out all config'
         git_requested.return_value = False
         self.openstack_upgrade_available.return_value = False
@@ -156,11 +160,13 @@ class TestChangedHooks(CharmTestCase):
         self.assertTrue(conf_https.called)
         self.configure_lvm_storage.assert_called_with(['sdb'],
                                                       'cinder-volumes',
-                                                      False, False)
+                                                      False, False, False)
 
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'git_install_requested')
-    def test_config_changed_block_devices(self, git_requested, conf_https):
+    @patch.object(hooks, 'config_value_changed')
+    def test_config_changed_block_devices(self, config_val_changed,
+                                          git_requested, conf_https):
         'It writes out all config'
         git_requested.return_value = False
         self.openstack_upgrade_available.return_value = False
@@ -174,11 +180,31 @@ class TestChangedHooks(CharmTestCase):
         self.configure_lvm_storage.assert_called_with(
             ['sdb', '/dev/sdc', 'sde'],
             'cinder-new',
-            True, True)
+            True, True, False)
 
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'git_install_requested')
-    def test_config_changed_upgrade_available(self, git_requested, conf_https):
+    @patch.object(hooks, 'config_value_changed')
+    def test_config_changed_uses_remove_missing_force(self,
+                                                      config_val_changed,
+                                                      git_requested,
+                                                      conf_https):
+        'It uses the remove-missing-force config option'
+        git_requested.return_value = False
+        self.openstack_upgrade_available.return_value = False
+        self.test_config.set('block-device', 'sdb')
+        self.test_config.set('remove-missing-force', True)
+        hooks.hooks.execute(['hooks/config-changed'])
+        self.configure_lvm_storage.assert_called_with(
+            ['sdb'],
+            'cinder-volumes',
+            False, False, True)
+
+    @patch.object(hooks, 'configure_https')
+    @patch.object(hooks, 'git_install_requested')
+    @patch.object(hooks, 'config_value_changed')
+    def test_config_changed_upgrade_available(self, config_val_changed,
+                                              git_requested, conf_https):
         'It writes out all config with an available OS upgrade'
         git_requested.return_value = False
         self.openstack_upgrade_available.return_value = True
@@ -211,6 +237,38 @@ class TestChangedHooks(CharmTestCase):
         self.assertFalse(self.do_openstack_upgrade.called)
         self.assertTrue(conf_https.called)
 
+    @patch('charmhelpers.core.host.service')
+    @patch.object(hooks, 'configure_https')
+    @patch.object(hooks, 'git_install_requested')
+    @patch.object(hooks, 'config_value_changed')
+    def test_config_changed_overwrite_changed(self, config_val_changed,
+                                              git_requested, conf_https,
+                                              _services):
+        'It uses the overwrite config option'
+        git_requested.return_value = False
+        self.openstack_upgrade_available.return_value = False
+        config_val_changed.return_value = True
+        hooks.hooks.execute(['hooks/config-changed'])
+        self.assertTrue(self.CONFIGS.write_all.called)
+        self.assertTrue(conf_https.called)
+        self.configure_lvm_storage.assert_called_with(['sdb'],
+                                                      'cinder-volumes',
+                                                      False, False, False)
+        self.service_restart.assert_called_with('cinder-volume')
+
+    @patch.object(hooks, 'git_install_requested')
+    @patch.object(hooks, 'config_value_changed')
+    def test_config_changed_with_openstack_upgrade_action(self,
+                                                          config_value_changed,
+                                                          git_requested):
+        git_requested.return_value = False
+        self.openstack_upgrade_available.return_value = True
+        self.test_config.set('action-managed-upgrade', True)
+
+        hooks.hooks.execute(['hooks/config-changed'])
+
+        self.assertFalse(self.do_openstack_upgrade.called)
+
     def test_db_changed(self):
         'It writes out cinder.conf on db changed'
         self.relation_get.return_value = 'cinder/0 cinder/1'
@@ -240,7 +298,7 @@ class TestChangedHooks(CharmTestCase):
         self.relation_get.return_value = 'cinder/1 cinder/2'
         self.local_unit.return_value = 'cinder/0'
         self.CONFIGS.complete_contexts.return_value = ['shared-db']
-        self.eligible_leader.return_value = True
+        self.is_elected_leader.return_value = True
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
         self.assertFalse(self.migrate_database.called)
 
@@ -249,7 +307,7 @@ class TestChangedHooks(CharmTestCase):
         self.relation_get.return_value = None
         self.local_unit.return_value = 'cinder/0'
         self.CONFIGS.complete_contexts.return_value = ['shared-db']
-        self.eligible_leader.return_value = True
+        self.is_elected_leader.return_value = True
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
         self.assertFalse(self.migrate_database.called)
 
@@ -263,7 +321,7 @@ class TestChangedHooks(CharmTestCase):
         'It does not migrate database when not leader'
         self.relation_get.return_value = 'cinder/0 cinder/1'
         self.local_unit.return_value = 'cinder/0'
-        self.eligible_leader.return_value = False
+        self.is_elected_leader.return_value = False
         self.CONFIGS.complete_contexts.return_value = ['shared-db']
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
         self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
@@ -271,7 +329,7 @@ class TestChangedHooks(CharmTestCase):
 
     def test_pgsql_db_changed_not_leader(self):
         'It does not migrate database when not leader'
-        self.eligible_leader.return_value = False
+        self.is_elected_leader.return_value = False
         self.CONFIGS.complete_contexts.return_value = ['pgsql-db']
         hooks.hooks.execute(['hooks/pgsql-db-relation-changed'])
         self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
@@ -412,12 +470,13 @@ class TestJoinedHooks(CharmTestCase):
                                              vhost='openstack',
                                              relation_id='amqp:1')
 
-    def test_identity_service_joined(self):
+    @patch.object(hooks, 'canonical_url')
+    def test_identity_service_joined(self, _canonical_url):
         'It properly requests unclustered endpoint via identity-service'
         self.os_release.return_value = 'havana'
         self.unit_get.return_value = 'cindernode1'
         self.config.side_effect = self.test_config.get
-        self.canonical_url.return_value = 'http://cindernode1'
+        _canonical_url.return_value = 'http://cindernode1'
         hooks.hooks.execute(['hooks/identity-service-relation-joined'])
         expected = {
             'region': None,
@@ -434,12 +493,13 @@ class TestJoinedHooks(CharmTestCase):
         }
         self.relation_set.assert_called_with(**expected)
 
-    def test_identity_service_joined_icehouse(self):
+    @patch.object(hooks, 'canonical_url')
+    def test_identity_service_joined_icehouse(self, _canonical_url):
         'It properly requests unclustered endpoint via identity-service'
         self.os_release.return_value = 'icehouse'
         self.unit_get.return_value = 'cindernode1'
         self.config.side_effect = self.test_config.get
-        self.canonical_url.return_value = 'http://cindernode1'
+        _canonical_url.return_value = 'http://cindernode1'
         hooks.hooks.execute(['hooks/identity-service-relation-joined'])
         expected = {
             'region': None,
@@ -462,6 +522,42 @@ class TestJoinedHooks(CharmTestCase):
         }
         self.relation_set.assert_called_with(**expected)
 
+    @patch('charmhelpers.contrib.openstack.ip.config')
+    @patch('charmhelpers.contrib.openstack.ip.unit_get')
+    @patch('charmhelpers.contrib.openstack.ip.is_clustered')
+    def test_identity_service_joined_public_name(self, _is_clustered,
+                                                 _unit_get, _config):
+        self.os_release.return_value = 'icehouse'
+        self.unit_get.return_value = 'cindernode1'
+        _unit_get.return_value = 'cindernode1'
+        self.config.side_effect = self.test_config.get
+        _config.side_effect = self.test_config.get
+        self.test_config.set('os-public-hostname', 'public.example.com')
+        _is_clustered.return_value = False
+        hooks.hooks.execute(['hooks/identity-service-relation-joined'])
+        v1_url = 'http://public.example.com:8776/v1/$(tenant_id)s'
+        v2_url = 'http://public.example.com:8776/v2/$(tenant_id)s'
+        expected = {
+            'region': None,
+            'service': None,
+            'public_url': None,
+            'internal_url': None,
+            'admin_url': None,
+            'cinder_service': 'cinder',
+            'cinder_region': 'RegionOne',
+            'cinder_public_url': v1_url,
+            'cinder_admin_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_internal_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinderv2_service': 'cinderv2',
+            'cinderv2_region': 'RegionOne',
+            'cinderv2_public_url': v2_url,
+            'cinderv2_admin_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
+            'cinderv2_internal_url': ('http://cindernode1:8776/'
+                                      'v2/$(tenant_id)s'),
+            'relation_id': None,
+        }
+        self.relation_set.assert_called_with(**expected)
+
     @patch('os.mkdir')
     def test_ceph_joined(self, mkdir):
         'It correctly prepares for a ceph changed hook'
@@ -478,31 +574,28 @@ class TestJoinedHooks(CharmTestCase):
         m = 'ceph relation incomplete. Peer not ready?'
         self.juju_log.assert_called_with(m)
 
-    @patch("cinder_hooks.relation_set")
-    @patch("cinder_hooks.relation_get")
-    def test_ceph_changed_broker_send_rq(self, mock_relation_get,
-                                         mock_relation_set):
+    @patch.object(hooks, 'get_ceph_request')
+    def test_ceph_changed_broker_send_rq(self, mget_ceph_request):
+        mget_ceph_request.return_value = 'cephrq'
         self.CONFIGS.complete_contexts.return_value = ['ceph']
         self.service_name.return_value = 'cinder'
         self.ensure_ceph_keyring.return_value = True
+        self.is_request_complete.return_value = False
         self.ceph_config_file.return_value = '/var/lib/charm/cinder/ceph.conf'
-        self.relation_ids.return_value = ['ceph:0']
         hooks.hooks.execute(['hooks/ceph-relation-changed'])
         self.ensure_ceph_keyring.assert_called_with(service='cinder',
                                                     user='cinder',
                                                     group='cinder')
-        req = {'api-version': 1,
-               'ops': [{"op": "create-pool", "name": "cinder", "replicas": 3}]}
-        broker_dict = json.dumps(req)
-        mock_relation_set.assert_called_with(broker_req=broker_dict,
-                                             relation_id='ceph:0')
+        self.send_request_if_needed.assert_called_with('cephrq')
         for c in [call('/var/lib/charm/cinder/ceph.conf'),
                   call('/etc/cinder/cinder.conf')]:
             self.assertNotIn(c, self.CONFIGS.write.call_args_list)
         self.assertFalse(self.set_ceph_env_variables.called)
 
+    @patch('charmhelpers.core.host.service')
     @patch("cinder_hooks.relation_get", autospec=True)
-    def test_ceph_changed_broker_success(self, mock_relation_get):
+    def test_ceph_changed_broker_success(self, mock_relation_get,
+                                         _service):
         'It ensures ceph assets created on ceph changed'
         self.CONFIGS.complete_contexts.return_value = ['ceph']
         self.service_name.return_value = 'cinder'
@@ -518,15 +611,14 @@ class TestJoinedHooks(CharmTestCase):
                   call('/etc/cinder/cinder.conf')]:
             self.assertIn(c, self.CONFIGS.write.call_args_list)
         self.set_ceph_env_variables.assert_called_with(service='cinder')
+        self.service_restart.assert_called_with('cinder-volume')
 
-    @patch("cinder_hooks.relation_get", autospec=True)
-    def test_ceph_changed_broker_nonzero_rc(self, mock_relation_get):
+    def test_ceph_changed_broker_nonzero_rc(self):
         self.CONFIGS.complete_contexts.return_value = ['ceph']
         self.service_name.return_value = 'cinder'
         self.ensure_ceph_keyring.return_value = True
         self.ceph_config_file.return_value = '/var/lib/charm/cinder/ceph.conf'
-        mock_relation_get.return_value = {'broker_rsp':
-                                          json.dumps({'exit-code': 1})}
+        self.is_request_complete.return_value = False
         hooks.hooks.execute(['hooks/ceph-relation-changed'])
         self.ensure_ceph_keyring.assert_called_with(service='cinder',
                                                     user='cinder',
@@ -555,7 +647,7 @@ class TestJoinedHooks(CharmTestCase):
 
     def test_ceph_changed_no_leadership(self):
         '''It does not attempt to create ceph pool if not leader'''
-        self.eligible_leader.return_value = False
+        self.is_elected_leader.return_value = False
         self.service_name.return_value = 'cinder'
         self.ensure_ceph_keyring.return_value = True
         hooks.hooks.execute(['hooks/ceph-relation-changed'])
