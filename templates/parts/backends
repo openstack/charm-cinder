@@ -1,18 +1,18 @@
 {% if sections and 'DEFAULT' in sections -%}
 {% for key, value in sections['DEFAULT'] -%}
 {{ key }} = {{ value }}
-{% endfor -%}
-{% endif -%}
+{% endfor %}
+{%- endif %}
 
 {% if backends -%}
 enabled_backends = {{ backends }}
-{% endif -%}
+{%- endif %}
 
 {% for section in sections -%}
 {% if section != 'DEFAULT' -%}
 [{{ section }}]
 {% for key, value in sections[section] -%}
 {{ key }} = {{ value }}
-{% endfor -%}
-{% endif -%}
-{% endfor -%}
+{% endfor %}
+{% endif %}
+{%- endfor %}
