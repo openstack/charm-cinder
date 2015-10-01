@@ -195,7 +195,7 @@ CONFIG_FILES = OrderedDict([
                               service_user='cinder'),
                           context.BindHostContext(),
                           context.WorkerConfigContext()],
-        'services': ['cinder-api', 'cinder-volume',
+        'services': ['cinder-api', 'cinder-volume', 'cinder-backup',
                      'cinder-scheduler', 'haproxy']
     }),
     (CINDER_API_CONF, {
@@ -204,7 +204,7 @@ CONFIG_FILES = OrderedDict([
     }),
     (ceph_config_file(), {
         'hook_contexts': [context.CephContext()],
-        'services': ['cinder-volume']
+        'services': ['cinder-volume', 'cinder-backup']
     }),
     (HAPROXY_CONF, {
         'hook_contexts': [context.HAProxyContext(singlenode_mode=True),
