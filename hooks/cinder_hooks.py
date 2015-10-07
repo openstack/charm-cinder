@@ -66,7 +66,7 @@ from charmhelpers.contrib.openstack.utils import (
     openstack_upgrade_available,
     sync_db_with_multi_ipv6_addresses,
     os_release,
-    os_workload_status,
+    set_os_workload_status,
 )
 
 from charmhelpers.contrib.storage.linux.ceph import (
@@ -104,8 +104,6 @@ CONFIGS = register_configs()
 
 
 @hooks.hook('install.real')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 def install():
     status_set('maintenance', 'Executing pre-install')
     execd_preinstall()
@@ -125,8 +123,6 @@ def install():
 
 
 @hooks.hook('config-changed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 @restart_on_change(restart_map(), stopstart=True)
 def config_changed():
     conf = config()
@@ -179,8 +175,6 @@ def config_changed():
 
 
 @hooks.hook('shared-db-relation-joined')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 def db_joined():
     if is_relation_made('pgsql-db'):
         # error, postgresql is used
@@ -201,8 +195,6 @@ def db_joined():
 
 
 @hooks.hook('pgsql-db-relation-joined')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 def pgsql_db_joined():
     if is_relation_made('shared-db'):
         # raise error
@@ -216,8 +208,6 @@ def pgsql_db_joined():
 
 
 @hooks.hook('shared-db-relation-changed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def db_changed():
     if 'shared-db' not in CONFIGS.complete_contexts():
@@ -238,8 +228,6 @@ def db_changed():
 
 
 @hooks.hook('pgsql-db-relation-changed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def pgsql_db_changed():
     if 'pgsql-db' not in CONFIGS.complete_contexts():
@@ -252,8 +240,6 @@ def pgsql_db_changed():
 
 
 @hooks.hook('amqp-relation-joined')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 def amqp_joined(relation_id=None):
     conf = config()
     relation_set(relation_id=relation_id,
@@ -261,8 +247,6 @@ def amqp_joined(relation_id=None):
 
 
 @hooks.hook('amqp-relation-changed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def amqp_changed():
     if 'amqp' not in CONFIGS.complete_contexts():
@@ -272,8 +256,6 @@ def amqp_changed():
 
 
 @hooks.hook('amqp-relation-departed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def amqp_departed():
     if 'amqp' not in CONFIGS.complete_contexts():
@@ -283,8 +265,6 @@ def amqp_departed():
 
 
 @hooks.hook('identity-service-relation-joined')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 def identity_joined(rid=None):
     public_url = '{}:{}/v1/$(tenant_id)s'.format(
         canonical_url(CONFIGS, PUBLIC),
@@ -335,8 +315,6 @@ def identity_joined(rid=None):
 
 
 @hooks.hook('identity-service-relation-changed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def identity_changed():
     if 'identity-service' not in CONFIGS.complete_contexts():
@@ -347,8 +325,6 @@ def identity_changed():
 
 
 @hooks.hook('ceph-relation-joined')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 def ceph_joined():
     if not os.path.isdir('/etc/ceph'):
         os.mkdir('/etc/ceph')
@@ -364,8 +340,6 @@ def get_ceph_request():
 
 
 @hooks.hook('ceph-relation-changed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def ceph_changed(relation_id=None):
     if 'ceph' not in CONFIGS.complete_contexts():
@@ -391,8 +365,6 @@ def ceph_changed(relation_id=None):
 
 
 @hooks.hook('ceph-relation-broken')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 def ceph_broken():
     service = service_name()
     delete_keyring(service=service)
@@ -430,8 +402,6 @@ def cluster_changed():
 
 
 @hooks.hook('ha-relation-joined')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 def ha_joined(relation_id=None):
     cluster_config = get_hacluster_config()
 
@@ -489,8 +459,6 @@ def ha_joined(relation_id=None):
 
 
 @hooks.hook('ha-relation-changed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 def ha_changed():
     clustered = relation_get('clustered')
     if not clustered or clustered in [None, 'None', '']:
@@ -503,8 +471,6 @@ def ha_changed():
 
 
 @hooks.hook('image-service-relation-changed')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def image_service_changed():
     CONFIGS.write(CINDER_CONF)
@@ -515,8 +481,6 @@ def image_service_changed():
             'image-service-relation-broken',
             'shared-db-relation-broken',
             'pgsql-db-relation-broken')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 @restart_on_change(restart_map(), stopstart=True)
 def relation_broken():
     CONFIGS.write_all()
@@ -554,8 +518,6 @@ def upgrade_charm():
 
 @hooks.hook('storage-backend-relation-changed')
 @hooks.hook('storage-backend-relation-broken')
-@os_workload_status(CONFIGS, REQUIRED_INTERFACES,
-                    charm_func=check_optional_relations)
 @restart_on_change(restart_map())
 def storage_backend():
     CONFIGS.write(CINDER_CONF)
@@ -578,5 +540,7 @@ def update_nrpe_config():
 if __name__ == '__main__':
     try:
         hooks.execute(sys.argv)
+        set_os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                               charm_func=check_optional_relations)
     except UnregisteredHookError as e:
         juju_log('Unknown hook {} - skipping.'.format(e))
