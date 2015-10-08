@@ -151,16 +151,18 @@ class TestCinderUtils(CharmTestCase):
 
     def test_services(self):
         self.assertEquals(cinder_utils.services(),
-                          ['haproxy', 'apache2', 'cinder-api',
-                           'cinder-volume', 'cinder-scheduler'])
+                          ['haproxy', 'cinder-backup', 'cinder-api',
+                           'cinder-volume', 'apache2', 'cinder-scheduler'])
 
     def test_creates_restart_map_all_enabled(self):
         'It creates correct restart map when all services enabled'
         ex_map = OrderedDict([
             ('/etc/cinder/cinder.conf', ['cinder-api', 'cinder-volume',
-                                         'cinder-scheduler', 'haproxy']),
+                                         'cinder-backup', 'cinder-scheduler',
+                                         'haproxy']),
             ('/etc/cinder/api-paste.ini', ['cinder-api']),
-            ('/var/lib/charm/cinder/ceph.conf', ['cinder-volume']),
+            ('/var/lib/charm/cinder/ceph.conf', ['cinder-volume',
+                                                 'cinder-backup']),
             ('/etc/haproxy/haproxy.cfg', ['haproxy']),
             ('/etc/apache2/sites-available/openstack_https_frontend',
              ['apache2']),
@@ -723,8 +725,8 @@ class TestCinderUtils(CharmTestCase):
         ]
         self.assertEquals(render.call_args_list, expected)
         expected = [
-            call('tgtd'), call('haproxy'), call('apache2'),
-            call('cinder-api'), call('cinder-volume'),
+            call('tgtd'), call('haproxy'), call('cinder-backup'),
+            call('cinder-api'), call('cinder-volume'), call('apache2'),
             call('cinder-scheduler'),
         ]
         self.assertEquals(service_restart.call_args_list, expected)

@@ -159,6 +159,10 @@ def config_changed():
             for rid in relation_ids('storage-backend'):
                 relation_set(relation_id=rid,
                              upgrade_nonce=uuid.uuid4())
+            # NOTE(hopem) tell any backup-backends we just upgraded
+            for rid in relation_ids('backup-backend'):
+                relation_set(relation_id=rid,
+                             upgrade_nonce=uuid.uuid4())
 
     # overwrite config is not in conf file. so We can't use restart_on_change
     if config_value_changed('overwrite'):
@@ -520,6 +524,13 @@ def upgrade_charm():
 @hooks.hook('storage-backend-relation-broken')
 @restart_on_change(restart_map())
 def storage_backend():
+    CONFIGS.write(CINDER_CONF)
+
+
+@hooks.hook('backup-backend-relation-changed')
+@hooks.hook('backup-backend-relation-broken')
+@restart_on_change(restart_map())
+def backup_backend():
     CONFIGS.write(CINDER_CONF)
 
 
