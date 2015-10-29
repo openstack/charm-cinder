@@ -19,7 +19,8 @@ from charmhelpers.core.hookenv import (
     relation_ids,
     log,
     DEBUG,
-    service_name
+    service_name,
+    status_get,
 )
 
 from charmhelpers.fetch import (
@@ -46,6 +47,7 @@ from charmhelpers.core.host import (
 from charmhelpers.contrib.openstack.alternatives import install_alternative
 from charmhelpers.contrib.hahelpers.cluster import (
     is_elected_leader,
+    get_hacluster_config,
 )
 
 from charmhelpers.contrib.storage.linux.utils import (
@@ -81,6 +83,7 @@ from charmhelpers.contrib.openstack.utils import (
     git_yaml_value,
     git_pip_venv_dir,
     os_release,
+    set_os_workload_status,
 )
 
 from charmhelpers.core.decorators import (
@@ -155,6 +158,15 @@ APACHE_SITE_24_CONF = '/etc/apache2/sites-available/' \
 
 TEMPLATES = 'templates/'
 
+# The interface is said to be satisfied if anyone of the interfaces in
+# the
+# list has a complete context.
+REQUIRED_INTERFACES = {
+    'database': ['shared-db', 'pgsql-db'],
+    'messaging': ['amqp'],
+    'identity': ['identity-service'],
+}
+
 
 def ceph_config_file():
     return CHARM_CEPH_CONF.format(service_name())
@@ -172,8 +184,8 @@ CONFIG_FILES = OrderedDict([
                           cinder_contexts.CephContext(),
                           cinder_contexts.HAProxyContext(),
                           cinder_contexts.ImageServiceContext(),
-                          context.SubordinateConfigContext(
-                              interface='storage-backend',
+                          cinder_contexts.CinderSubordinateConfigContext(
+                              interface=['storage-backend', 'backup-backend'],
                               service='cinder',
                               config_file=CINDER_CONF),
                           cinder_contexts.StorageBackendContext(),
@@ -183,7 +195,7 @@ CONFIG_FILES = OrderedDict([
                               service_user='cinder'),
                           context.BindHostContext(),
                           context.WorkerConfigContext()],
-        'services': ['cinder-api', 'cinder-volume',
+        'services': ['cinder-api', 'cinder-volume', 'cinder-backup',
                      'cinder-scheduler', 'haproxy']
     }),
     (CINDER_API_CONF, {
@@ -192,7 +204,7 @@ CONFIG_FILES = OrderedDict([
     }),
     (ceph_config_file(), {
         'hook_contexts': [context.CephContext()],
-        'services': ['cinder-volume']
+        'services': ['cinder-volume', 'cinder-backup']
     }),
     (HAPROXY_CONF, {
         'hook_contexts': [context.HAProxyContext(singlenode_mode=True),
@@ -615,12 +627,11 @@ def setup_ipv6():
         raise Exception("IPv6 is not supported in the charms for Ubuntu "
                         "versions less than Trusty 14.04")
 
-    # NOTE(xianghui): Need to install haproxy(1.5.3) from trusty-backports
-    # to support ipv6 address, so check is required to make sure not
-    # breaking other versions, IPv6 only support for >= Trusty
-    if ubuntu_rel == 'trusty':
-        add_source('deb http://archive.ubuntu.com/ubuntu trusty-backports'
-                   ' main')
+    # Need haproxy >= 1.5.3 for ipv6 so for Trusty if we are <= Kilo we need to
+    # use trusty-backports otherwise we can use the UCA.
+    if ubuntu_rel == 'trusty' and os_release('cinder') < 'liberty':
+        add_source('deb http://archive.ubuntu.com/ubuntu trusty-backports '
+                   'main')
         apt_update()
         apt_install('haproxy/trusty-backports', fatal=True)
 
@@ -800,3 +811,27 @@ def git_post_install(projects_yaml):
 
 def filesystem_mounted(fs):
     return subprocess.call(['grep', '-wqs', fs, '/proc/mounts']) == 0
+
+
+def check_optional_relations(configs):
+    required_interfaces = {}
+    if relation_ids('ha'):
+        required_interfaces['ha'] = ['cluster']
+        try:
+            get_hacluster_config()
+        except:
+            return ('blocked',
+                    'hacluster missing configuration: '
+                    'vip, vip_iface, vip_cidr')
+
+    if relation_ids('storage-backend') or relation_ids('ceph'):
+        required_interfaces['storage-backend'] = ['storage-backend', 'ceph']
+
+    if relation_ids('image-service'):
+        required_interfaces['image'] = ['image-service']
+
+    if required_interfaces:
+        set_os_workload_status(configs, required_interfaces)
+        return status_get()
+    else:
+        return 'unknown', 'No optional relations'

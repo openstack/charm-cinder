@@ -21,6 +21,8 @@ import cinder_utils as utils
 
 TO_PATCH = [
     'check_call',
+    'send_request_if_needed',
+    'is_request_complete',
     # cinder_utils
     'configure_lvm_storage',
     'determine_packages',
@@ -564,24 +566,19 @@ class TestJoinedHooks(CharmTestCase):
         m = 'ceph relation incomplete. Peer not ready?'
         self.juju_log.assert_called_with(m)
 
-    @patch("cinder_hooks.relation_set")
-    @patch("cinder_hooks.relation_get")
-    def test_ceph_changed_broker_send_rq(self, mock_relation_get,
-                                         mock_relation_set):
+    @patch.object(hooks, 'get_ceph_request')
+    def test_ceph_changed_broker_send_rq(self, mget_ceph_request):
+        mget_ceph_request.return_value = 'cephrq'
         self.CONFIGS.complete_contexts.return_value = ['ceph']
         self.service_name.return_value = 'cinder'
         self.ensure_ceph_keyring.return_value = True
+        self.is_request_complete.return_value = False
         self.ceph_config_file.return_value = '/var/lib/charm/cinder/ceph.conf'
-        self.relation_ids.return_value = ['ceph:0']
         hooks.hooks.execute(['hooks/ceph-relation-changed'])
         self.ensure_ceph_keyring.assert_called_with(service='cinder',
                                                     user='cinder',
                                                     group='cinder')
-        req = {'api-version': 1,
-               'ops': [{"op": "create-pool", "name": "cinder", "replicas": 3}]}
-        broker_dict = json.dumps(req)
-        mock_relation_set.assert_called_with(broker_req=broker_dict,
-                                             relation_id='ceph:0')
+        self.send_request_if_needed.assert_called_with('cephrq')
         for c in [call('/var/lib/charm/cinder/ceph.conf'),
                   call('/etc/cinder/cinder.conf')]:
             self.assertNotIn(c, self.CONFIGS.write.call_args_list)
@@ -608,14 +605,12 @@ class TestJoinedHooks(CharmTestCase):
         self.set_ceph_env_variables.assert_called_with(service='cinder')
         self.service_restart.assert_called_with('cinder-volume')
 
-    @patch("cinder_hooks.relation_get", autospec=True)
-    def test_ceph_changed_broker_nonzero_rc(self, mock_relation_get):
+    def test_ceph_changed_broker_nonzero_rc(self):
         self.CONFIGS.complete_contexts.return_value = ['ceph']
         self.service_name.return_value = 'cinder'
         self.ensure_ceph_keyring.return_value = True
         self.ceph_config_file.return_value = '/var/lib/charm/cinder/ceph.conf'
-        mock_relation_get.return_value = {'broker_rsp':
-                                          json.dumps({'exit-code': 1})}
+        self.is_request_complete.return_value = False
         hooks.hooks.execute(['hooks/ceph-relation-changed'])
         self.ensure_ceph_keyring.assert_called_with(service='cinder',
                                                     user='cinder',

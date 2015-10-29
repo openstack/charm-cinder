@@ -3,12 +3,15 @@ from charmhelpers.core.hookenv import (
     relation_ids,
     service_name,
     related_units,
-    relation_get
+    relation_get,
+    log,
+    WARNING,
 )
 
 from charmhelpers.contrib.openstack.context import (
     OSContextGenerator,
     ApacheSSLContext as SSLContext,
+    SubordinateConfigContext,
 )
 
 from charmhelpers.contrib.openstack.utils import (
@@ -110,3 +113,44 @@ class LoggingConfigContext(OSContextGenerator):
 
     def __call__(self):
         return {'debug': config('debug'), 'verbose': config('verbose')}
+
+
+class CinderSubordinateConfigContext(SubordinateConfigContext):
+
+    def __call__(self):
+        ctxt = super(CinderSubordinateConfigContext, self).__call__()
+
+        # If all backends are stateless we can allow host setting to be set
+        # across hosts/units to allow for HA volume failover but otherwise we
+        # have to leave it as unique (LP: #1493931).
+        rids = []
+        for interface in self.interfaces:
+            rids.extend(relation_ids(interface))
+
+        stateless = None
+        any_stateless = False
+        for rid in rids:
+            for unit in related_units(rid):
+                val = relation_get('stateless', rid=rid, unit=unit) or ""
+                if val.lower() == 'true':
+                    if stateless is None:
+                        stateless = True
+                    else:
+                        stateless = stateless and True
+                else:
+                    stateless = False
+
+                any_stateless = any_stateless or stateless
+
+        if stateless:
+            if 'DEFAULT' in ctxt['sections']:
+                ctxt['sections']['DEFAULT'].append(('host', service_name()))
+            else:
+                ctxt['sections']['DEFAULT'] = [('host', service_name())]
+
+        elif any_stateless:
+            log("One or more stateless backends configured but unable to "
+                "set host param since there appear to also be stateful "
+                "backends configured.", level=WARNING)
+
+        return ctxt
