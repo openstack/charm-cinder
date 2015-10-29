@@ -135,3 +135,209 @@ class TestCinderContext(CharmTestCase):
                                    'namespace': 'cinder'})
         self.assertTrue(mock_https.called)
         mock_unit_get.assert_called_with('private-address')
+
+    @patch('%s.relation_get' % (mod_ch_context))
+    @patch('%s.related_units' % (mod_ch_context))
+    @patch('%s.relation_ids' % (mod_ch_context))
+    @patch('%s.log' % (mod_ch_context), lambda *args, **kwargs: None)
+    def test_subordinate_config_context_stateless(self, mock_rel_ids,
+                                                  mock_rel_units,
+                                                  mock_rel_get):
+        mock_rel_ids.return_value = ['storage-backend:0']
+        self.relation_ids.return_value = ['storage-backend:0']
+
+        mock_rel_units.return_value = ['cinder-ceph/0']
+        self.related_units.return_value = ['cinder-ceph/0']
+
+        self.service_name.return_value = 'cinder'
+
+        settings = \
+            {'backend_name': 'cinder-ceph',
+             'private-address': '10.5.8.191',
+             'stateless': 'True',
+             'subordinate_configuration':
+             '{"cinder": '
+             '{"/etc/cinder/cinder.conf": '
+             '{"sections": '
+             '{"cinder-ceph": '
+             '[["volume_backend_name", '
+             '"cinder-ceph"], '
+             '["volume_driver", '
+             '"cinder.volume.drivers.rbd.RBDDriver"], '
+             '["rbd_pool", '
+             '"cinder-ceph"], '
+             '["rbd_user", '
+             '"cinder-ceph"]]}}}}'}
+
+        def fake_rel_get(attribute=None, unit=None, rid=None):
+            return settings.get(attribute)
+
+        mock_rel_get.side_effect = fake_rel_get
+        self.relation_get.side_effect = fake_rel_get
+
+        ctxt = contexts.CinderSubordinateConfigContext(
+            interface='storage-backend',
+            service='cinder',
+            config_file='/etc/cinder/cinder.conf')()
+
+        exp = {'sections': {'DEFAULT': [('host', 'cinder')],
+               u'cinder-ceph': [[u'volume_backend_name', u'cinder-ceph'],
+                                [u'volume_driver',
+                                 u'cinder.volume.drivers.rbd.RBDDriver'],
+                                [u'rbd_pool', u'cinder-ceph'],
+                                [u'rbd_user', u'cinder-ceph']]}}
+
+        self.assertEquals(ctxt, exp)
+
+    @patch('%s.relation_get' % (mod_ch_context))
+    @patch('%s.related_units' % (mod_ch_context))
+    @patch('%s.relation_ids' % (mod_ch_context))
+    @patch('%s.log' % (mod_ch_context), lambda *args, **kwargs: None)
+    def test_subordinate_config_context_statefull(self, mock_rel_ids,
+                                                  mock_rel_units,
+                                                  mock_rel_get):
+        mock_rel_ids.return_value = ['storage-backend:0']
+        self.relation_ids.return_value = ['storage-backend:0']
+
+        mock_rel_units.return_value = ['cinder-ceph/0']
+        self.related_units.return_value = ['cinder-ceph/0']
+
+        self.service_name.return_value = 'cinder'
+
+        settings = \
+            {'backend_name': 'cinder-ceph',
+             'private-address': '10.5.8.191',
+             'stateless': 'False',
+             'subordinate_configuration':
+             '{"cinder": '
+             '{"/etc/cinder/cinder.conf": '
+             '{"sections": '
+             '{"cinder-ceph": '
+             '[["volume_backend_name", '
+             '"cinder-ceph"], '
+             '["volume_driver", '
+             '"cinder.volume.drivers.rbd.RBDDriver"], '
+             '["rbd_pool", '
+             '"cinder-ceph"], '
+             '["rbd_user", '
+             '"cinder-ceph"]]}}}}'}
+
+        def fake_rel_get(attribute=None, unit=None, rid=None):
+            return settings.get(attribute)
+
+        mock_rel_get.side_effect = fake_rel_get
+        self.relation_get.side_effect = fake_rel_get
+
+        ctxt = contexts.CinderSubordinateConfigContext(
+            interface='storage-backend',
+            service='cinder',
+            config_file='/etc/cinder/cinder.conf')()
+
+        exp = {'sections':
+               {u'cinder-ceph': [[u'volume_backend_name',
+                                  u'cinder-ceph'],
+                                 [u'volume_driver',
+                                  u'cinder.volume.drivers.rbd.RBDDriver'],
+                                 [u'rbd_pool', u'cinder-ceph'],
+                                 [u'rbd_user', u'cinder-ceph']]}}
+
+        self.assertEquals(ctxt, exp)
+
+        del settings['stateless']
+
+        ctxt = contexts.CinderSubordinateConfigContext(
+            interface='storage-backend',
+            service='cinder',
+            config_file='/etc/cinder/cinder.conf')()
+
+        exp = {'sections':
+               {u'cinder-ceph': [[u'volume_backend_name',
+                                  u'cinder-ceph'],
+                                 [u'volume_driver',
+                                  u'cinder.volume.drivers.rbd.RBDDriver'],
+                                 [u'rbd_pool', u'cinder-ceph'],
+                                 [u'rbd_user', u'cinder-ceph']]}}
+
+        self.assertEquals(ctxt, exp)
+
+    @patch('%s.relation_get' % (mod_ch_context))
+    @patch('%s.related_units' % (mod_ch_context))
+    @patch('%s.relation_ids' % (mod_ch_context))
+    @patch.object(contexts, 'log', lambda *args, **kwargs: None)
+    @patch('%s.log' % (mod_ch_context), lambda *args, **kwargs: None)
+    def test_subordinate_config_context_mixed(self, mock_rel_ids,
+                                              mock_rel_units,
+                                              mock_rel_get):
+        mock_rel_ids.return_value = ['storage-backend:0', 'storage-backend:1']
+        self.relation_ids.return_value = ['storage-backend:0',
+                                          'storage-backend:1']
+
+        def fake_rel_units(rid):
+            if rid == 'storage-backend:0':
+                return ['cinder-ceph/0']
+            else:
+                return ['cinder-other/0']
+
+        mock_rel_units.side_effect = fake_rel_units
+        self.related_units.side_effect = fake_rel_units
+
+        self.service_name.return_value = 'cinder'
+
+        cinder_ceph_settings = \
+            {'backend_name': 'cinder-ceph',
+             'private-address': '10.5.8.191',
+             'stateless': 'True',
+             'subordinate_configuration':
+             '{"cinder": '
+             '{"/etc/cinder/cinder.conf": '
+             '{"sections": '
+             '{"cinder-ceph": '
+             '[["volume_backend_name", '
+             '"cinder-ceph"], '
+             '["volume_driver", '
+             '"cinder.volume.drivers.rbd.RBDDriver"], '
+             '["rbd_pool", '
+             '"cinder-ceph"], '
+             '["rbd_user", '
+             '"cinder-ceph"]]}}}}'}
+
+        cinder_other_settings = \
+            {'backend_name': 'cinder-other',
+             'private-address': '10.5.8.192',
+             'subordinate_configuration':
+             '{"cinder": '
+             '{"/etc/cinder/cinder.conf": '
+             '{"sections": '
+             '{"cinder-other": '
+             '[["volume_backend_name", '
+             '"cinder-other"], '
+             '["volume_driver", '
+             '"cinder.volume.drivers.OtherDriver"]]}}}}'}
+
+        def fake_rel_get(attribute=None, unit=None, rid=None):
+            if unit == 'cinder-ceph/0':
+                return cinder_ceph_settings.get(attribute)
+            elif unit == 'cinder-other/0':
+                return cinder_other_settings.get(attribute)
+
+        mock_rel_get.side_effect = fake_rel_get
+        self.relation_get.side_effect = fake_rel_get
+
+        ctxt = contexts.CinderSubordinateConfigContext(
+            interface='storage-backend',
+            service='cinder',
+            config_file='/etc/cinder/cinder.conf')()
+
+        exp = {'sections':
+               {u'cinder-ceph': [[u'volume_backend_name',
+                                  u'cinder-ceph'],
+                                 [u'volume_driver',
+                                  u'cinder.volume.drivers.rbd.RBDDriver'],
+                                 [u'rbd_pool', u'cinder-ceph'],
+                                 [u'rbd_user', u'cinder-ceph']],
+                u'cinder-other': [[u'volume_backend_name',
+                                   u'cinder-other'],
+                                  [u'volume_driver',
+                                   u'cinder.volume.drivers.OtherDriver']]}}
+
+        self.assertEquals(ctxt, exp)

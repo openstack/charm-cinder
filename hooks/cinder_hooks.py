@@ -27,6 +27,8 @@ from cinder_utils import (
     setup_ipv6,
     check_db_initialised,
     filesystem_mounted,
+    REQUIRED_INTERFACES,
+    check_optional_relations,
 )
 
 from charmhelpers.core.hookenv import (
@@ -42,7 +44,7 @@ from charmhelpers.core.hookenv import (
     unit_get,
     log,
     ERROR,
-    INFO,
+    status_set,
 )
 
 from charmhelpers.fetch import (
@@ -64,12 +66,14 @@ from charmhelpers.contrib.openstack.utils import (
     openstack_upgrade_available,
     sync_db_with_multi_ipv6_addresses,
     os_release,
+    set_os_workload_status,
 )
 
 from charmhelpers.contrib.storage.linux.ceph import (
+    send_request_if_needed,
+    is_request_complete,
     ensure_ceph_keyring,
     CephBrokerRq,
-    CephBrokerRsp,
     delete_keyring,
 )
 
@@ -99,8 +103,9 @@ hooks = Hooks()
 CONFIGS = register_configs()
 
 
-@hooks.hook('install')
+@hooks.hook('install.real')
 def install():
+    status_set('maintenance', 'Executing pre-install')
     execd_preinstall()
     conf = config()
     src = conf['openstack-origin']
@@ -109,9 +114,11 @@ def install():
         src = 'cloud:precise-folsom'
     configure_installation_source(src)
 
+    status_set('maintenance', 'Installing apt packages')
     apt_update()
     apt_install(determine_packages(), fatal=True)
 
+    status_set('maintenance', 'Git install')
     git_install(config('openstack-origin-git'))
 
 
@@ -121,6 +128,7 @@ def config_changed():
     conf = config()
 
     if conf['prefer-ipv6']:
+        status_set('maintenance', 'configuring ipv6')
         setup_ipv6()
         sync_db_with_multi_ipv6_addresses(config('database'),
                                           config('database-user'))
@@ -131,6 +139,7 @@ def config_changed():
 
     if (service_enabled('volume') and
             conf['block-device'] not in [None, 'None', 'none']):
+        status_set('maintenance', 'Configuring lvm storage')
         block_devices = conf['block-device'].split()
         configure_lvm_storage(block_devices,
                               conf['volume-group'],
@@ -140,12 +149,18 @@ def config_changed():
 
     if git_install_requested():
         if config_value_changed('openstack-origin-git'):
+            status_set('maintenance', 'Running Git install')
             git_install(config('openstack-origin-git'))
     elif not config('action-managed-upgrade'):
         if openstack_upgrade_available('cinder-common'):
+            status_set('maintenance', 'Running openstack upgrade')
             do_openstack_upgrade(configs=CONFIGS)
             # NOTE(jamespage) tell any storage-backends we just upgraded
             for rid in relation_ids('storage-backend'):
+                relation_set(relation_id=rid,
+                             upgrade_nonce=uuid.uuid4())
+            # NOTE(hopem) tell any backup-backends we just upgraded
+            for rid in relation_ids('backup-backend'):
                 relation_set(relation_id=rid,
                              upgrade_nonce=uuid.uuid4())
 
@@ -320,6 +335,14 @@ def ceph_joined():
     apt_install('ceph-common', fatal=True)
 
 
+def get_ceph_request():
+    service = service_name()
+    rq = CephBrokerRq()
+    replicas = config('ceph-osd-replication-count')
+    rq.add_op_create_pool(name=service, replica_count=replicas)
+    return rq
+
+
 @hooks.hook('ceph-relation-changed')
 @restart_on_change(restart_map())
 def ceph_changed(relation_id=None):
@@ -333,17 +356,8 @@ def ceph_changed(relation_id=None):
         juju_log('Could not create ceph keyring: peer not ready?')
         return
 
-    settings = relation_get(rid=relation_id)
-    if settings and 'broker_rsp' in settings:
-        rsp = CephBrokerRsp(settings['broker_rsp'])
-        # Non-zero return code implies failure
-        if rsp.exit_code:
-            log("Ceph broker request failed (rc=%s, msg=%s)" %
-                (rsp.exit_code, rsp.exit_msg), level=ERROR)
-            return
-
-        log("Ceph broker request succeeded (rc=%s, msg=%s)" %
-            (rsp.exit_code, rsp.exit_msg), level=INFO)
+    if is_request_complete(get_ceph_request()):
+        log('Request complete')
         set_ceph_env_variables(service=service)
         CONFIGS.write(CINDER_CONF)
         CONFIGS.write(ceph_config_file())
@@ -351,12 +365,7 @@ def ceph_changed(relation_id=None):
         # guarantee that ceph resources are ready.
         service_restart('cinder-volume')
     else:
-        rq = CephBrokerRq()
-        replicas = config('ceph-osd-replication-count')
-        rq.add_op_create_pool(name=service, replica_count=replicas)
-        for rid in relation_ids('ceph'):
-            relation_set(relation_id=rid, broker_req=rq.request)
-            log("Request(s) sent to Ceph broker (rid=%s)" % (rid))
+        send_request_if_needed(get_ceph_request())
 
 
 @hooks.hook('ceph-relation-broken')
@@ -518,6 +527,13 @@ def storage_backend():
     CONFIGS.write(CINDER_CONF)
 
 
+@hooks.hook('backup-backend-relation-changed')
+@hooks.hook('backup-backend-relation-broken')
+@restart_on_change(restart_map())
+def backup_backend():
+    CONFIGS.write(CINDER_CONF)
+
+
 @hooks.hook('nrpe-external-master-relation-joined',
             'nrpe-external-master-relation-changed')
 def update_nrpe_config():
@@ -537,3 +553,5 @@ if __name__ == '__main__':
         hooks.execute(sys.argv)
     except UnregisteredHookError as e:
         juju_log('Unknown hook {} - skipping.'.format(e))
+    set_os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+                           charm_func=check_optional_relations)

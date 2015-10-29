@@ -18,6 +18,9 @@ RESTART_MAP = OrderedDict([
     ('/etc/apache2/sites-available/openstack_https_frontend.conf', ['apache2'])
 ])
 
+patch('charmhelpers.contrib.openstack.utils.set_os_workload_status').start()
+patch('charmhelpers.core.hookenv.status_set').start()
+
 
 def load_config():
     '''Walk backwords from __file__ looking for config.yaml,
