@@ -1,27 +1,19 @@
 import os
-from mock import MagicMock, patch, call
-
-os.environ['JUJU_UNIT_NAME'] = 'cinder'
-import cinder_utils as utils
-
-# Need to do some early patching to get the module loaded.
-# _restart_map = utils.restart_map
-_register_configs = utils.register_configs
-_service_enabled = utils.service_enabled
-utils.register_configs = MagicMock()
-utils.service_enabled = MagicMock()
-
-import cinder_hooks as hooks
-hooks.hooks._config_save = False
-
-# Unpatch it now that its loaded.
-utils.register_configs = _register_configs
-utils.service_enabled = _service_enabled
+from mock import patch, call
 
 from test_utils import (
     CharmTestCase,
     RESTART_MAP,
 )
+
+os.environ['JUJU_UNIT_NAME'] = 'cinder'
+
+with patch('cinder_utils.register_configs') as register_configs:
+    with patch('cinder_utils.restart_map') as restart_map:
+        restart_map.return_value = RESTART_MAP
+        import cinder_hooks as hooks
+
+hooks.hooks._config_save = False
 
 TO_PATCH = [
     # cinder_utils
