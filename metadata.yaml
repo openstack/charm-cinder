@@ -1,8 +1,8 @@
 name: cinder
-summary: Cinder OpenStack storage service
-maintainer: Adam Gandelman <adamg@canonical.com>
+summary: OpenStack block storage service
+maintainer: OpenStack Charmers <openstack-charmers@lists.ubuntu.com>
 description: |
- Cinder is a storage service for the Openstack project
+ Cinder is the block storage service for the OpenStack.
 tags:
   - openstack
   - storage
