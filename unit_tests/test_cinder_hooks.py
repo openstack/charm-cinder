@@ -485,6 +485,14 @@ class TestJoinedHooks(CharmTestCase):
         }
         self.relation_set.assert_called_with(**expected)
 
+    def test_identity_service_joined_no_api(self):
+        'endpoint registration is skipped if api service is not enabled'
+        self.config.side_effect = self.test_config.get
+        self.service_enabled.return_value = False
+        hooks.hooks.execute(['hooks/identity-service-relation-joined'])
+        self.assertFalse(self.relation_set.called)
+        self.service_enabled.assert_called_with('api')
+
     @patch.object(hooks, 'canonical_url')
     def test_identity_service_joined_icehouse(self, _canonical_url):
         'It properly requests unclustered endpoint via identity-service'
