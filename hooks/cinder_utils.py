@@ -168,6 +168,15 @@ REQUIRED_INTERFACES = {
 }
 
 
+def required_interfaces():
+    '''Provide the required charm interfaces based on configured roles.'''
+    _interfaces = copy(REQUIRED_INTERFACES)
+    if not service_enabled('api'):
+        # drop requirement for identity interface
+        _interfaces.pop('identity')
+    return _interfaces
+
+
 def ceph_config_file():
     return CHARM_CEPH_CONF.format(service_name())
 

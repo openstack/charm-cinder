@@ -805,3 +805,21 @@ class TestCinderUtils(CharmTestCase):
         volume_group = "test"
         cinder_utils.remove_lvm_volume_group(volume_group)
         _check.assert_called_with(['vgremove', '--force', volume_group])
+
+    def test_required_interfaces_api(self):
+        '''identity-service interface required for api service'''
+        expected = {
+            'database': ['shared-db', 'pgsql-db'],
+            'messaging': ['amqp'],
+            'identity': ['identity-service'],
+        }
+        self.assertEqual(cinder_utils.required_interfaces(), expected)
+
+    def test_required_interfaces_no_api(self):
+        '''identity-service interface not required for volume or scheduler service'''
+        self.test_config.set('enabled-services', 'volume,scheduler')
+        expected = {
+            'database': ['shared-db', 'pgsql-db'],
+            'messaging': ['amqp'],
+        }
+        self.assertEqual(cinder_utils.required_interfaces(), expected)
