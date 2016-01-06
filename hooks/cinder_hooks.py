@@ -27,7 +27,7 @@ from cinder_utils import (
     setup_ipv6,
     check_db_initialised,
     filesystem_mounted,
-    REQUIRED_INTERFACES,
+    required_interfaces,
     check_optional_relations,
 )
 
@@ -553,5 +553,5 @@ if __name__ == '__main__':
         hooks.execute(sys.argv)
     except UnregisteredHookError as e:
         juju_log('Unknown hook {} - skipping.'.format(e))
-    set_os_workload_status(CONFIGS, REQUIRED_INTERFACES,
+    set_os_workload_status(CONFIGS, required_interfaces(),
                            charm_func=check_optional_relations)
