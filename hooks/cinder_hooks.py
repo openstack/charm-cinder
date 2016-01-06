@@ -270,6 +270,10 @@ def amqp_departed():
 
 @hooks.hook('identity-service-relation-joined')
 def identity_joined(rid=None):
+    if not service_enabled('api'):
+        juju_log('api service not enabled; skipping endpoint registration')
+        return
+
     public_url = '{}:{}/v1/$(tenant_id)s'.format(
         canonical_url(CONFIGS, PUBLIC),
         config('api-listening-port')
