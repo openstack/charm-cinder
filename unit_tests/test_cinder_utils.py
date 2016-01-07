@@ -816,7 +816,10 @@ class TestCinderUtils(CharmTestCase):
         self.assertEqual(cinder_utils.required_interfaces(), expected)
 
     def test_required_interfaces_no_api(self):
-        '''identity-service interface not required for volume or scheduler service'''
+        '''
+        identity-service interface not required for volume
+        or scheduler service
+        '''
         self.test_config.set('enabled-services', 'volume,scheduler')
         expected = {
             'database': ['shared-db', 'pgsql-db'],
