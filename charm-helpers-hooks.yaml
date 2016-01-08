@@ -10,7 +10,7 @@ include:
         - apache
         - cluster
     - fetch
-    - payload.execd
+    - payload
     - contrib.network.ip
     - contrib.python.packages
     - contrib.charmsupport
