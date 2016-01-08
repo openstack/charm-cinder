@@ -1,9 +1,0 @@
-#!/usr/bin/python
-
-"""Amulet tests on a basic Cinder deployment on vivid-kilo."""
-
-from basic_deployment import CinderBasicDeployment
-
-if __name__ == '__main__':
-    deployment = CinderBasicDeployment(series='vivid')
-    deployment.run_tests()
