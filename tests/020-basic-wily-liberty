@@ -1,0 +1,9 @@
+#!/usr/bin/python
+
+"""Amulet tests on a basic Cinder deployment on wily-liberty."""
+
+from basic_deployment import CinderBasicDeployment
+
+if __name__ == '__main__':
+    deployment = CinderBasicDeployment(series='wily')
+    deployment.run_tests()
