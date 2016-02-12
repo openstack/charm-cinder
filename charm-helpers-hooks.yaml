@@ -1,4 +1,4 @@
-branch: lp:~hopem/charm-helpers/lp1518975 
+branch: lp:charm-helpers 
 destination: hooks/charmhelpers
 include:
     - core
