@@ -154,3 +154,18 @@ class CinderSubordinateConfigContext(SubordinateConfigContext):
                 "backends configured.", level=WARNING)
 
         return ctxt
+
+
+class RegionContext(OSContextGenerator):
+    """Provides context data regarding the region the service is in.
+
+    This context provides the region that is configured by the admin via the
+    region option in the config settings for the charm. If no region config
+    is available, then this will provide an empty context.
+    """
+    def __call__(self):
+        region = config('region')
+        if region:
+            return {'region': region}
+        else:
+            return {}

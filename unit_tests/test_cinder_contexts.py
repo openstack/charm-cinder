@@ -341,3 +341,8 @@ class TestCinderContext(CharmTestCase):
                                    u'cinder.volume.drivers.OtherDriver']]}}
 
         self.assertEquals(ctxt, exp)
+
+    def test_region_context(self):
+        self.config.return_value = 'two'
+        ctxt = contexts.RegionContext()()
+        self.assertEqual('two', ctxt['region'])

@@ -203,7 +203,8 @@ CONFIG_FILES = OrderedDict([
                               service='cinder',
                               service_user='cinder'),
                           context.BindHostContext(),
-                          context.WorkerConfigContext()],
+                          context.WorkerConfigContext(),
+                          cinder_contexts.RegionContext()],
         'services': ['cinder-api', 'cinder-volume', 'cinder-backup',
                      'cinder-scheduler', 'haproxy']
     }),
