@@ -2,3 +2,4 @@ bin
 .coverage
 .testrepository
 .tox
+*.sw[nop]
