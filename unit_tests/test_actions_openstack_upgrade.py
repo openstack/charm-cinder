@@ -1,13 +1,13 @@
-from mock import patch
 import os
 
-os.environ['JUJU_UNIT_NAME'] = 'cinder'
+from mock import patch
 
 from test_utils import (
     CharmTestCase,
     RESTART_MAP
 )
 
+os.environ['JUJU_UNIT_NAME'] = 'cinder'
 with patch('cinder_utils.register_configs') as register_configs:
     with patch('cinder_utils.restart_map') as restart_map:
         restart_map.return_value = RESTART_MAP

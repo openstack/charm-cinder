@@ -1,15 +1,13 @@
-from mock import patch, call, MagicMock, Mock
-
-from collections import OrderedDict
 import os
 import subprocess
+
+from collections import OrderedDict
+from mock import patch, call, MagicMock, Mock
 
 os.environ['JUJU_UNIT_NAME'] = 'cinder'
 import cinder_utils as cinder_utils
 
-from test_utils import (
-    CharmTestCase,
-)
+from test_utils import CharmTestCase
 
 TO_PATCH = [
     # helpers.core.hookenv

@@ -1,18 +1,25 @@
-from mock import patch
 import os
+import sys
+
+from mock import patch, MagicMock
 
 os.environ['JUJU_UNIT_NAME'] = 'cinder'
 
-from test_utils import RESTART_MAP
+# python-apt is not installed as part of test-requirements but is imported by
+# some charmhelpers modules so create a fake import.
+mock_apt = MagicMock()
+sys.modules['apt'] = mock_apt
+mock_apt.apt_pkg = MagicMock()
 
-with patch('cinder_utils.register_configs') as register_configs:
-    with patch('cinder_utils.restart_map') as restart_map:
-        restart_map.return_value = RESTART_MAP
-        import git_reinstall
+from test_utils import RESTART_MAP, CharmTestCase
 
-from test_utils import (
-    CharmTestCase
-)
+with patch('charmhelpers.contrib.hardening.harden.harden') as mock_dec:
+    mock_dec.side_effect = (lambda *dargs, **dkwargs: lambda f:
+                            lambda *args, **kwargs: f(*args, **kwargs))
+    with patch('cinder_utils.register_configs') as register_configs:
+        with patch('cinder_utils.restart_map') as restart_map:
+            restart_map.return_value = RESTART_MAP
+            import git_reinstall
 
 TO_PATCH = [
     'config',

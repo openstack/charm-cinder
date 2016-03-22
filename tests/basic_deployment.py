@@ -492,11 +492,10 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         rel_mq_ci = unit_mq.relation('amqp', 'cinder:amqp')
         rel_ks_ci = unit_ks.relation('identity-service',
                                      'cinder:identity-service')
-
-        auth_uri = 'http://' + rel_ks_ci['auth_host'] + \
-                   ':' + rel_ks_ci['service_port'] + '/'
-        auth_url = 'http://' + rel_ks_ci['auth_host'] + \
-                   ':' + rel_ks_ci['auth_port'] + '/'
+        auth_uri = ('http://%s:%s/' %
+                    (rel_ks_ci['auth_host'], rel_ks_ci['service_port']))
+        auth_url = ('http://%s:%s/' %
+                    (rel_ks_ci['auth_host'], rel_ks_ci['auth_port']))
 
         expected = {
             'DEFAULT': {
@@ -512,7 +511,8 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                 'admin_user': rel_ks_ci['service_username'],
                 'admin_password': rel_ks_ci['service_password'],
                 'admin_tenant_name': rel_ks_ci['service_tenant'],
-                'auth_uri': auth_uri
+                'auth_uri': auth_uri,
+                'signing_dir': '/var/cache/cinder'
             }
         }
 
@@ -532,7 +532,13 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                 'project_name': 'services',
                 'username': rel_ks_ci['service_username'],
                 'password': rel_ks_ci['service_password'],
+                'signing_dir': '/var/cache/cinder'
             }
+
+        if self._get_openstack_release() == self.trusty_kilo:
+            expected['keystone_authtoken']['auth_uri'] = auth_uri
+            expected['keystone_authtoken']['identity_uri'] = \
+                auth_url.strip('/')
 
         if self._get_openstack_release() >= self.trusty_kilo:
             # Kilo or later

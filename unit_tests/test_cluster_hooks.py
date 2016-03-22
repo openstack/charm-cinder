@@ -1,5 +1,7 @@
 import os
-from mock import patch, call
+import sys
+
+from mock import patch, call, MagicMock
 
 from test_utils import (
     CharmTestCase,
@@ -7,6 +9,13 @@ from test_utils import (
 )
 
 os.environ['JUJU_UNIT_NAME'] = 'cinder'
+
+# python-apt is not installed as part of test-requirements but is imported by
+# some charmhelpers modules so create a fake import.
+mock_apt = MagicMock()
+sys.modules['apt'] = mock_apt
+mock_apt.apt_pkg = MagicMock()
+
 
 with patch('cinder_utils.register_configs') as register_configs:
     with patch('cinder_utils.restart_map') as restart_map:

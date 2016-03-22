@@ -97,6 +97,7 @@ from charmhelpers.contrib.openstack.ip import (
 from charmhelpers.contrib.openstack.context import ADDRESS_TYPES
 
 from charmhelpers.contrib.charmsupport import nrpe
+from charmhelpers.contrib.hardening.harden import harden
 
 hooks = Hooks()
 
@@ -104,6 +105,7 @@ CONFIGS = register_configs()
 
 
 @hooks.hook('install.real')
+@harden()
 def install():
     status_set('maintenance', 'Executing pre-install')
     execd_preinstall()
@@ -124,6 +126,7 @@ def install():
 
 @hooks.hook('config-changed')
 @restart_on_change(restart_map(), stopstart=True)
+@harden()
 def config_changed():
     conf = config()
 
@@ -518,6 +521,7 @@ def configure_https():
 
 
 @hooks.hook('upgrade-charm')
+@harden()
 def upgrade_charm():
     for rel_id in relation_ids('amqp'):
         amqp_joined(relation_id=rel_id)
@@ -550,6 +554,12 @@ def update_nrpe_config():
     nrpe.add_init_service_checks(nrpe_setup, services(), current_unit)
     nrpe.add_haproxy_checks(nrpe_setup, current_unit)
     nrpe_setup.write()
+
+
+@hooks.hook('update-status')
+@harden()
+def update_status():
+    log('Updating status.')
 
 
 if __name__ == '__main__':

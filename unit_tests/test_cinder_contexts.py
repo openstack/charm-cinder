@@ -1,14 +1,12 @@
-import cinder_contexts as contexts
 import os
+
+from test_utils import CharmTestCase
+from mock import patch, MagicMock
+
+import cinder_contexts as contexts
 
 os.environ['JUJU_UNIT_NAME'] = 'cinder'
 import cinder_utils as utils
-
-from mock import patch, MagicMock
-
-from test_utils import (
-    CharmTestCase
-)
 
 TO_PATCH = [
     'config',

@@ -1,20 +1,32 @@
 import json
+import sys
+
+import yaml
 from mock import (
     MagicMock,
     patch,
     call
 )
-import yaml
 
 from test_utils import (
     CharmTestCase,
     RESTART_MAP,
 )
 
-with patch('cinder_utils.register_configs') as register_configs:
-    with patch('cinder_utils.restart_map') as restart_map:
-        restart_map.return_value = RESTART_MAP
-        import cinder_hooks as hooks
+# python-apt is not installed as part of test-requirements but is imported by
+# some charmhelpers modules so create a fake import.
+mock_apt = MagicMock()
+sys.modules['apt'] = mock_apt
+mock_apt.apt_pkg = MagicMock()
+
+
+with patch('charmhelpers.contrib.hardening.harden.harden') as mock_dec:
+    mock_dec.side_effect = (lambda *dargs, **dkwargs: lambda f:
+                            lambda *args, **kwargs: f(*args, **kwargs))
+    with patch('cinder_utils.register_configs') as register_configs:
+        with patch('cinder_utils.restart_map') as restart_map:
+            restart_map.return_value = RESTART_MAP
+            import cinder_hooks as hooks
 
 hooks.hooks._config_save = False
 import cinder_utils as utils
@@ -80,7 +92,7 @@ class TestInstallHook(CharmTestCase):
         'It redirects to cloud archive if setup to install precise+distro'
         git_requested.return_value = False
         self.lsb_release.return_value = {'DISTRIB_CODENAME': 'precise'}
-        hooks.hooks.execute(['hooks/install'])
+        hooks.hooks.execute(['hooks/install.real'])
         ca = 'cloud:precise-folsom'
         self.configure_installation_source.assert_called_with(ca)
 
@@ -103,7 +115,7 @@ class TestInstallHook(CharmTestCase):
         projects_yaml = yaml.dump(openstack_origin_git)
         self.test_config.set('openstack-origin', repo)
         self.test_config.set('openstack-origin-git', projects_yaml)
-        hooks.hooks.execute(['hooks/install'])
+        hooks.hooks.execute(['hooks/install.real'])
         self.assertTrue(self.execd_preinstall.called)
         self.configure_installation_source.assert_called_with(repo)
         self.apt_update.assert_called_with()
@@ -115,7 +127,7 @@ class TestInstallHook(CharmTestCase):
         'It installs the correct packages based on what is determined'
         git_requested.return_value = False
         self.determine_packages.return_value = ['foo', 'bar', 'baz']
-        hooks.hooks.execute(['hooks/install'])
+        hooks.hooks.execute(['hooks/install.real'])
         self.apt_install.assert_called_with(['foo', 'bar', 'baz'], fatal=True)
 
 
