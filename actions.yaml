@@ -1,3 +1,7 @@
+pause:
+  description: Pause the cinder unit.  This action will stop cinder services.
+resume:
+  descrpition: Resume the cinder unit.  This action will start cinder services.
 git-reinstall:
   description: Reinstall cinder from the openstack-origin-git repositories.
 openstack-upgrade:

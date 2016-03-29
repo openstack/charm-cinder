@@ -27,8 +27,7 @@ from cinder_utils import (
     setup_ipv6,
     check_db_initialised,
     filesystem_mounted,
-    required_interfaces,
-    check_optional_relations,
+    assess_status,
 )
 
 from charmhelpers.core.hookenv import (
@@ -54,7 +53,6 @@ from charmhelpers.fetch import (
 
 from charmhelpers.core.host import (
     lsb_release,
-    restart_on_change,
     service_reload,
     umount,
 )
@@ -66,7 +64,8 @@ from charmhelpers.contrib.openstack.utils import (
     openstack_upgrade_available,
     sync_db_with_multi_ipv6_addresses,
     os_release,
-    set_os_workload_status,
+    is_unit_paused_set,
+    pausable_restart_on_change as restart_on_change,
 )
 
 from charmhelpers.contrib.storage.linux.ceph import (
@@ -165,7 +164,7 @@ def config_changed():
                              upgrade_nonce=uuid.uuid4())
 
     # overwrite config is not in conf file. so We can't use restart_on_change
-    if config_value_changed('overwrite'):
+    if config_value_changed('overwrite') and not is_unit_paused_set():
         service_restart('cinder-volume')
 
     CONFIGS.write_all()
@@ -367,7 +366,8 @@ def ceph_changed(relation_id=None):
         CONFIGS.write(ceph_config_file())
         # Ensure that cinder-volume is restarted since only now can we
         # guarantee that ceph resources are ready.
-        service_restart('cinder-volume')
+        if not is_unit_paused_set():
+            service_restart('cinder-volume')
     else:
         send_request_if_needed(get_ceph_request())
 
@@ -511,7 +511,8 @@ def configure_https():
 
     # TODO: improve this by checking if local CN certs are available
     # first then checking reload status (see LP #1433114).
-    service_reload('apache2', restart_on_failure=True)
+    if not is_unit_paused_set():
+        service_reload('apache2', restart_on_failure=True)
 
     for rid in relation_ids('identity-service'):
         identity_joined(rid=rid)
@@ -557,5 +558,4 @@ if __name__ == '__main__':
         hooks.execute(sys.argv)
     except UnregisteredHookError as e:
         juju_log('Unknown hook {} - skipping.'.format(e))
-    set_os_workload_status(CONFIGS, required_interfaces(),
-                           charm_func=check_optional_relations)
+    assess_status(CONFIGS)
