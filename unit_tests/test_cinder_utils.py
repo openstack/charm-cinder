@@ -90,6 +90,10 @@ class TestCinderUtils(CharmTestCase):
     def setUp(self):
         super(TestCinderUtils, self).setUp(cinder_utils, TO_PATCH)
         self.config.side_effect = self.test_config.get_all
+        self.apache24_conf_dir = '/etc/apache2/conf-available'
+        self.charm_ceph_conf = '/var/lib/charm/cinder/ceph.conf'
+        self.ceph_conf = '/etc/ceph/ceph.conf'
+        self.cinder_conf = '/etc/cinder/cinder.conf'
 
     def svc_enabled(self, svc):
         return svc in self.test_config.get('enabled-services')
@@ -149,58 +153,184 @@ class TestCinderUtils(CharmTestCase):
                           sorted(common + cinder_utils.API_PACKAGES +
                                  cinder_utils.SCHEDULER_PACKAGES))
 
-    def test_services(self):
-        self.assertEquals(cinder_utils.services(),
-                          ['haproxy', 'cinder-backup', 'cinder-api',
-                           'cinder-volume', 'apache2', 'cinder-scheduler'])
+    @patch('cinder_utils.restart_map')
+    def test_services(self, restart_map):
+        restart_map.return_value = OrderedDict([
+            ('test_conf1', ['svc1']),
+            ('test_conf2', ['svc2', 'svc3', 'svc1']),
+        ])
+        self.assertEquals(cinder_utils.services(), ['svc2', 'svc3', 'svc1'])
 
-    def test_creates_restart_map_all_enabled(self):
-        'It creates correct restart map when all services enabled'
+    @patch('cinder_utils.service_enabled')
+    @patch('os.path.exists')
+    def test_creates_resource_map_all_enabled(self, path_exists,
+                                              service_enabled):
+        service_enabled.return_value = True
+        path_exists.return_value = True
+        self.ceph_config_file.return_value = self.charm_ceph_conf
+        self.relation_ids.return_value = []
         ex_map = OrderedDict([
             ('/etc/cinder/cinder.conf', ['cinder-api', 'cinder-volume',
-                                         'cinder-backup', 'cinder-scheduler',
-                                         'haproxy']),
+                                         'cinder-scheduler', 'haproxy']),
             ('/etc/cinder/api-paste.ini', ['cinder-api']),
-            ('/var/lib/charm/cinder/ceph.conf', ['cinder-volume',
-                                                 'cinder-backup']),
             ('/etc/haproxy/haproxy.cfg', ['haproxy']),
-            ('/etc/apache2/sites-available/openstack_https_frontend',
-             ['apache2']),
             ('/etc/apache2/sites-available/openstack_https_frontend.conf',
              ['apache2']),
         ])
-        self.assertEquals(cinder_utils.restart_map(), ex_map)
+        for cfg in ex_map.keys():
+            self.assertEquals(cinder_utils.resource_map()[cfg]['services'],
+                              ex_map[cfg])
 
     @patch('cinder_utils.service_enabled')
-    def test_creates_restart_map_no_api(self, service_enabled):
-        'It creates correct restart map with api disabled'
+    @patch('os.path.exists')
+    def test_creates_resource_map_no_api(self, path_exists,
+                                         service_enabled):
         service_enabled.side_effect = self.svc_enabled
         self.test_config.set('enabled-services', 'scheduler,volume')
+        path_exists.return_value = True
+        self.ceph_config_file.return_value = self.charm_ceph_conf
+        self.relation_ids.return_value = []
         ex_map = OrderedDict([
             ('/etc/cinder/cinder.conf', ['cinder-volume', 'cinder-scheduler',
                                          'haproxy']),
-            ('/var/lib/charm/cinder/ceph.conf', ['cinder-volume']),
+            ('/etc/cinder/api-paste.ini', []),
             ('/etc/haproxy/haproxy.cfg', ['haproxy']),
-            ('/etc/apache2/sites-available/openstack_https_frontend',
-             ['apache2']),
             ('/etc/apache2/sites-available/openstack_https_frontend.conf',
              ['apache2']),
         ])
-        self.assertEquals(cinder_utils.restart_map(), ex_map)
+        for cfg in ex_map.keys():
+            self.assertEquals(cinder_utils.resource_map()[cfg]['services'],
+                              ex_map[cfg])
 
     @patch('cinder_utils.service_enabled')
-    def test_creates_restart_map_only_api(self, service_enabled):
-        'It creates correct restart map with only api enabled'
+    @patch('os.path.exists')
+    def test_creates_resource_map_backup_backend(self, path_exists,
+                                                 service_enabled):
+        service_enabled.return_value = True
+        path_exists.return_value = True
+        self.ceph_config_file.return_value = self.charm_ceph_conf
+        self.relation_ids.side_effect = lambda x: {
+            'storage-backend': [],
+            'backup-backend': ['rid1'],
+            'ceph': []}[x]
+        self.assertTrue(
+            'cinder-backup' in
+            cinder_utils.resource_map()[self.cinder_conf]['services'])
+
+    @patch('cinder_utils.service_enabled')
+    @patch('os.path.exists')
+    def test_creates_resource_map_no_backup(self, path_exists,
+                                            service_enabled):
+        service_enabled.return_value = True
+        path_exists.return_value = True
+        self.ceph_config_file.return_value = self.charm_ceph_conf
+        self.relation_ids.side_effect = lambda x: {
+            'storage-backend': [],
+            'backup-backend': [],
+            'ceph': []}[x]
+        self.assertFalse(
+            'cinder-backup' in
+            cinder_utils.resource_map()[self.cinder_conf]['services'])
+
+    @patch('cinder_utils.service_enabled')
+    @patch('os.path.exists')
+    def test_creates_resource_map_no_ceph_conf(self, path_exists,
+                                               service_enabled):
+        service_enabled.return_value = True
+        path_exists.return_value = True
+        self.ceph_config_file.return_value = self.charm_ceph_conf
+        self.relation_ids.side_effect = lambda x: {
+            'storage-backend': [],
+            'backup-backend': [],
+            'ceph': []}[x]
+        self.assertFalse(self.charm_ceph_conf in
+                         cinder_utils.resource_map().keys())
+
+    @patch('cinder_utils.service_enabled')
+    @patch('os.path.exists')
+    def test_creates_resource_map_ceph_conf(self, path_exists,
+                                            service_enabled):
+        service_enabled.return_value = True
+        path_exists.return_value = True
+        self.ceph_config_file.return_value = self.charm_ceph_conf
+        self.relation_ids.side_effect = lambda x: {
+            'storage-backend': [],
+            'backup-backend': [],
+            'ceph': ['rid1']}[x]
+        self.assertTrue(self.charm_ceph_conf in
+                        cinder_utils.resource_map().keys())
+        self.mkdir.assert_has_calls(
+            [call('/etc/ceph'),
+             call('/var/lib/charm/cinder')]
+        )
+        self.install_alternative.assert_called_with(
+            'ceph.conf',
+            '/etc/ceph/ceph.conf',
+            self.charm_ceph_conf)
+
+    @patch('cinder_utils.service_enabled')
+    @patch('os.path.exists')
+    def test_creates_resource_map_old_apache(self, path_exists,
+                                             service_enabled):
+        service_enabled.return_value = True
+        path_exists.side_effect = lambda x: x not in [self.apache24_conf_dir]
+        self.ceph_config_file.return_value = self.charm_ceph_conf
+        self.relation_ids.side_effect = lambda x: {
+            'storage-backend': [],
+            'backup-backend': [],
+            'ceph': []}[x]
+        self.assertTrue(
+            '/etc/apache2/sites-available/openstack_https_frontend' in
+            cinder_utils.resource_map().keys())
+
+    @patch('cinder_utils.service_enabled')
+    @patch('os.path.exists')
+    def test_creates_resource_map_apache24(self, path_exists, service_enabled):
+        service_enabled.return_value = True
+        path_exists.side_effect = lambda x: x in [self.apache24_conf_dir]
+        self.ceph_config_file.return_value = self.charm_ceph_conf
+        self.relation_ids.side_effect = lambda x: {
+            'storage-backend': [],
+            'backup-backend': [],
+            'ceph': []}[x]
+        self.assertTrue(
+            '/etc/apache2/sites-available/openstack_https_frontend.conf' in
+            cinder_utils.resource_map().keys())
+
+    @patch('cinder_utils.service_enabled')
+    def test_filter_services_selective(self, service_enabled):
         service_enabled.side_effect = self.svc_enabled
-        self.test_config.set('enabled-services', 'api')
+        self.test_config.set('enabled-services', 'scheduler,volume')
+        self.assertEqual(
+            cinder_utils.filter_services(['cinder-api', 'cinder-volume',
+                                          'haproxy']),
+            ['cinder-volume', 'haproxy']
+        )
+
+    @patch('cinder_utils.service_enabled')
+    def test_filter_services_all(self, service_enabled):
+        service_enabled.return_value = True
+        self.test_config.set('enabled-services', 'scheduler,volume')
+        self.assertEqual(
+            cinder_utils.filter_services(['cinder-api', 'cinder-volume',
+                                          'haproxy']),
+            ['cinder-api', 'cinder-volume', 'haproxy']
+        )
+
+    @patch('cinder_utils.resource_map')
+    def test_restart_map(self, resource_map):
+        resource_map.return_value = OrderedDict([
+            ('/etc/testfile1.conf', {
+                'hook_contexts': ['dummyctxt1', 'dummyctxt2'],
+                'services': ['svc1'],
+            }),
+            ('/etc/testfile2.conf', {
+                'hook_contexts': ['dummyctxt1', 'dummyctxt3'],
+                'services': [],
+            }),
+        ])
         ex_map = OrderedDict([
-            ('/etc/cinder/cinder.conf', ['cinder-api', 'haproxy']),
-            ('/etc/cinder/api-paste.ini', ['cinder-api']),
-            ('/etc/haproxy/haproxy.cfg', ['haproxy']),
-            ('/etc/apache2/sites-available/openstack_https_frontend',
-             ['apache2']),
-            ('/etc/apache2/sites-available/openstack_https_frontend.conf',
-             ['apache2']),
+            ('/etc/testfile1.conf', ['svc1']),
         ])
         self.assertEquals(cinder_utils.restart_map(), ex_map)
 
@@ -455,12 +585,14 @@ class TestCinderUtils(CharmTestCase):
         cinder_utils.extend_lvm_volume_group('test', '/dev/sdb')
         _call.assert_called_with(['vgextend', 'test', '/dev/sdb'])
 
+    @patch.object(cinder_utils, 'enabled_services')
     @patch.object(cinder_utils, 'local_unit', lambda *args: 'unit/0')
     @patch.object(cinder_utils, 'uuid')
-    def test_migrate_database(self, mock_uuid):
+    def test_migrate_database(self, mock_uuid, mock_enabled_services):
         'It migrates database with cinder-manage'
         uuid = 'a-great-uuid'
         mock_uuid.uuid4.return_value = uuid
+        mock_enabled_services.return_value = ['svc1']
         rid = 'cluster:0'
         self.relation_ids.return_value = [rid]
         args = {'cinder-db-initialised': "unit/0-%s" % uuid}
@@ -468,60 +600,26 @@ class TestCinderUtils(CharmTestCase):
             cinder_utils.migrate_database()
             check_call.assert_called_with(['cinder-manage', 'db', 'sync'])
             self.relation_set.assert_called_with(relation_id=rid, **args)
+            self.service_restart.assert_called_with('svc1')
 
-    @patch('os.path.exists')
-    def test_register_configs_apache(self, exists):
-        exists.return_value = False
-        self.os_release.return_value = 'grizzly'
-        self.relation_ids.return_value = False
+    @patch.object(cinder_utils, 'resource_map')
+    def test_register_configs(self, resource_map):
+        resource_map.return_value = OrderedDict([
+            ('/etc/testfile1.conf', {
+                'contexts': ['dummyctxt1', 'dummyctxt2'],
+                'services': ['svc1'],
+            }),
+            ('/etc/testfile2.conf', {
+                'contexts': ['dummyctxt1', 'dummyctxt3'],
+                'services': [],
+            }),
+        ])
         configs = cinder_utils.register_configs()
-        calls = []
-        for conf in [cinder_utils.CINDER_API_CONF,
-                     cinder_utils.CINDER_CONF,
-                     cinder_utils.APACHE_SITE_CONF,
-                     cinder_utils.HAPROXY_CONF]:
-            calls.append(
-                call(conf,
-                     cinder_utils.CONFIG_FILES[conf]['hook_contexts'])
-            )
-        configs.register.assert_has_calls(calls, any_order=True)
-
-    @patch('os.path.exists')
-    def test_register_configs_apache24(self, exists):
-        exists.return_value = True
-        self.os_release.return_value = 'grizzly'
-        self.relation_ids.return_value = False
-        configs = cinder_utils.register_configs()
-        calls = []
-        for conf in [cinder_utils.CINDER_API_CONF,
-                     cinder_utils.CINDER_CONF,
-                     cinder_utils.APACHE_SITE_24_CONF,
-                     cinder_utils.HAPROXY_CONF]:
-            calls.append(
-                call(conf,
-                     cinder_utils.CONFIG_FILES[conf]['hook_contexts'])
-            )
-        configs.register.assert_has_calls(calls, any_order=True)
-
-    @patch('os.path.isdir')
-    @patch('os.path.exists')
-    def test_register_configs_ceph(self, exists, isdir):
-        exists.return_value = True
-        isdir.return_value = False
-        self.os_release.return_value = 'grizzly'
-        self.relation_ids.return_value = ['ceph:0']
-        self.ceph_config_file.return_value = '/var/lib/charm/cinder/ceph.conf'
-        configs = cinder_utils.register_configs()
-        calls = []
-        for conf in [cinder_utils.CINDER_API_CONF,
-                     cinder_utils.CINDER_CONF,
-                     cinder_utils.HAPROXY_CONF,
-                     cinder_utils.ceph_config_file()]:
-            calls.append(
-                call(conf,
-                     cinder_utils.CONFIG_FILES[conf]['hook_contexts'])
-            )
-        configs.register.assert_has_calls(calls, any_order=True)
+        calls = [
+            call('/etc/testfile1.conf', ['dummyctxt1', 'dummyctxt2']),
+            call('/etc/testfile2.conf', ['dummyctxt1', 'dummyctxt3']),
+        ]
+        configs.register.assert_has_calls(calls)
 
     def test_set_ceph_kludge(self):
         pass
@@ -626,6 +724,7 @@ class TestCinderUtils(CharmTestCase):
         ]
         self.assertEquals(write_file.call_args_list, expected)
 
+    @patch.object(cinder_utils, 'services')
     @patch.object(cinder_utils, 'git_src_dir')
     @patch.object(cinder_utils, 'service_restart')
     @patch.object(cinder_utils, 'render')
@@ -641,7 +740,8 @@ class TestCinderUtils(CharmTestCase):
     @patch('os.symlink')
     def test_git_post_install(self, symlink, chmod, chown, grp, pwd, rmtree,
                               copytree, exists, join, pip_install, render,
-                              service_restart, git_src_dir):
+                              service_restart, git_src_dir, services):
+        services.return_value = ['svc1']
         projects_yaml = openstack_origin_git
         join.return_value = 'joined-string'
         cinder_utils.git_post_install(projects_yaml)
@@ -724,11 +824,7 @@ class TestCinderUtils(CharmTestCase):
                  templates_dir='joined-string'),
         ]
         self.assertEquals(render.call_args_list, expected)
-        expected = [
-            call('tgtd'), call('haproxy'), call('cinder-backup'),
-            call('cinder-api'), call('cinder-volume'), call('apache2'),
-            call('cinder-scheduler'),
-        ]
+        expected = [call('tgtd'), call('svc1')]
         self.assertEquals(service_restart.call_args_list, expected)
 
     @patch.object(cinder_utils, 'local_unit', lambda *args: 'unit/0')
@@ -742,8 +838,10 @@ class TestCinderUtils(CharmTestCase):
         cinder_utils.check_db_initialised()
         self.assertFalse(self.relation_set.called)
 
+    @patch.object(cinder_utils, 'enabled_services')
     @patch.object(cinder_utils, 'local_unit', lambda *args: 'unit/0')
-    def test_check_db_initialised(self):
+    def test_check_db_initialised(self, enabled_services):
+        enabled_services.return_value = ['svc1']
         self.relation_get.return_value = {}
         cinder_utils.check_db_initialised()
         self.assertFalse(self.relation_set.called)
@@ -753,6 +851,7 @@ class TestCinderUtils(CharmTestCase):
         cinder_utils.check_db_initialised()
         calls = [call(**{'cinder-db-initialised-echo': 'unit/1-1234'})]
         self.relation_set.assert_has_calls(calls)
+        self.service_restart.assert_called_with('svc1')
 
     @patch('subprocess.check_output')
     def test_log_lvm_info(self, _check):

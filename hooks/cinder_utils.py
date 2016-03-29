@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import uuid
 
+from copy import deepcopy
 from collections import OrderedDict
 from copy import copy
 
@@ -182,57 +183,57 @@ def ceph_config_file():
 
 # Map config files to hook contexts and services that will be associated
 # with file in restart_on_changes()'s service map.
-CONFIG_FILES = OrderedDict([
+BASE_RESOURCE_MAP = OrderedDict([
     (CINDER_CONF, {
-        'hook_contexts': [context.SharedDBContext(ssl_dir=CINDER_CONF_DIR),
-                          context.PostgresqlDBContext(),
-                          context.AMQPContext(ssl_dir=CINDER_CONF_DIR),
-                          context.ImageServiceContext(),
-                          context.OSConfigFlagContext(),
-                          context.SyslogContext(),
-                          cinder_contexts.CephContext(),
-                          cinder_contexts.HAProxyContext(),
-                          cinder_contexts.ImageServiceContext(),
-                          cinder_contexts.CinderSubordinateConfigContext(
-                              interface=['storage-backend', 'backup-backend'],
-                              service='cinder',
-                              config_file=CINDER_CONF),
-                          cinder_contexts.StorageBackendContext(),
-                          cinder_contexts.LoggingConfigContext(),
-                          context.IdentityServiceContext(
-                              service='cinder',
-                              service_user='cinder'),
-                          context.BindHostContext(),
-                          context.WorkerConfigContext(),
-                          cinder_contexts.RegionContext()],
-        'services': ['cinder-api', 'cinder-volume', 'cinder-backup',
-                     'cinder-scheduler', 'haproxy']
+        'contexts': [context.SharedDBContext(ssl_dir=CINDER_CONF_DIR),
+                     context.PostgresqlDBContext(),
+                     context.AMQPContext(ssl_dir=CINDER_CONF_DIR),
+                     context.ImageServiceContext(),
+                     context.OSConfigFlagContext(),
+                     context.SyslogContext(),
+                     cinder_contexts.CephContext(),
+                     cinder_contexts.HAProxyContext(),
+                     cinder_contexts.ImageServiceContext(),
+                     cinder_contexts.CinderSubordinateConfigContext(
+                         interface=['storage-backend', 'backup-backend'],
+                         service='cinder',
+                         config_file=CINDER_CONF),
+                     cinder_contexts.StorageBackendContext(),
+                     cinder_contexts.LoggingConfigContext(),
+                     context.IdentityServiceContext(
+                         service='cinder',
+                         service_user='cinder'),
+                     context.BindHostContext(),
+                     context.WorkerConfigContext(),
+                     cinder_contexts.RegionContext()],
+        'services': ['cinder-api', 'cinder-volume', 'cinder-scheduler',
+                     'haproxy']
     }),
     (CINDER_API_CONF, {
-        'hook_contexts': [context.IdentityServiceContext()],
+        'contexts': [context.IdentityServiceContext()],
         'services': ['cinder-api'],
     }),
     (ceph_config_file(), {
-        'hook_contexts': [context.CephContext()],
-        'services': ['cinder-volume', 'cinder-backup']
+        'contexts': [context.CephContext()],
+        'services': ['cinder-volume']
     }),
     (HAPROXY_CONF, {
-        'hook_contexts': [context.HAProxyContext(singlenode_mode=True),
-                          cinder_contexts.HAProxyContext()],
+        'contexts': [context.HAProxyContext(singlenode_mode=True),
+                     cinder_contexts.HAProxyContext()],
         'services': ['haproxy'],
     }),
     (APACHE_SITE_CONF, {
-        'hook_contexts': [cinder_contexts.ApacheSSLContext()],
+        'contexts': [cinder_contexts.ApacheSSLContext()],
         'services': ['apache2'],
     }),
     (APACHE_SITE_24_CONF, {
-        'hook_contexts': [cinder_contexts.ApacheSSLContext()],
+        'contexts': [cinder_contexts.ApacheSSLContext()],
         'services': ['apache2'],
     }),
 ])
 
 
-def register_configs():
+def register_configs(release=None):
     """Register config files with their respective contexts.
     Regstration of some configs may not be required depending on
     existing of certain relations.
@@ -240,18 +241,29 @@ def register_configs():
     # if called without anything installed (eg during install hook)
     # just default to earliest supported release. configs dont get touched
     # till post-install, anyway.
-    release = os_release('cinder-common', base='folsom')
+    release = release or os_release('cinder-common', base='icehouse')
     configs = templating.OSConfigRenderer(templates_dir=TEMPLATES,
                                           openstack_release=release)
+    for cfg, rscs in resource_map().iteritems():
+        configs.register(cfg, rscs['contexts'])
+    return configs
 
-    confs = [CINDER_API_CONF,
-             CINDER_CONF,
-             HAPROXY_CONF]
+
+def resource_map(release=None):
+    """
+    Dynamically generate a map of resources that will be managed for a single
+    hook execution.
+    """
+    resource_map = deepcopy(BASE_RESOURCE_MAP)
+    if relation_ids('backup-backend'):
+        resource_map[CINDER_CONF]['services'].append('cinder-backup')
+        resource_map[ceph_config_file()]['services'].append('cinder-backup')
 
     if relation_ids('ceph'):
         # need to create this early, new peers will have a relation during
         # registration # before they've run the ceph hooks to create the
         # directory.
+        # !!! FIX: These side effects seem inappropriate for this method
         mkdir(os.path.dirname(CEPH_CONF))
         mkdir(os.path.dirname(ceph_config_file()))
 
@@ -263,18 +275,31 @@ def register_configs():
             open(ceph_config_file(), 'w').close()
         install_alternative(os.path.basename(CEPH_CONF),
                             CEPH_CONF, ceph_config_file())
-        confs.append(ceph_config_file())
-
-    for conf in confs:
-        configs.register(conf, CONFIG_FILES[conf]['hook_contexts'])
+    else:
+        resource_map.pop(ceph_config_file())
 
     if os.path.exists('/etc/apache2/conf-available'):
-        configs.register(APACHE_SITE_24_CONF,
-                         CONFIG_FILES[APACHE_SITE_24_CONF]['hook_contexts'])
+        resource_map.pop(APACHE_SITE_CONF)
     else:
-        configs.register(APACHE_SITE_CONF,
-                         CONFIG_FILES[APACHE_SITE_CONF]['hook_contexts'])
-    return configs
+        resource_map.pop(APACHE_SITE_24_CONF)
+
+    # Remove services from map which are not enabled by user config
+    for cfg in resource_map.keys():
+        resource_map[cfg]['services'] = \
+            filter_services(resource_map[cfg]['services'])
+
+    return resource_map
+
+
+def filter_services(svcs):
+    '''Remove services not enabled by user config from a list of services
+
+    @param svcs: List of services
+    @returns : List of enabled services
+    '''
+    return [s for s in svcs
+            if service_enabled(s.lstrip('cinder-')) or
+            not s.startswith('cinder')]
 
 
 def juju_log(msg):
@@ -324,18 +349,9 @@ def restart_map():
     :returns: dict: A dictionary mapping config file to lists of services
                     that should be restarted when file changes.
     '''
-    _map = []
-    for f, ctxt in CONFIG_FILES.iteritems():
-        svcs = []
-        for svc in ctxt['services']:
-            if svc.startswith('cinder-'):
-                if service_enabled(svc.split('-')[1]):
-                    svcs.append(svc)
-            else:
-                svcs.append(svc)
-        if svcs:
-            _map.append((f, svcs))
-    return OrderedDict(_map)
+    return OrderedDict([(cfg, v['services'])
+                        for cfg, v in resource_map().iteritems()
+                        if v['services']])
 
 
 def enabled_services():
