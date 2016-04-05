@@ -54,7 +54,7 @@ from charmhelpers.contrib.hahelpers.cluster import (
 from charmhelpers.contrib.storage.linux.utils import (
     is_block_device,
     zap_disk,
-    is_device_mounted
+    is_device_mounted,
 )
 
 from charmhelpers.contrib.storage.linux.lvm import (
@@ -85,6 +85,10 @@ from charmhelpers.contrib.openstack.utils import (
     git_pip_venv_dir,
     os_release,
     set_os_workload_status,
+    make_assess_status_func,
+    pause_unit,
+    resume_unit,
+    is_unit_paused_set,
 )
 
 from charmhelpers.core.decorators import (
@@ -578,8 +582,9 @@ def check_db_initialised():
                 local_unit() not in init_id):
             log("Restarting cinder services following db initialisation",
                 level=DEBUG)
-            for svc in enabled_services():
-                service_restart(svc)
+            if not is_unit_paused_set():
+                for svc in enabled_services():
+                    service_restart(svc)
 
             # Set echo
             relation_set(**{CINDER_DB_INIT_ECHO_RKEY: init_id})
@@ -596,8 +601,10 @@ def migrate_database():
     log("Notifying peer(s) that db is initialised and restarting services",
         level=DEBUG)
     for r_id in relation_ids('cluster'):
-        for svc in enabled_services():
-            service_restart(svc)
+
+        if not is_unit_paused_set():
+            for svc in enabled_services():
+                service_restart(svc)
 
         id = "%s-%s" % (local_unit(), uuid.uuid4())
         relation_set(relation_id=r_id, **{CINDER_DB_INIT_RKEY: id})
@@ -644,7 +651,8 @@ def do_openstack_upgrade(configs):
     [service_stop(s) for s in services()]
     if is_elected_leader(CLUSTER_RES):
         migrate_database()
-    [service_start(s) for s in services()]
+    if not is_unit_paused_set():
+        [service_start(s) for s in services()]
 
 
 def setup_ipv6():
@@ -830,9 +838,10 @@ def git_post_install(projects_yaml):
     render('git.upstart', '/etc/init/cinder-volume.conf',
            cinder_volume_context, perms=0o644, templates_dir=templates_dir)
 
-    service_restart('tgtd')
+    if not is_unit_paused_set():
+        service_restart('tgtd')
 
-    [service_restart(s) for s in services()]
+        [service_restart(s) for s in services()]
 
 
 def filesystem_mounted(fs):
@@ -861,3 +870,70 @@ def check_optional_relations(configs):
         return status_get()
     else:
         return 'unknown', 'No optional relations'
+
+
+def assess_status(configs):
+    """Assess status of current unit
+    Decides what the state of the unit should be based on the current
+    configuration.
+    SIDE EFFECT: calls set_os_workload_status(...) which sets the workload
+    status of the unit.
+    Also calls status_set(...) directly if paused state isn't complete.
+    @param configs: a templating.OSConfigRenderer() object
+    @returns None - this function is executed for its side-effect
+    """
+    assess_status_func(configs)()
+
+
+def assess_status_func(configs):
+    """Helper function to create the function that will assess_status() for
+    the unit.
+    Uses charmhelpers.contrib.openstack.utils.make_assess_status_func() to
+    create the appropriate status function and then returns it.
+    Used directly by assess_status() and also for pausing and resuming
+    the unit.
+
+    NOTE(ajkavanagh) ports are not checked due to race hazards with services
+    that don't behave sychronously w.r.t their service scripts.  e.g.
+    apache2.
+    @param configs: a templating.OSConfigRenderer() object
+    @return f() -> None : a function that assesses the unit's workload status
+    """
+    return make_assess_status_func(
+        configs, REQUIRED_INTERFACES,
+        charm_func=check_optional_relations,
+        services=services(), ports=None)
+
+
+def pause_unit_helper(configs):
+    """Helper function to pause a unit, and then call assess_status(...) in
+    effect, so that the status is correctly updated.
+    Uses charmhelpers.contrib.openstack.utils.pause_unit() to do the work.
+    @param configs: a templating.OSConfigRenderer() object
+    @returns None - this function is executed for its side-effect
+    """
+    _pause_resume_helper(pause_unit, configs)
+
+
+def resume_unit_helper(configs):
+    """Helper function to resume a unit, and then call assess_status(...) in
+    effect, so that the status is correctly updated.
+    Uses charmhelpers.contrib.openstack.utils.resume_unit() to do the work.
+    @param configs: a templating.OSConfigRenderer() object
+    @returns None - this function is executed for its side-effect
+    """
+    _pause_resume_helper(resume_unit, configs)
+
+
+def _pause_resume_helper(f, configs):
+    """Helper function that uses the make_assess_status_func(...) from
+    charmhelpers.contrib.openstack.utils to create an assess_status(...)
+    function that can be used with the pause/resume of the unit
+    @param f: the function to be used with the assess_status(...) function
+    @returns None - this function is executed for its side-effect
+    """
+    # TODO(ajkavanagh) - ports= has been left off because of the race hazard
+    # that exists due to service_start()
+    f(assess_status_func(configs),
+      services=services(),
+      ports=None)

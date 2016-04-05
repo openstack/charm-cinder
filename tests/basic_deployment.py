@@ -3,6 +3,9 @@
 import amulet
 import os
 import yaml
+import time
+import json
+import subprocess
 
 from charmhelpers.contrib.openstack.amulet.deployment import (
     OpenStackAmuletDeployment
@@ -138,6 +141,32 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
         # Authenticate admin with glance endpoint
         self.glance = u.authenticate_glance_admin(self.keystone)
+
+    def _run_action(self, unit_id, action, *args):
+        command = ["juju", "action", "do", "--format=json", unit_id, action]
+        command.extend(args)
+        print("Running command: %s\n" % " ".join(command))
+        output = subprocess.check_output(command)
+        output_json = output.decode(encoding="UTF-8")
+        data = json.loads(output_json)
+        action_id = data[u'Action queued with id']
+        return action_id
+
+    def _wait_on_action(self, action_id):
+        command = ["juju", "action", "fetch", "--format=json", action_id]
+        while True:
+            try:
+                output = subprocess.check_output(command)
+            except Exception as e:
+                print(e)
+                return False
+            output_json = output.decode(encoding="UTF-8")
+            data = json.loads(output_json)
+            if data[u"status"] == "completed":
+                return True
+            elif data[u"status"] == "failed":
+                return False
+            time.sleep(2)
 
     def _extend_cinder_volume(self, vol_id, new_size=2):
         """Extend an existing cinder volume size.
@@ -715,3 +744,20 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             sleep_time = 0
 
         self.d.configure(juju_service, set_default)
+
+    def test_910_pause_and_resume(self):
+        """The services can be paused and resumed. """
+        u.log.debug('Checking pause and resume actions...')
+        unit_name = "cinder/0"
+        unit = self.d.sentry.unit[unit_name]
+
+        assert u.status_get(unit)[0] == "active"
+
+        action_id = self._run_action(unit_name, "pause")
+        assert self._wait_on_action(action_id), "Pause action failed."
+        assert u.status_get(unit)[0] == "maintenance"
+
+        action_id = self._run_action(unit_name, "resume")
+        assert self._wait_on_action(action_id), "Resume action failed."
+        assert u.status_get(unit)[0] == "active"
+        u.log.debug('OK')
