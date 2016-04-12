@@ -79,15 +79,16 @@ class TestClusterHooks(CharmTestCase):
         hooks.hooks.execute(['hooks/cluster-relation-changed'])
         ex = [
             call('stop', 'cinder-api'),
-            call('stop', 'cinder-volume'),
-            call('stop', 'cinder-scheduler'),
-            call('stop', 'haproxy'),
-            call('stop', 'apache2'),
             call('start', 'cinder-api'),
+            call('stop', 'cinder-volume'),
             call('start', 'cinder-volume'),
+            call('stop', 'cinder-scheduler'),
             call('start', 'cinder-scheduler'),
+            call('stop', 'haproxy'),
             call('start', 'haproxy'),
-            call('start', 'apache2')]
+            call('stop', 'apache2'),
+            call('start', 'apache2'),
+        ]
         self.assertEquals(ex, service.call_args_list)
 
     @patch.object(hooks, 'check_db_initialised', lambda *args, **kwargs: None)
