@@ -44,6 +44,7 @@ from charmhelpers.core.hookenv import (
     log,
     ERROR,
     status_set,
+    network_get_primary_address,
 )
 
 from charmhelpers.fetch import (
@@ -193,7 +194,14 @@ def db_joined():
         sync_db_with_multi_ipv6_addresses(config('database'),
                                           config('database-user'))
     else:
-        host = unit_get('private-address')
+        host = None
+        try:
+            # NOTE: try to use network spaces
+            host = network_get_primary_address('shared-db')
+        except NotImplementedError:
+            # NOTE: fallback to private-address
+            host = unit_get('private-address')
+
         conf = config()
         relation_set(database=conf['database'],
                      username=conf['database-user'],

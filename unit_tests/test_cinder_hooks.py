@@ -62,6 +62,7 @@ TO_PATCH = [
     'relation_set',
     'service_name',
     'unit_get',
+    'network_get_primary_address',
     # charmhelpers.core.host
     'apt_install',
     'apt_update',
@@ -410,6 +411,7 @@ class TestJoinedHooks(CharmTestCase):
     def setUp(self):
         super(TestJoinedHooks, self).setUp(hooks, TO_PATCH)
         self.config.side_effect = self.test_config.get
+        self.network_get_primary_address.side_effect = NotImplementedError
 
     def test_db_joined(self):
         'It properly requests access to a shared-db service'
@@ -418,6 +420,17 @@ class TestJoinedHooks(CharmTestCase):
         hooks.hooks.execute(['hooks/shared-db-relation-joined'])
         expected = {'username': 'cinder',
                     'hostname': 'cindernode1', 'database': 'cinder'}
+        self.relation_set.assert_called_with(**expected)
+
+    def test_db_joined_spaces(self):
+        'Ensure network space binding is used when provided'
+        self.network_get_primary_address.side_effect = None
+        self.network_get_primary_address.return_value = '192.168.20.1'
+        self.unit_get.return_value = 'cindernode1'
+        self.is_relation_made.return_value = False
+        hooks.hooks.execute(['hooks/shared-db-relation-joined'])
+        expected = {'username': 'cinder',
+                    'hostname': '192.168.20.1', 'database': 'cinder'}
         self.relation_set.assert_called_with(**expected)
 
     def test_db_joined_with_ipv6(self):
