@@ -551,7 +551,19 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             'rabbit_password': rel_mq_ci['password'],
             'rabbit_host': rel_mq_ci['hostname'],
         }
-        if self._get_openstack_release() >= self.trusty_liberty:
+        if self._get_openstack_release() >= self.trusty_mitaka:
+            expected['keystone_authtoken'] = {
+                'auth_uri': auth_uri.rstrip('/'),
+                'auth_url': auth_url.rstrip('/'),
+                'auth_type': 'password',
+                'project_domain_name': 'default',
+                'user_domain_name': 'default',
+                'project_name': 'services',
+                'username': rel_ks_ci['service_username'],
+                'password': rel_ks_ci['service_password'],
+                'signing_dir': '/var/cache/cinder'
+            }
+        elif self._get_openstack_release() >= self.trusty_liberty:
             expected['keystone_authtoken'] = {
                 'auth_uri': auth_uri.rstrip('/'),
                 'auth_url': auth_url.rstrip('/'),
