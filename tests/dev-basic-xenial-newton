@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #
 # Copyright 2016 Canonical Ltd
 #
@@ -14,12 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Amulet tests on a basic cinder deployment on trusty-kilo."""
+"""Amulet tests on a basic cinder deployment on xenial-newton."""
 
 from basic_deployment import CinderBasicDeployment
 
 if __name__ == '__main__':
-    deployment = CinderBasicDeployment(series='trusty',
-                                       openstack='cloud:trusty-kilo',
-                                       source='cloud:trusty-updates/kilo')
+    deployment = CinderBasicDeployment(series='xenial',
+                                       openstack='cloud:xenial-newton',
+                                       source='cloud:xenial-updates/newton')
     deployment.run_tests()
