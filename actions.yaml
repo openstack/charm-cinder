@@ -6,3 +6,10 @@ git-reinstall:
   description: Reinstall cinder from the openstack-origin-git repositories.
 openstack-upgrade:
   description: Perform openstack upgrades. Config option action-managed-upgrade must be set to True.
+remove-services:
+  description: Remove unused services entities from the database after enabling HA with a stateless backend such as cinder-ceph.
+  params:
+    host:
+      type: string
+      default: unused
+      description: Hostname of the service to be removed.
