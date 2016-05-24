@@ -45,6 +45,7 @@ from charmhelpers.core.hookenv import (
     ERROR,
     status_set,
     network_get_primary_address,
+    open_port,
 )
 
 from charmhelpers.fetch import (
@@ -174,6 +175,7 @@ def config_changed():
     CONFIGS.write_all()
     configure_https()
     update_nrpe_config()
+    open_port(config('api-listening-port'))
 
     for rid in relation_ids('cluster'):
         cluster_joined(relation_id=rid)

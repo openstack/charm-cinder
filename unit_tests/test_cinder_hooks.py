@@ -63,6 +63,7 @@ TO_PATCH = [
     'service_name',
     'unit_get',
     'network_get_primary_address',
+    'open_port',
     # charmhelpers.core.host
     'apt_install',
     'apt_update',
@@ -78,7 +79,7 @@ TO_PATCH = [
     'execd_preinstall',
     'get_ipv6_addr',
     'sync_db_with_multi_ipv6_addresses',
-    'delete_keyring'
+    'delete_keyring',
 ]
 
 
@@ -164,6 +165,7 @@ class TestChangedHooks(CharmTestCase):
         self.configure_lvm_storage.assert_called_with(['sdb'],
                                                       'cinder-volumes',
                                                       False, False, False)
+        self.open_port.assert_called_with(8776)
 
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'git_install_requested')
