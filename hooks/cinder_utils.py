@@ -773,8 +773,6 @@ def git_post_install(projects_yaml):
             os.remove(s['link'])
         os.symlink(s['src'], s['link'])
 
-    render('cinder.conf', '/etc/cinder/cinder.conf', {}, owner='cinder',
-           group='cinder', perms=0o644)
     render('git/cinder_tgt.conf', '/etc/tgt/conf.d', {}, owner='cinder',
            group='cinder', perms=0o644)
     render('git/logging.conf', '/etc/cinder/logging.conf', {}, owner='cinder',
