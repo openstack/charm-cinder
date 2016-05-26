@@ -18,10 +18,18 @@ TO_PATCH = [
     'relation_set',
     'local_unit',
     # helpers.core.host
+    'lsb_release',
     'mounts',
     'umount',
     'mkdir',
     'service_restart',
+    # helpers.core.templating
+    'render',
+    # helpers.contrib.openstack.utils
+    'git_generate_systemd_init_files',
+    'git_src_dir',
+    # helpers.contrib.python.packages
+    'pip_install',
     # ceph utils
     # storage_utils
     'create_lvm_physical_volume',
@@ -48,7 +56,7 @@ TO_PATCH = [
     'service_stop',
     'service_start',
     # cinder
-    'ceph_config_file'
+    'ceph_config_file',
 ]
 
 
@@ -723,27 +731,21 @@ class TestCinderUtils(CharmTestCase):
         self.assertEquals(write_file.call_args_list, expected)
 
     @patch.object(cinder_utils, 'services')
-    @patch.object(cinder_utils, 'git_src_dir')
-    @patch.object(cinder_utils, 'service_restart')
-    @patch.object(cinder_utils, 'render')
-    @patch.object(cinder_utils, 'pip_install')
     @patch('os.path.join')
     @patch('os.path.exists')
     @patch('shutil.copytree')
     @patch('shutil.rmtree')
-    @patch('pwd.getpwnam')
-    @patch('grp.getgrnam')
     @patch('os.chown')
     @patch('os.chmod')
     @patch('os.symlink')
-    def test_git_post_install(self, symlink, chmod, chown, grp, pwd, rmtree,
-                              copytree, exists, join, pip_install, render,
-                              service_restart, git_src_dir, services):
+    def test_git_post_install_upstart(self, symlink, chmod, chown, rmtree,
+                                      copytree, exists, join, services):
         services.return_value = ['svc1']
         projects_yaml = openstack_origin_git
         join.return_value = 'joined-string'
+        self.lsb_release.return_value = {'DISTRIB_RELEASE': '15.04'}
         cinder_utils.git_post_install(projects_yaml)
-        pip_install('mysql-python', venv='joined-string')
+        self.pip_install('mysql-python', venv='joined-string')
         expected = [
             call('joined-string', '/etc/cinder'),
         ]
@@ -821,9 +823,45 @@ class TestCinderUtils(CharmTestCase):
                  cinder_volume_context, perms=0o644,
                  templates_dir='joined-string'),
         ]
-        self.assertEquals(render.call_args_list, expected)
+        self.assertEquals(self.render.call_args_list, expected)
         expected = [call('tgtd'), call('svc1')]
-        self.assertEquals(service_restart.call_args_list, expected)
+        self.assertEquals(self.service_restart.call_args_list, expected)
+
+    @patch.object(cinder_utils, 'services')
+    @patch('os.path.join')
+    @patch('shutil.copytree')
+    @patch('shutil.rmtree')
+    @patch('pwd.getpwnam')
+    @patch('grp.getgrnam')
+    @patch('os.chown')
+    @patch('os.chmod')
+    @patch('os.symlink')
+    def test_git_post_install_systemd(self, symlink, chmod, chown, grp, pwd,
+                                      rmtree, copytree, join, services):
+        projects_yaml = openstack_origin_git
+        join.return_value = 'joined-string'
+        self.lsb_release.return_value = {'DISTRIB_RELEASE': '15.10'}
+        cinder_utils.git_post_install(projects_yaml)
+
+        expected = [
+            call('cinder.conf', '/etc/cinder/cinder.conf', {},
+                 group='cinder', owner='cinder', perms=420),
+            call('git/cinder_tgt.conf', '/etc/tgt/conf.d', {},
+                 group='cinder', owner='cinder', perms=420),
+            call('git/logging.conf', '/etc/cinder/logging.conf', {},
+                 group='cinder', owner='cinder', perms=420),
+            call('git/cinder_sudoers', '/etc/sudoers.d/cinder_sudoers', {},
+                 group='root', owner='root', perms=288),
+            call('git/cinder-api.init.in.template', 'joined-string',
+                 {'daemon_path': 'joined-string'}, perms=420),
+            call('git/cinder-backup.init.in.template', 'joined-string',
+                 {'daemon_path': 'joined-string'}, perms=420),
+            call('git/cinder-scheduler.init.in.template', 'joined-string',
+                 {'daemon_path': 'joined-string'}, perms=420),
+            call('git/cinder-volume.init.in.template', 'joined-string',
+                 {'daemon_path': 'joined-string'}, perms=420),
+        ]
+        self.assertEquals(self.render.call_args_list, expected)
 
     @patch.object(cinder_utils, 'local_unit', lambda *args: 'unit/0')
     def test_check_db_initialised_by_self(self):

@@ -78,11 +78,12 @@ from charmhelpers.contrib.openstack import (
 from charmhelpers.contrib.openstack.utils import (
     configure_installation_source,
     get_os_codename_install_source,
-    git_install_requested,
     git_clone_and_install,
+    git_generate_systemd_init_files,
+    git_install_requested,
+    git_pip_venv_dir,
     git_src_dir,
     git_yaml_value,
-    git_pip_venv_dir,
     os_release,
     set_os_workload_status,
     make_assess_status_func,
@@ -123,6 +124,7 @@ BASE_GIT_PACKAGES = [
     'libxslt1-dev',
     'libyaml-dev',
     'lvm2',
+    'openstack-pkg-tools',
     'python-dev',
     'python-pip',
     'python-setuptools',
@@ -783,61 +785,79 @@ def git_post_install(projects_yaml):
     os.chmod('/etc/sudoers.d', 0o750)
 
     bin_dir = os.path.join(git_pip_venv_dir(projects_yaml), 'bin')
-    cinder_api_context = {
-        'service_description': 'Cinder API server',
-        'service_name': 'Cinder',
-        'user_name': 'cinder',
-        'start_dir': '/var/lib/cinder',
-        'process_name': 'cinder-api',
-        'executable_name': os.path.join(bin_dir, 'cinder-api'),
-        'config_files': ['/etc/cinder/cinder.conf'],
-        'log_file': '/var/log/cinder/cinder-api.log',
-    }
+    # Use systemd init units/scripts from ubuntu wily onward
+    if lsb_release()['DISTRIB_RELEASE'] >= '15.10':
+        templates_dir = os.path.join(charm_dir(), 'templates/git')
+        daemons = ['cinder-api', 'cinder-backup', 'cinder-scheduler',
+                   'cinder-volume']
+        for daemon in daemons:
+            cinder_context = {
+                'daemon_path': os.path.join(bin_dir, daemon),
+            }
+            template_file = 'git/{}.init.in.template'.format(daemon)
+            init_in_file = '{}.init.in'.format(daemon)
+            render(template_file, os.path.join(templates_dir, init_in_file),
+                   cinder_context, perms=0o644)
+        git_generate_systemd_init_files(templates_dir)
+    else:
+        cinder_api_context = {
+            'service_description': 'Cinder API server',
+            'service_name': 'Cinder',
+            'user_name': 'cinder',
+            'start_dir': '/var/lib/cinder',
+            'process_name': 'cinder-api',
+            'executable_name': os.path.join(bin_dir, 'cinder-api'),
+            'config_files': ['/etc/cinder/cinder.conf'],
+            'log_file': '/var/log/cinder/cinder-api.log',
+        }
 
-    cinder_backup_context = {
-        'service_description': 'Cinder backup server',
-        'service_name': 'Cinder',
-        'user_name': 'cinder',
-        'start_dir': '/var/lib/cinder',
-        'process_name': 'cinder-backup',
-        'executable_name': os.path.join(bin_dir, 'cinder-backup'),
-        'config_files': ['/etc/cinder/cinder.conf'],
-        'log_file': '/var/log/cinder/cinder-backup.log',
-    }
+        cinder_backup_context = {
+            'service_description': 'Cinder backup server',
+            'service_name': 'Cinder',
+            'user_name': 'cinder',
+            'start_dir': '/var/lib/cinder',
+            'process_name': 'cinder-backup',
+            'executable_name': os.path.join(bin_dir, 'cinder-backup'),
+            'config_files': ['/etc/cinder/cinder.conf'],
+            'log_file': '/var/log/cinder/cinder-backup.log',
+        }
 
-    cinder_scheduler_context = {
-        'service_description': 'Cinder scheduler server',
-        'service_name': 'Cinder',
-        'user_name': 'cinder',
-        'start_dir': '/var/lib/cinder',
-        'process_name': 'cinder-scheduler',
-        'executable_name': os.path.join(bin_dir, 'cinder-scheduler'),
-        'config_files': ['/etc/cinder/cinder.conf'],
-        'log_file': '/var/log/cinder/cinder-scheduler.log',
-    }
+        cinder_scheduler_context = {
+            'service_description': 'Cinder scheduler server',
+            'service_name': 'Cinder',
+            'user_name': 'cinder',
+            'start_dir': '/var/lib/cinder',
+            'process_name': 'cinder-scheduler',
+            'executable_name': os.path.join(bin_dir, 'cinder-scheduler'),
+            'config_files': ['/etc/cinder/cinder.conf'],
+            'log_file': '/var/log/cinder/cinder-scheduler.log',
+        }
 
-    cinder_volume_context = {
-        'service_description': 'Cinder volume server',
-        'service_name': 'Cinder',
-        'user_name': 'cinder',
-        'start_dir': '/var/lib/cinder',
-        'process_name': 'cinder-volume',
-        'executable_name': os.path.join(bin_dir, 'cinder-volume'),
-        'config_files': ['/etc/cinder/cinder.conf'],
-        'log_file': '/var/log/cinder/cinder-volume.log',
-    }
+        cinder_volume_context = {
+            'service_description': 'Cinder volume server',
+            'service_name': 'Cinder',
+            'user_name': 'cinder',
+            'start_dir': '/var/lib/cinder',
+            'process_name': 'cinder-volume',
+            'executable_name': os.path.join(bin_dir, 'cinder-volume'),
+            'config_files': ['/etc/cinder/cinder.conf'],
+            'log_file': '/var/log/cinder/cinder-volume.log',
+        }
 
-    # NOTE(coreycb): Needs systemd support
-    templates_dir = 'hooks/charmhelpers/contrib/openstack/templates'
-    templates_dir = os.path.join(charm_dir(), templates_dir)
-    render('git.upstart', '/etc/init/cinder-api.conf',
-           cinder_api_context, perms=0o644, templates_dir=templates_dir)
-    render('git.upstart', '/etc/init/cinder-backup.conf',
-           cinder_backup_context, perms=0o644, templates_dir=templates_dir)
-    render('git.upstart', '/etc/init/cinder-scheduler.conf',
-           cinder_scheduler_context, perms=0o644, templates_dir=templates_dir)
-    render('git.upstart', '/etc/init/cinder-volume.conf',
-           cinder_volume_context, perms=0o644, templates_dir=templates_dir)
+        templates_dir = 'hooks/charmhelpers/contrib/openstack/templates'
+        templates_dir = os.path.join(charm_dir(), templates_dir)
+        render('git.upstart', '/etc/init/cinder-api.conf',
+               cinder_api_context, perms=0o644,
+               templates_dir=templates_dir)
+        render('git.upstart', '/etc/init/cinder-backup.conf',
+               cinder_backup_context, perms=0o644,
+               templates_dir=templates_dir)
+        render('git.upstart', '/etc/init/cinder-scheduler.conf',
+               cinder_scheduler_context, perms=0o644,
+               templates_dir=templates_dir)
+        render('git.upstart', '/etc/init/cinder-volume.conf',
+               cinder_volume_context, perms=0o644,
+               templates_dir=templates_dir)
 
     if not is_unit_paused_set():
         service_restart('tgtd')
