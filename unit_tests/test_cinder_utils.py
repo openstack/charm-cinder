@@ -802,8 +802,6 @@ class TestCinderUtils(CharmTestCase):
             'log_file': '/var/log/cinder/cinder-volume.log',
         }
         expected = [
-            call('cinder.conf', '/etc/cinder/cinder.conf', {}, owner='cinder',
-                 group='cinder', perms=0o644),
             call('git/cinder_tgt.conf', '/etc/tgt/conf.d', {}, owner='cinder',
                  group='cinder', perms=0o644),
             call('git/logging.conf', '/etc/cinder/logging.conf', {},
@@ -844,8 +842,6 @@ class TestCinderUtils(CharmTestCase):
         cinder_utils.git_post_install(projects_yaml)
 
         expected = [
-            call('cinder.conf', '/etc/cinder/cinder.conf', {},
-                 group='cinder', owner='cinder', perms=420),
             call('git/cinder_tgt.conf', '/etc/tgt/conf.d', {},
                  group='cinder', owner='cinder', perms=420),
             call('git/logging.conf', '/etc/cinder/logging.conf', {},
