@@ -47,6 +47,7 @@ from charmhelpers.core.hookenv import (
     charm_dir,
     DEBUG,
     INFO,
+    ERROR,
     related_units,
     relation_ids,
     relation_set,
@@ -83,6 +84,7 @@ from charmhelpers.core.host import (
 from charmhelpers.fetch import apt_install, apt_cache, install_remote
 from charmhelpers.contrib.storage.linux.utils import is_block_device, zap_disk
 from charmhelpers.contrib.storage.linux.loopback import ensure_loopback_device
+from charmhelpers.contrib.openstack.exceptions import OSContextError
 
 CLOUD_ARCHIVE_URL = "http://ubuntu-cloud.archive.canonical.com/ubuntu"
 CLOUD_ARCHIVE_KEY_ID = '5EDB1B62EC4926EA'
@@ -101,6 +103,8 @@ UBUNTU_OPENSTACK_RELEASE = OrderedDict([
     ('vivid', 'kilo'),
     ('wily', 'liberty'),
     ('xenial', 'mitaka'),
+    ('yakkety', 'newton'),
+    ('zebra', 'ocata'),  # TODO: upload with real Z name
 ])
 
 
@@ -115,6 +119,8 @@ OPENSTACK_CODENAMES = OrderedDict([
     ('2015.1', 'kilo'),
     ('2015.2', 'liberty'),
     ('2016.1', 'mitaka'),
+    ('2016.2', 'newton'),
+    ('2017.1', 'ocata'),
 ])
 
 # The ugly duckling - must list releases oldest to newest
@@ -139,47 +145,65 @@ SWIFT_CODENAMES = OrderedDict([
         ['2.3.0', '2.4.0', '2.5.0']),
     ('mitaka',
         ['2.5.0', '2.6.0', '2.7.0']),
+    ('newton',
+        ['2.8.0']),
 ])
 
 # >= Liberty version->codename mapping
 PACKAGE_CODENAMES = {
     'nova-common': OrderedDict([
-        ('12.0', 'liberty'),
-        ('13.0', 'mitaka'),
+        ('12', 'liberty'),
+        ('13', 'mitaka'),
+        ('14', 'newton'),
+        ('15', 'ocata'),
     ]),
     'neutron-common': OrderedDict([
-        ('7.0', 'liberty'),
-        ('8.0', 'mitaka'),
-        ('8.1', 'mitaka'),
+        ('7', 'liberty'),
+        ('8', 'mitaka'),
+        ('9', 'newton'),
+        ('10', 'ocata'),
     ]),
     'cinder-common': OrderedDict([
-        ('7.0', 'liberty'),
-        ('8.0', 'mitaka'),
+        ('7', 'liberty'),
+        ('8', 'mitaka'),
+        ('9', 'newton'),
+        ('10', 'ocata'),
     ]),
     'keystone': OrderedDict([
-        ('8.0', 'liberty'),
-        ('8.1', 'liberty'),
-        ('9.0', 'mitaka'),
+        ('8', 'liberty'),
+        ('9', 'mitaka'),
+        ('10', 'newton'),
+        ('11', 'ocata'),
     ]),
     'horizon-common': OrderedDict([
-        ('8.0', 'liberty'),
-        ('9.0', 'mitaka'),
+        ('8', 'liberty'),
+        ('9', 'mitaka'),
+        ('10', 'newton'),
+        ('11', 'ocata'),
     ]),
     'ceilometer-common': OrderedDict([
-        ('5.0', 'liberty'),
-        ('6.0', 'mitaka'),
+        ('5', 'liberty'),
+        ('6', 'mitaka'),
+        ('7', 'newton'),
+        ('8', 'ocata'),
     ]),
     'heat-common': OrderedDict([
-        ('5.0', 'liberty'),
-        ('6.0', 'mitaka'),
+        ('5', 'liberty'),
+        ('6', 'mitaka'),
+        ('7', 'newton'),
+        ('8', 'ocata'),
     ]),
     'glance-common': OrderedDict([
-        ('11.0', 'liberty'),
-        ('12.0', 'mitaka'),
+        ('11', 'liberty'),
+        ('12', 'mitaka'),
+        ('13', 'newton'),
+        ('14', 'ocata'),
     ]),
     'openstack-dashboard': OrderedDict([
-        ('8.0', 'liberty'),
-        ('9.0', 'mitaka'),
+        ('8', 'liberty'),
+        ('9', 'mitaka'),
+        ('10', 'newton'),
+        ('11', 'ocata'),
     ]),
 }
 
@@ -255,6 +279,7 @@ def get_os_version_codename_swift(codename):
 def get_swift_codename(version):
     '''Determine OpenStack codename that corresponds to swift version.'''
     codenames = [k for k, v in six.iteritems(SWIFT_CODENAMES) if version in v]
+
     if len(codenames) > 1:
         # If more than one release codename contains this version we determine
         # the actual codename based on the highest available install source.
@@ -266,6 +291,16 @@ def get_swift_codename(version):
                 return codename
     elif len(codenames) == 1:
         return codenames[0]
+
+    # NOTE: fallback - attempt to match with just major.minor version
+    match = re.match('^(\d+)\.(\d+)', version)
+    if match:
+        major_minor_version = match.group(0)
+        for codename, versions in six.iteritems(SWIFT_CODENAMES):
+            for release_version in versions:
+                if release_version.startswith(major_minor_version):
+                    return codename
+
     return None
 
 
@@ -304,10 +339,13 @@ def get_os_codename_package(package, fatal=True):
     if match:
         vers = match.group(0)
 
+    # Generate a major version number for newer semantic
+    # versions of openstack projects
+    major_vers = vers.split('.')[0]
     # >= Liberty independent project versions
     if (package in PACKAGE_CODENAMES and
-            vers in PACKAGE_CODENAMES[package]):
-        return PACKAGE_CODENAMES[package][vers]
+            major_vers in PACKAGE_CODENAMES[package]):
+        return PACKAGE_CODENAMES[package][major_vers]
     else:
         # < Liberty co-ordinated project versions
         try:
@@ -467,6 +505,9 @@ def configure_installation_source(rel):
             'mitaka': 'trusty-updates/mitaka',
             'mitaka/updates': 'trusty-updates/mitaka',
             'mitaka/proposed': 'trusty-proposed/mitaka',
+            'newton': 'xenial-updates/newton',
+            'newton/updates': 'xenial-updates/newton',
+            'newton/proposed': 'xenial-proposed/newton',
         }
 
         try:
@@ -1616,3 +1657,82 @@ def pausable_restart_on_change(restart_map, stopstart=False,
                 restart_functions)
         return wrapped_f
     return wrap
+
+
+def config_flags_parser(config_flags):
+    """Parses config flags string into dict.
+
+    This parsing method supports a few different formats for the config
+    flag values to be parsed:
+
+      1. A string in the simple format of key=value pairs, with the possibility
+         of specifying multiple key value pairs within the same string. For
+         example, a string in the format of 'key1=value1, key2=value2' will
+         return a dict of:
+
+             {'key1': 'value1',
+              'key2': 'value2'}.
+
+      2. A string in the above format, but supporting a comma-delimited list
+         of values for the same key. For example, a string in the format of
+         'key1=value1, key2=value3,value4,value5' will return a dict of:
+
+             {'key1', 'value1',
+              'key2', 'value2,value3,value4'}
+
+      3. A string containing a colon character (:) prior to an equal
+         character (=) will be treated as yaml and parsed as such. This can be
+         used to specify more complex key value pairs. For example,
+         a string in the format of 'key1: subkey1=value1, subkey2=value2' will
+         return a dict of:
+
+             {'key1', 'subkey1=value1, subkey2=value2'}
+
+    The provided config_flags string may be a list of comma-separated values
+    which themselves may be comma-separated list of values.
+    """
+    # If we find a colon before an equals sign then treat it as yaml.
+    # Note: limit it to finding the colon first since this indicates assignment
+    # for inline yaml.
+    colon = config_flags.find(':')
+    equals = config_flags.find('=')
+    if colon > 0:
+        if colon < equals or equals < 0:
+            return yaml.safe_load(config_flags)
+
+    if config_flags.find('==') >= 0:
+        juju_log("config_flags is not in expected format (key=value)",
+                 level=ERROR)
+        raise OSContextError
+
+    # strip the following from each value.
+    post_strippers = ' ,'
+    # we strip any leading/trailing '=' or ' ' from the string then
+    # split on '='.
+    split = config_flags.strip(' =').split('=')
+    limit = len(split)
+    flags = {}
+    for i in range(0, limit - 1):
+        current = split[i]
+        next = split[i + 1]
+        vindex = next.rfind(',')
+        if (i == limit - 2) or (vindex < 0):
+            value = next
+        else:
+            value = next[:vindex]
+
+        if i == 0:
+            key = current
+        else:
+            # if this not the first entry, expect an embedded key.
+            index = current.rfind(',')
+            if index < 0:
+                juju_log("Invalid config value(s) at index %s" % (i),
+                         level=ERROR)
+                raise OSContextError
+            key = current[index + 1:]
+
+        # Add to collection.
+        flags[key.strip(post_strippers)] = value.rstrip(post_strippers)
+
+    return flags
