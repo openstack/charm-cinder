@@ -79,6 +79,7 @@ from charmhelpers.contrib.openstack.utils import (
     configure_installation_source,
     get_os_codename_install_source,
     git_clone_and_install,
+    git_default_repos,
     git_generate_systemd_init_files,
     git_install_requested,
     git_pip_venv_dir,
@@ -677,6 +678,7 @@ def git_install(projects_yaml):
     """Perform setup, and install git repos specified in yaml parameter."""
     if git_install_requested():
         git_pre_install()
+        projects_yaml = git_default_repos(projects_yaml)
         git_clone_and_install(projects_yaml, core_project='cinder')
         git_post_install(projects_yaml)
 

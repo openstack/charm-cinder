@@ -107,6 +107,9 @@ Users should be aware of three options, in particular:
 openstack-origin:  Allows Cinder to be installed from a specific apt repository.
                    See config.yaml for a list of supported sources.
 
+openstack-origin-git:  Allows Cinder to be installed from source.
+                       See config.yaml for a list of supported sources.
+
 block-device:  When using local storage, a block device should be specified to
                back a LVM volume group.  It's important this device exists on
                all nodes that the service may be deployed to.
@@ -117,101 +120,6 @@ overwrite:  Whether or not to wipe local storage that of data that may prevent
 
 enabled-services:  Can be used to separate cinder services between service
                    service units (see previous section)
-
-Deploying from source
----------------------
-
-The minimum openstack-origin-git config required to deploy from source is:
-
-    openstack-origin-git: include-file://cinder-juno.yaml
-
-    cinder-juno.yaml
-        repositories:
-        - {name: requirements,
-           repository: 'git://github.com/openstack/requirements',
-           branch: stable/juno}
-        - {name: cinder,
-           repository: 'git://github.com/openstack/cinder',
-           branch: stable/juno}
-
-Note that there are only two 'name' values the charm knows about: 'requirements'
-and 'cinder'. These repositories must correspond to these 'name' values.
-Additionally, the requirements repository must be specified first and the
-cinder repository must be specified last. All other repostories are installed
-in the order in which they are specified.
-
-The following is a full list of current tip repos (may not be up-to-date):
-
-    openstack-origin-git: include-file://cinder-master.yaml
-
-    cinder-master.yaml
-        repositories:
-        - {name: requirements,
-           repository: 'git://github.com/openstack/requirements',
-           branch: master}
-        - {name: oslo-concurrency,
-           repository: 'git://github.com/openstack/oslo.concurrency',
-           branch: master}
-        - {name: oslo-config,
-           repository: 'git://github.com/openstack/oslo.config',
-           branch: master}
-        - {name: oslo-context,
-           repository': 'git://github.com/openstack/oslo.context',
-           branch: master}
-        - {name: oslo-db,
-           repository: 'git://github.com/openstack/oslo.db',
-           branch: master}
-        - {name: oslo-i18n,
-           repository: 'git://github.com/openstack/oslo.i18n',
-           branch: master}
-        - {name: oslo-messaging,
-           repository: 'git://github.com/openstack/oslo.messaging',
-           branch: master}
-        - {name: oslo-serialization,
-           repository: 'git://github.com/openstack/oslo.serialization',
-           branch: master}
-        - {name: oslo-utils,
-           repository: 'git://github.com/openstack/oslo.utils',
-           branch: master}
-        - {name: oslo-rootwrap,
-           repository: 'git://github.com/openstack/oslo.rootwrap',
-           branch: master}
-        - {name: oslo-vmware,
-           repository: 'git://github.com/openstack/oslo.vmware',
-           branch: master}
-        - {name: osprofiler,
-           repository: 'git://github.com/stackforge/osprofiler',
-           branch: master}
-        - {name: pbr,
-           repository: 'git://github.com/openstack-dev/pbr',
-           branch: master}
-        - {name: python-barbicanclient,
-           repository: 'git://github.com/openstack/python-barbicanclient',
-           branch: master}
-        - {name: python-glanceclient,
-           repository: 'git://github.com/openstack/python-glanceclient',
-           branch: master}
-        - {name: python-novaclient,
-           repository: 'git://github.com/openstack/python-novaclient',
-           branch: master}
-        - {name: python-swiftclient:
-           repository: 'git://github.com/openstack/python-swiftclient',
-           branch: master}
-        - {name: sqlalchemy-migrate,
-           repository: 'git://github.com/stackforge/sqlalchemy-migrate',
-           branch: master}
-        - {name: stevedore,
-           repository: 'git://github.com/openstack/stevedore',
-           branch: master}
-        - {name: taskflow,
-           repository: 'git://github.com/openstack/taskflow',
-           branch: master}
-        - {name: keystonemiddleware,
-           repository: 'git://github.com/openstack/keystonemiddleware',
-           branch: master}
-        - {name: cinder,
-           repository: 'git://github.com/openstack/cinder',
-           branch: master}
 
 Network Space support
 ---------------------
