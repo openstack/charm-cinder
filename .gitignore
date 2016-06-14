@@ -4,3 +4,4 @@ bin
 .tox
 *.sw[nop]
 *.pyc
+.unit-state.db

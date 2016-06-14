@@ -173,6 +173,12 @@ options:
       cloning of images. This option will default to v1 for backwards
       compatibility older glance services.
   # HA configuration settings
+  dns-ha:
+    type: boolean
+    default: False
+    description: |
+        Use DNS HA with MAAS 2.0. Note if this is set do not set vip
+        settings below.
   vip:
     type: string
     default:
@@ -269,6 +275,32 @@ options:
 
       https://cinder.example.com:443/v1/$(tenant_id)s and
       https://cinder.example.com:443/v2/$(tenant_id)s
+  os-internal-hostname:
+    type: string
+    default:
+    description: |
+      The hostname or address of the internal endpoints created for cinder
+      in the keystone identity provider.
+
+      This value will be used for internal endpoints. For example, an
+      os-internal-hostname set to 'cinder.internal.example.com' with ssl
+      enabled will create two internal endpoints for cinder:
+
+      https://cinder.internal.example.com:443/v1/$(tenant_id)s and
+      https://cinder.internal.example.com:443/v2/$(tenant_id)s
+  os-admin-hostname:
+    type: string
+    default:
+    description: |
+      The hostname or address of the admin endpoints created for cinder
+      in the keystone identity provider.
+
+      This value will be used for admin endpoints. For example, an
+      os-admin-hostname set to 'cinder.admin.example.com' with ssl enabled will
+      create two admin endpoints for cinder:
+
+      https://cinder.admin.example.com:443/v1/$(tenant_id)s and
+      https://cinder.admin.example.com:443/v2/$(tenant_id)s
   prefer-ipv6:
     type: boolean
     default: False
