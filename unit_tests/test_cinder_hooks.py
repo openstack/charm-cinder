@@ -73,6 +73,8 @@ TO_PATCH = [
     'configure_installation_source',
     'openstack_upgrade_available',
     'os_release',
+    # charmhelpers.contrib.openstack.openstack.ha.utils
+    'update_dns_ha_resource_params',
     # charmhelpers.contrib.hahelpers.cluster_utils
     'is_elected_leader',
     'get_hacluster_config',
@@ -678,6 +680,41 @@ class TestJoinedHooks(CharmTestCase):
         self.service_name.return_value = 'cinder'
         self.ensure_ceph_keyring.return_value = True
         hooks.hooks.execute(['hooks/ceph-relation-changed'])
+
+    def test_ha_joined_dns_ha(self):
+        def _fake_update(resources, resource_params, relation_id=None):
+            resources.update({'res_cinder_public_hostname': 'ocf:maas:dns'})
+            resource_params.update({'res_cinder_public_hostname':
+                                    'params fqdn="keystone.maas" '
+                                    'ip_address="10.0.0.1"'})
+
+        self.test_config.set('dns-ha', True)
+        self.get_hacluster_config.return_value = {
+            'vip': None,
+            'ha-bindiface': 'em0',
+            'ha-mcastport': '8080',
+            'os-admin-hostname': None,
+            'os-internal-hostname': None,
+            'os-public-hostname': 'keystone.maas',
+        }
+        args = {
+            'relation_id': None,
+            'corosync_bindiface': 'em0',
+            'corosync_mcastport': '8080',
+            'init_services': {'res_cinder_haproxy': 'haproxy'},
+            'resources': {'res_cinder_public_hostname': 'ocf:maas:dns',
+                          'res_cinder_haproxy': 'lsb:haproxy'},
+            'resource_params': {
+                'res_cinder_public_hostname': 'params fqdn="keystone.maas" '
+                                              'ip_address="10.0.0.1"',
+                'res_cinder_haproxy': 'op monitor interval="5s"'},
+            'clones': {'cl_cinder_haproxy': 'res_cinder_haproxy'}
+        }
+        self.update_dns_ha_resource_params.side_effect = _fake_update
+
+        hooks.ha_joined()
+        self.assertTrue(self.update_dns_ha_resource_params.called)
+        self.relation_set.assert_called_with(**args)
 
 
 class TestDepartedHooks(CharmTestCase):
