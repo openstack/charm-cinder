@@ -954,9 +954,9 @@ class TestCinderUtils(CharmTestCase):
     def test_required_interfaces_api(self):
         '''identity-service interface required for api service'''
         expected = {
-            'database': ['shared-db', 'pgsql-db'],
-            'messaging': ['amqp'],
-            'identity': ['identity-service'],
+            'database': ('shared-db', 'pgsql-db'),
+            'messaging': ('amqp',),
+            'identity': ('identity-service',),
         }
         self.assertEqual(cinder_utils.required_interfaces(), expected)
 
@@ -967,8 +967,8 @@ class TestCinderUtils(CharmTestCase):
         '''
         self.test_config.set('enabled-services', 'volume,scheduler')
         expected = {
-            'database': ['shared-db', 'pgsql-db'],
-            'messaging': ['amqp'],
+            'database': ('shared-db', 'pgsql-db'),
+            'messaging': ('amqp',),
         }
         self.assertEqual(cinder_utils.required_interfaces(), expected)
 
@@ -982,17 +982,17 @@ class TestCinderUtils(CharmTestCase):
 
     @patch.object(cinder_utils, 'get_optional_interfaces')
     @patch.object(cinder_utils, 'check_optional_relations')
-    @patch.object(cinder_utils, 'REQUIRED_INTERFACES')
+    @patch.object(cinder_utils, 'required_interfaces')
     @patch.object(cinder_utils, 'services')
     @patch.object(cinder_utils, 'make_assess_status_func')
     def test_assess_status_func(self,
                                 make_assess_status_func,
                                 services,
-                                REQUIRED_INTERFACES,
+                                required_interfaces,
                                 check_optional_relations,
                                 get_optional_interfaces):
         services.return_value = 's1'
-        REQUIRED_INTERFACES.copy.return_value = {'int': ['test 1']}
+        required_interfaces.return_value = {'int': ['test 1']}
         get_optional_interfaces.return_value = {'opt': ['test 2']}
         cinder_utils.assess_status_func('test-config')
         # ports=None whilst port checks are disabled.

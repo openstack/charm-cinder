@@ -182,18 +182,19 @@ TEMPLATES = 'templates/'
 # the
 # list has a complete context.
 REQUIRED_INTERFACES = {
-    'database': ['shared-db', 'pgsql-db'],
-    'messaging': ['amqp'],
-    'identity': ['identity-service'],
+    'database': ('shared-db', 'pgsql-db'),
+    'messaging': ('amqp',),
+    'identity': ('identity-service',),
 }
 
 
 def required_interfaces():
-    '''Provide the required charm interfaces based on configured roles.'''
+    """Provide the required charm interfaces based on configured roles."""
     _interfaces = copy(REQUIRED_INTERFACES)
     if not service_enabled('api'):
         # drop requirement for identity interface
         _interfaces.pop('identity')
+
     return _interfaces
 
 
@@ -952,10 +953,10 @@ def assess_status_func(configs):
     @param configs: a templating.OSConfigRenderer() object
     @return f() -> None : a function that assesses the unit's workload status
     """
-    required_interfaces = REQUIRED_INTERFACES.copy()
-    required_interfaces.update(get_optional_interfaces())
+    interfaces = required_interfaces()
+    interfaces.update(get_optional_interfaces())
     return make_assess_status_func(
-        configs, required_interfaces,
+        configs, interfaces,
         charm_func=check_optional_relations,
         services=services(), ports=None)
 
