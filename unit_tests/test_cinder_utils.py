@@ -767,8 +767,6 @@ class TestCinderUtils(CharmTestCase):
 
         expected = [
             call('joined-string', '/usr/local/bin/cinder-manage'),
-            call('/usr/lib/python2.7/dist-packages/rbd.py', 'joined-string'),
-            call('/usr/lib/python2.7/dist-packages/rados.py', 'joined-string'),
         ]
         symlink.assert_has_calls(expected, any_order=True)
 
