@@ -7,6 +7,11 @@ tags:
   - openstack
   - storage
   - misc
+series:
+  - xenial
+  - yakkety
+  - trusty
+  - precise
 extra-bindings:
   public:
   admin:
