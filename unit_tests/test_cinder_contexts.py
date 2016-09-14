@@ -358,3 +358,12 @@ class TestCinderContext(CharmTestCase):
         self.config.return_value = 'two'
         ctxt = contexts.RegionContext()()
         self.assertEqual('two', ctxt['region'])
+
+    @patch('__builtin__.open')
+    def test_volume_usage_audit_context(self, _open):
+        self.config.return_value = 'month'
+        ctxt = contexts.VolumeUsageAuditContext()()
+        _open.assert_called_with(
+            contexts.VolumeUsageAuditContext.DEFAULT_CRONTAB_PATH, "w+")
+        self.assertEqual(self.config.return_value,
+                         ctxt["volume_usage_audit_period"])

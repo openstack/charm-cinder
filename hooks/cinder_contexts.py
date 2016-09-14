@@ -183,3 +183,22 @@ class RegionContext(OSContextGenerator):
             return {'region': region}
         else:
             return {}
+
+
+class VolumeUsageAuditContext(OSContextGenerator):
+    """This context provides the configuration directive
+    volume_usage_audit_period and also creates a crontab entry
+    for running the cinder-volume-usage-audit script recurrently.
+    """
+    DEFAULT_CRONTAB_PATH = '/etc/cron.d/cinder-volume-usage-audit'
+
+    def __call__(self):
+        log("Installing crontab: %s" % self.DEFAULT_CRONTAB_PATH)
+        with open(self.DEFAULT_CRONTAB_PATH, "w+") as crontab:
+            # The cinder-volume-usage-audit executable will only gather
+            # data that fits on the configured volume-usage-audit-period.
+            crontab.write('0 * * * * root '
+                          '/usr/bin/cinder-volume-usage-audit\n')
+        return {
+            'volume_usage_audit_period': config("volume-usage-audit-period")
+        }
