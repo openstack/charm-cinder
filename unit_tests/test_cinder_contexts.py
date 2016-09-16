@@ -28,7 +28,7 @@ TO_PATCH = [
     'service_name',
     'determine_apache_port',
     'determine_api_port',
-    'get_os_codename_install_source',
+    'os_release',
     'related_units',
     'relation_get'
 ]
@@ -61,7 +61,7 @@ class TestCinderContext(CharmTestCase):
 
     def test_ceph_related(self):
         self.relation_ids.return_value = ['ceph:0']
-        self.get_os_codename_install_source.return_value = 'havana'
+        self.os_release.return_value = 'havana'
         service = 'mycinder'
         self.service_name.return_value = service
         self.assertEquals(
@@ -73,7 +73,7 @@ class TestCinderContext(CharmTestCase):
 
     def test_ceph_related_icehouse(self):
         self.relation_ids.return_value = ['ceph:0']
-        self.get_os_codename_install_source.return_value = 'icehouse'
+        self.os_release.return_value = 'icehouse'
         service = 'mycinder'
         self.service_name.return_value = service
         self.assertEquals(

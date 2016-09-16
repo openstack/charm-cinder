@@ -29,7 +29,7 @@ from charmhelpers.contrib.openstack.context import (
 )
 
 from charmhelpers.contrib.openstack.utils import (
-    get_os_codename_install_source
+    os_release,
 )
 
 from charmhelpers.contrib.hahelpers.cluster import (
@@ -58,8 +58,7 @@ class CephContext(OSContextGenerator):
         if not relation_ids('ceph'):
             return {}
         service = service_name()
-        if get_os_codename_install_source(config('openstack-origin')) \
-                >= "icehouse":
+        if os_release('cinder-common') >= "icehouse":
             volume_driver = 'cinder.volume.drivers.rbd.RBDDriver'
         else:
             volume_driver = 'cinder.volume.driver.RBDDriver'
