@@ -103,6 +103,7 @@ from charmhelpers.contrib.openstack.utils import (
     pause_unit,
     resume_unit,
     is_unit_paused_set,
+    os_application_version_set,
 )
 
 from charmhelpers.core.decorators import (
@@ -175,6 +176,8 @@ HAPROXY_CONF = '/etc/haproxy/haproxy.cfg'
 APACHE_SITE_CONF = '/etc/apache2/sites-available/openstack_https_frontend'
 APACHE_SITE_24_CONF = '/etc/apache2/sites-available/' \
     'openstack_https_frontend.conf'
+
+VERSION_PACKAGE = 'cinder-common'
 
 TEMPLATES = 'templates/'
 
@@ -925,6 +928,7 @@ def assess_status(configs):
     @returns None - this function is executed for its side-effect
     """
     assess_status_func(configs)()
+    os_application_version_set(VERSION_PACKAGE)
 
 
 def assess_status_func(configs):

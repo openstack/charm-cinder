@@ -63,6 +63,7 @@ TO_PATCH = [
     'is_elected_leader',
     'templating',
     'install_alternative',
+    'os_application_version_set',
     # fetch
     'apt_update',
     'apt_upgrade',
@@ -977,6 +978,9 @@ class TestCinderUtils(CharmTestCase):
             cinder_utils.assess_status('test-config')
             asf.assert_called_once_with('test-config')
             callee.assert_called_once_with()
+            self.os_application_version_set.assert_called_with(
+                'cinder-common'
+            )
 
     @patch.object(cinder_utils, 'get_optional_interfaces')
     @patch.object(cinder_utils, 'check_optional_relations')
