@@ -6,7 +6,7 @@ options:
   verbose:
     default: False
     type: boolean
-    description: Enable verbose logging.      
+    description: Enable verbose logging.
   use-syslog:
     type: boolean
     default: False
@@ -368,4 +368,9 @@ options:
     description: |
       Apply system hardening. Supports a space-delimited list of modules
       to run. Supported modules currently include os, ssh, apache and mysql.
-
+  volume-usage-audit-period:
+    default: "month"
+    type: string
+    description: |
+      Time period for which to generate volume usages. The options are hour,
+      day, month, or year.
