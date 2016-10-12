@@ -53,9 +53,10 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         self._deploy()
 
         u.log.info('Waiting on extended status checks...')
-        exclude_services = ['mysql']
+        exclude_services = []
         self._auto_wait_for_status(exclude_services=exclude_services)
 
+        self.d.sentry.wait()
         self._initialize_tests()
 
     def _add_services(self):
@@ -66,21 +67,25 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
            compatible with the local charm (e.g. stable or next).
            """
         this_service = {'name': 'cinder'}
-        other_services = [{'name': 'mysql'}, {'name': 'rabbitmq-server'},
-                          {'name': 'keystone'}, {'name': 'glance'}]
+        other_services = [
+            {'name': 'percona-cluster', 'constraints': {'mem': '3072M'}},
+            {'name': 'rabbitmq-server'},
+            {'name': 'keystone'},
+            {'name': 'glance'}
+        ]
         super(CinderBasicDeployment, self)._add_services(this_service,
                                                          other_services)
 
     def _add_relations(self):
         """Add relations for the services."""
         relations = {
-            'keystone:shared-db': 'mysql:shared-db',
-            'cinder:shared-db': 'mysql:shared-db',
+            'keystone:shared-db': 'percona-cluster:shared-db',
+            'cinder:shared-db': 'percona-cluster:shared-db',
             'cinder:identity-service': 'keystone:identity-service',
             'cinder:amqp': 'rabbitmq-server:amqp',
             'cinder:image-service': 'glance:image-service',
             'glance:identity-service': 'keystone:identity-service',
-            'glance:shared-db': 'mysql:shared-db',
+            'glance:shared-db': 'percona-cluster:shared-db',
             'glance:amqp': 'rabbitmq-server:amqp'
         }
         super(CinderBasicDeployment, self)._add_relations(relations)
@@ -120,12 +125,21 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             cinder_config['openstack-origin-git'] = \
                 yaml.dump(openstack_origin_git)
 
-        keystone_config = {'admin-password': 'openstack',
-                           'admin-token': 'ubuntutesting'}
-        mysql_config = {'dataset-size': '50%'}
-        configs = {'cinder': cinder_config,
-                   'keystone': keystone_config,
-                   'mysql': mysql_config}
+        keystone_config = {
+            'admin-password': 'openstack',
+            'admin-token': 'ubuntutesting'
+        }
+        pxc_config = {
+            'dataset-size': '25%',
+            'max-connections': 1000,
+            'root-password': 'ChangeMe123',
+            'sst-password': 'ChangeMe123',
+        }
+        configs = {
+            'cinder': cinder_config,
+            'keystone': keystone_config,
+            'percona-cluster': pxc_config,
+        }
         super(CinderBasicDeployment, self)._configure_services(configs)
 
     def _initialize_tests(self):
@@ -133,7 +147,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         # Access the sentries for inspecting service units
         self.cinder_sentry = self.d.sentry['cinder'][0]
         self.glance_sentry = self.d.sentry['glance'][0]
-        self.mysql_sentry = self.d.sentry['mysql'][0]
+        self.pxc_sentry = self.d.sentry['percona-cluster'][0]
         self.keystone_sentry = self.d.sentry['keystone'][0]
         self.rabbitmq_sentry = self.d.sentry['rabbitmq-server'][0]
         u.log.debug('openstack release val: {}'.format(
@@ -321,7 +335,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 #                                 'cinder-volume'],
 #            self.glance_sentry: ['glance-registry',
 #                                 'glance-api'],
-#            self.mysql_sentry: ['mysql'],
+#            self.pxc_sentry: ['mysql'],
 #            self.keystone_sentry: ['keystone'],
 #            self.rabbitmq_sentry: ['rabbitmq-server']
 #        }
@@ -424,7 +438,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 #    def test_204_mysql_cinder_db_relation(self):
 #        """Verify the mysql:glance shared-db relation data"""
 #        u.log.debug('Checking mysql:cinder db relation data...')
-#        unit = self.mysql_sentry
+#        unit = self.pxc_sentry
 #        relation = ['shared-db', 'cinder:shared-db']
 #        expected = {
 #            'private-address': u.valid_ip,
@@ -439,7 +453,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 #        """Verify the cinder:mysql shared-db relation data"""
 #        u.log.debug('Checking cinder:mysql db relation data...')
 #        unit = self.cinder_sentry
-#        relation = ['shared-db', 'mysql:shared-db']
+#        relation = ['shared-db', 'percona-cluster:shared-db']
 #        expected = {
 #            'private-address': u.valid_ip,
 #            'hostname': u.valid_ip,
