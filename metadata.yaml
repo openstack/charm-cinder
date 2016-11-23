@@ -9,9 +9,9 @@ tags:
   - misc
 series:
   - xenial
+  - zesty
   - yakkety
   - trusty
-  - precise
 extra-bindings:
   public:
   admin:
