@@ -32,6 +32,7 @@ from charmhelpers.core.hookenv import (
     relation_get,
     relation_set,
     relation_ids,
+    related_units,
     log,
     DEBUG,
     service_name,
@@ -590,24 +591,67 @@ def _parse_block_device(block_device):
         return ('/dev/{}'.format(block_device), 0)
 
 
+def is_db_intialised(cluster_rid=None):
+    """
+    Check whether a db intialisation has been performed by any unit in this
+    cluster.
+
+    We make decision based in whether we or any of our peers has previously
+    sent or echoed an initialisation notification.
+
+    @param cluster_rid: current relation id. If none provided, all cluster
+                        relation ids will be checked.
+    @return: True if there has been a db initialisation otherwise False.
+    """
+    if cluster_rid:
+        rids = [cluster_rid]
+    else:
+        rids = relation_ids('cluster')
+
+    settings = {}
+    for c_rid in rids:
+        units = related_units(relid=c_rid) + [local_unit()]
+        for unit in units:
+                _settings = relation_get(unit=unit, rid=c_rid) or {}
+                for key in [CINDER_DB_INIT_RKEY, CINDER_DB_INIT_ECHO_RKEY]:
+                    if _settings.get(key):
+                        settings[key] = _settings.get(key)
+
+    if not settings:
+        return False
+
+    if (settings.get(CINDER_DB_INIT_RKEY) or
+            settings.get(CINDER_DB_INIT_ECHO_RKEY)):
+        return True
+
+
 def check_db_initialised():
     """Check if we have received db init'd notify and restart services if we
     have not already.
+
+    NOTE: this must only be called from peer relation context.
     """
+    if not is_db_intialised():
+        return
+
     settings = relation_get() or {}
     if settings:
         init_id = settings.get(CINDER_DB_INIT_RKEY)
         echoed_init_id = relation_get(unit=local_unit(),
                                       attribute=CINDER_DB_INIT_ECHO_RKEY)
-        if (init_id and init_id != echoed_init_id and
-                local_unit() not in init_id):
-            log("Restarting cinder services following db initialisation",
-                level=DEBUG)
-            if not is_unit_paused_set():
-                for svc in enabled_services():
-                    service_restart(svc)
 
-            # Set echo
+        # If this unit has previously received an init notification (and echoed
+        # it) then we can ignore further notifications.
+        if not echoed_init_id:
+            if init_id and local_unit() not in init_id:
+                log("Restarting cinder services following db initialisation",
+                    level=DEBUG)
+                if not is_unit_paused_set():
+                    for svc in enabled_services():
+                        service_restart(svc)
+
+        # Set echo
+        if init_id and local_unit() not in init_id:
             relation_set(**{CINDER_DB_INIT_ECHO_RKEY: init_id})
 
 
@@ -615,14 +659,23 @@ def check_db_initialised():
 #                  mysql might be restarting or suchlike.
 @retry_on_exception(5, base_delay=3, exc_type=subprocess.CalledProcessError)
 def migrate_database():
-    'Runs cinder-manage to initialize a new database or migrate existing'
+    """Initialise cinder database if not already done so.
+
+    Runs cinder-manage to initialize a new database or migrate existing and
+    restarts services to ensure that the changes are picked up. The first
+    (leader) unit to perform this action should have broadcast this information
+    to its peers so first we check whether this has already occured.
+    """
+    if is_db_intialised():
+        log("Database is already initialised.", level=DEBUG)
+        return
+
     cmd = ['cinder-manage', 'db', 'sync']
     subprocess.check_call(cmd)
     # Notify peers so that services get restarted
     log("Notifying peer(s) that db is initialised and restarting services",
         level=DEBUG)
     for r_id in relation_ids('cluster'):
-
         if not is_unit_paused_set():
             for svc in enabled_services():
                 service_restart(svc)
