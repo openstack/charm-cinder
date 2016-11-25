@@ -606,11 +606,61 @@ class TestCinderUtils(CharmTestCase):
         cinder_utils.extend_lvm_volume_group('test', '/dev/sdb')
         _call.assert_called_with(['vgextend', 'test', '/dev/sdb'])
 
+    @patch.object(cinder_utils, 'relation_get')
+    @patch.object(cinder_utils, 'relation_ids')
+    @patch.object(cinder_utils, 'related_units')
+    def test_is_db_initisalised_false(self, mock_related_units,
+                                      mock_relation_ids,
+                                      mock_relation_get):
+        settings = {'0': {}, '1': {}}
+
+        def mock_rel_get(unit=None, rid=None, attribute=None):
+            if not unit:
+                unit = '0'
+
+            if attribute:
+                return settings[unit].get(attribute)
+
+            return settings[unit]
+
+        cinder_utils.local_unit.return_value = '0'
+        mock_relation_get.side_effect = mock_rel_get
+        mock_related_units.return_value = ['1']
+        mock_relation_ids.return_value = ['cluster:1']
+        self.assertFalse(cinder_utils.is_db_intialised())
+
+    @patch.object(cinder_utils, 'relation_get')
+    @patch.object(cinder_utils, 'relation_ids')
+    @patch.object(cinder_utils, 'related_units')
+    def test_is_db_initisalised_true(self, mock_related_units,
+                                     mock_relation_ids,
+                                     mock_relation_get):
+        settings = {'0': {cinder_utils.CINDER_DB_INIT_RKEY: '1234'},
+                    '1': {cinder_utils.CINDER_DB_INIT_ECHO_RKEY: '1234'}}
+
+        def mock_rel_get(unit=None, rid=None, attribute=None):
+            if not unit:
+                unit = '0'
+
+            if attribute:
+                return settings[unit].get(attribute)
+
+            return settings[unit]
+
+        cinder_utils.local_unit.return_value = '0'
+        mock_relation_get.side_effect = mock_rel_get
+        mock_related_units.return_value = ['1']
+        mock_relation_ids.return_value = ['cluster:1']
+        self.assertTrue(cinder_utils.is_db_intialised())
+
+    @patch.object(cinder_utils, 'is_db_intialised')
     @patch.object(cinder_utils, 'enabled_services')
     @patch.object(cinder_utils, 'local_unit', lambda *args: 'unit/0')
     @patch.object(cinder_utils, 'uuid')
-    def test_migrate_database(self, mock_uuid, mock_enabled_services):
+    def test_migrate_database(self, mock_uuid, mock_enabled_services,
+                              mock_is_db_intialised):
         'It migrates database with cinder-manage'
+        mock_is_db_intialised.return_value = False
         uuid = 'a-great-uuid'
         mock_uuid.uuid4.return_value = uuid
         mock_enabled_services.return_value = ['svc1']
@@ -622,6 +672,15 @@ class TestCinderUtils(CharmTestCase):
             check_call.assert_called_with(['cinder-manage', 'db', 'sync'])
             self.relation_set.assert_called_with(relation_id=rid, **args)
             self.service_restart.assert_called_with('svc1')
+
+    @patch.object(cinder_utils, 'is_db_intialised')
+    def test_migrate_database_already_initisalised(self,
+                                                   mock_is_db_intialised):
+        mock_is_db_intialised.return_value = True
+        with patch('subprocess.check_call') as check_call:
+            cinder_utils.migrate_database()
+            self.assertFalse(check_call.called)
+            self.assertFalse(self.service_restart.called)
 
     @patch.object(cinder_utils, 'resource_map')
     def test_register_configs(self, resource_map):
@@ -883,16 +942,25 @@ class TestCinderUtils(CharmTestCase):
         cinder_utils.check_db_initialised()
         self.assertFalse(self.relation_set.called)
 
+    @patch.object(cinder_utils, 'is_db_intialised')
     @patch.object(cinder_utils, 'enabled_services')
     @patch.object(cinder_utils, 'local_unit', lambda *args: 'unit/0')
-    def test_check_db_initialised(self, enabled_services):
+    def test_check_db_initialised(self, enabled_services,
+                                  mock_is_db_intialised):
+        mock_is_db_intialised.return_value = True
         enabled_services.return_value = ['svc1']
-        self.relation_get.return_value = {}
+        r_settings = {}
+
+        def mock_relation_get(unit=None, rid=None, attribute=None):
+            if attribute:
+                return r_settings.get(attribute)
+            else:
+                return r_settings
+
+        self.relation_get.side_effect = mock_relation_get
         cinder_utils.check_db_initialised()
         self.assertFalse(self.relation_set.called)
-
-        self.relation_get.return_value = {'cinder-db-initialised':
-                                          'unit/1-1234'}
+        r_settings = {'cinder-db-initialised': 'unit/1-1234'}
         cinder_utils.check_db_initialised()
         calls = [call(**{'cinder-db-initialised-echo': 'unit/1-1234'})]
         self.relation_set.assert_has_calls(calls)
