@@ -72,6 +72,8 @@ TO_PATCH = [
     'service_start',
     # cinder
     'ceph_config_file',
+    'token_cache_pkgs',
+    'enable_memcache',
 ]
 
 
@@ -156,23 +158,28 @@ class TestCinderUtils(CharmTestCase):
         'It determines packages required for a subset of enabled services'
         git_requested.return_value = False
         service_enabled.side_effect = self.svc_enabled
+        self.test_config.set('openstack-origin', 'cloud:xenial-newton')
+        self.token_cache_pkgs.return_value = ['memcached']
 
         self.test_config.set('enabled-services', 'api')
         pkgs = cinder_utils.determine_packages()
         common = cinder_utils.COMMON_PACKAGES
-        self.assertEquals(sorted(pkgs),
-                          sorted(common + cinder_utils.API_PACKAGES))
+        self.assertEquals(
+            sorted(pkgs),
+            sorted(common + cinder_utils.API_PACKAGES + ['memcached']))
         self.test_config.set('enabled-services', 'volume')
         pkgs = cinder_utils.determine_packages()
         common = cinder_utils.COMMON_PACKAGES
-        self.assertEquals(sorted(pkgs),
-                          sorted(common + cinder_utils.VOLUME_PACKAGES))
+        self.assertEquals(
+            sorted(pkgs),
+            sorted(common + cinder_utils.VOLUME_PACKAGES + ['memcached']))
         self.test_config.set('enabled-services', 'api,scheduler')
         pkgs = cinder_utils.determine_packages()
         common = cinder_utils.COMMON_PACKAGES
-        self.assertEquals(sorted(pkgs),
-                          sorted(common + cinder_utils.API_PACKAGES +
-                                 cinder_utils.SCHEDULER_PACKAGES))
+        self.assertEquals(
+            sorted(pkgs),
+            sorted(common + cinder_utils.API_PACKAGES + ['memcached'] +
+                   cinder_utils.SCHEDULER_PACKAGES))
 
     @patch('cinder_utils.restart_map')
     def test_services(self, restart_map):
@@ -190,11 +197,13 @@ class TestCinderUtils(CharmTestCase):
         path_exists.return_value = True
         self.ceph_config_file.return_value = self.charm_ceph_conf
         self.relation_ids.return_value = []
+        self.enable_memcache.return_value = True
         ex_map = OrderedDict([
             ('/etc/cinder/cinder.conf', ['cinder-api', 'cinder-volume',
                                          'cinder-scheduler', 'haproxy']),
             ('/etc/cinder/api-paste.ini', ['cinder-api']),
             ('/etc/haproxy/haproxy.cfg', ['haproxy']),
+            ('/etc/memcached.conf', ['memcached']),
             ('/etc/apache2/sites-available/openstack_https_frontend.conf',
              ['apache2']),
         ])

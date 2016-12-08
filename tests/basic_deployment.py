@@ -326,6 +326,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
         return None
 
+
 #    def test_100_services(self):
 #        """Verify that the expected services are running on the
 #           corresponding service units."""
@@ -343,6 +344,12 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 #        if ret:
 #            amulet.raise_status(amulet.FAIL, msg=ret)
 #
+    def test_110_memcache(self):
+        u.validate_memcache(self.cinder_sentry,
+                            '/etc/cinder/cinder.conf',
+                            self._get_openstack_release(),
+                            earliest_release=self.trusty_mitaka)
+
 #    def test_110_users(self):
 #        """Verify expected users."""
 #        u.log.debug('Checking keystone users...')

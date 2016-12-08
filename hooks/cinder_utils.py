@@ -105,6 +105,8 @@ from charmhelpers.contrib.openstack.utils import (
     resume_unit,
     is_unit_paused_set,
     os_application_version_set,
+    token_cache_pkgs,
+    enable_memcache,
 )
 
 from charmhelpers.core.decorators import (
@@ -177,6 +179,7 @@ HAPROXY_CONF = '/etc/haproxy/haproxy.cfg'
 APACHE_SITE_CONF = '/etc/apache2/sites-available/openstack_https_frontend'
 APACHE_SITE_24_CONF = '/etc/apache2/sites-available/' \
     'openstack_https_frontend.conf'
+MEMCACHED_CONF = '/etc/memcached.conf'
 
 VERSION_PACKAGE = 'cinder-common'
 
@@ -231,7 +234,8 @@ BASE_RESOURCE_MAP = OrderedDict([
                      context.WorkerConfigContext(),
                      cinder_contexts.RegionContext(),
                      context.InternalEndpointContext(),
-                     cinder_contexts.VolumeUsageAuditContext()],
+                     cinder_contexts.VolumeUsageAuditContext(),
+                     context.MemcacheContext()],
         'services': ['cinder-api', 'cinder-volume', 'cinder-scheduler',
                      'haproxy']
     }),
@@ -314,6 +318,11 @@ def resource_map(release=None):
         resource_map[cfg]['services'] = \
             filter_services(resource_map[cfg]['services'])
 
+    if enable_memcache(source=config()['openstack-origin']):
+        resource_map[MEMCACHED_CONF] = {
+            'contexts': [context.MemcacheContext()],
+            'services': ['memcached']}
+
     return resource_map
 
 
@@ -350,6 +359,7 @@ def determine_packages():
         for p in GIT_PACKAGE_BLACKLIST:
             pkgs.remove(p)
 
+    pkgs.extend(token_cache_pkgs(source=config()['openstack-origin']))
     return pkgs
 
 
