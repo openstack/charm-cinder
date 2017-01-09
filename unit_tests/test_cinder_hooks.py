@@ -87,6 +87,7 @@ TO_PATCH = [
     'configure_installation_source',
     'openstack_upgrade_available',
     'os_release',
+    'run_in_apache',
     # charmhelpers.contrib.openstack.openstack.ha.utils
     'update_dns_ha_resource_params',
     # charmhelpers.contrib.hahelpers.cluster_utils

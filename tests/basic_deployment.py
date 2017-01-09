@@ -767,10 +767,13 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
         # Services which are expected to restart upon config change
         services = {
-            'cinder-api': conf_file,
             'cinder-scheduler': conf_file,
             'cinder-volume': conf_file
         }
+        if self._get_openstack_release() >= self.xenial_ocata:
+            services['apache2'] = conf_file
+        else:
+            services['cinder-api'] = conf_file
 
         # Make config change, check for service restarts
         u.log.debug('Making config change on {}...'.format(juju_service))

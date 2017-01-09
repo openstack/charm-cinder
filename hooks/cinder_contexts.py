@@ -88,6 +88,7 @@ class HAProxyContext(OSContextGenerator):
         ctxt = {
             'service_ports': {'cinder_api': [haproxy_port, apache_port]},
             'osapi_volume_listen_port': api_port,
+            'port': api_port,
         }
         return ctxt
 
@@ -100,7 +101,7 @@ class ApacheSSLContext(SSLContext):
     def __call__(self):
         # late import to work around circular dependency
         from cinder_utils import service_enabled
-        if not service_enabled('cinder-api'):
+        if not service_enabled('cinder-common'):
             return {}
         return super(ApacheSSLContext, self).__call__()
 

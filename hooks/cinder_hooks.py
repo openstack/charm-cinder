@@ -24,6 +24,7 @@ from subprocess import (
 
 from cinder_utils import (
     determine_packages,
+    disable_package_apache_site,
     do_openstack_upgrade,
     git_install,
     juju_log,
@@ -31,6 +32,7 @@ from cinder_utils import (
     configure_lvm_storage,
     register_configs,
     restart_map,
+    run_in_apache,
     services,
     service_enabled,
     service_restart,
@@ -139,6 +141,9 @@ def install():
     status_set('maintenance', 'Installing apt packages')
     apt_update()
     apt_install(determine_packages(), fatal=True)
+
+    if run_in_apache():
+        disable_package_apache_site()
 
     status_set('maintenance', 'Git install')
     git_install(config('openstack-origin-git'))

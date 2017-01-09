@@ -180,6 +180,8 @@ APACHE_SITE_CONF = '/etc/apache2/sites-available/openstack_https_frontend'
 APACHE_SITE_24_CONF = '/etc/apache2/sites-available/' \
     'openstack_https_frontend.conf'
 MEMCACHED_CONF = '/etc/memcached.conf'
+WSGI_CINDER_API_CONF = '/etc/apache2/sites-enabled/wsgi-openstack-api.conf'
+PACKAGE_CINDER_API_CONF = '/etc/apache2/sites-enabled/cinder-wsgi.conf'
 
 VERSION_PACKAGE = 'cinder-common'
 
@@ -322,6 +324,21 @@ def resource_map(release=None):
         resource_map[MEMCACHED_CONF] = {
             'contexts': [context.MemcacheContext()],
             'services': ['memcached']}
+
+    if run_in_apache():
+        for cfile in resource_map:
+            svcs = resource_map[cfile]['services']
+            if 'cinder-api' in svcs:
+                svcs.remove('cinder-api')
+                if 'apache2' not in svcs:
+                    svcs.append('apache2')
+        wsgi_script = "/usr/bin/cinder-wsgi"
+        resource_map[WSGI_CINDER_API_CONF] = {
+            'contexts': [context.WSGIWorkerConfigContext(name="cinder",
+                                                         script=wsgi_script),
+                         cinder_contexts.HAProxyContext()],
+            'services': ['apache2']
+        }
 
     return resource_map
 
@@ -731,6 +748,9 @@ def do_openstack_upgrade(configs):
     configs.set_release(openstack_release=new_os_rel)
     configs.write_all()
 
+    if run_in_apache():
+        disable_package_apache_site()
+
     # Stop/start services and migrate DB if leader
     [service_stop(s) for s in services()]
     if is_elected_leader(CLUSTER_RES):
@@ -1053,3 +1073,18 @@ def _pause_resume_helper(f, configs):
     f(assess_status_func(configs),
       services=services(),
       ports=None)
+
+
+def run_in_apache():
+    """Return true if cinder API is run under apache2 with mod_wsgi in
+    this release.
+    """
+    return os_release('cinder-common') >= 'ocata'
+
+
+def disable_package_apache_site():
+    """Ensure that the package-provided apache configuration is disabled to
+    prevent it from conflicting with the charm-provided version.
+    """
+    if os.path.exists(PACKAGE_CINDER_API_CONF):
+        subprocess.check_call(['a2dissite', 'cinder-wsgi'])
