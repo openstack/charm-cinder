@@ -691,7 +691,7 @@ def migrate_database():
     Runs cinder-manage to initialize a new database or migrate existing and
     restarts services to ensure that the changes are picked up. The first
     (leader) unit to perform this action should have broadcast this information
-    to its peers so first we check whether this has already occured.
+    to its peers so first we check whether this has already occurred.
     """
     if is_db_intialised():
         log("Database is already initialised.", level=DEBUG)
