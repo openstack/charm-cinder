@@ -375,3 +375,9 @@ options:
     description: |
       Time period for which to generate volume usages. The options are hour,
       day, month, or year.
+  restrict-ceph-pools:
+    default: False
+    type: boolean
+    description: |
+      Cinder can optionally restrict the key it asks Ceph for to only be able
+      to access the pools it needs.

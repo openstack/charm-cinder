@@ -379,7 +379,16 @@ def get_ceph_request():
     service = service_name()
     rq = CephBrokerRq()
     replicas = config('ceph-osd-replication-count')
-    rq.add_op_create_pool(name=service, replica_count=replicas)
+    rq.add_op_create_pool(name=service,
+                          replica_count=replicas,
+                          group="volumes")
+    if config('restrict-ceph-pools'):
+        rq.add_op_request_access_to_group(name="volumes",
+                                          permission='rwx')
+        rq.add_op_request_access_to_group(name="images",
+                                          permission='rwx')
+        rq.add_op_request_access_to_group(name="vms",
+                                          permission='rwx')
     return rq
 
 
