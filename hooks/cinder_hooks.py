@@ -572,6 +572,7 @@ def configure_https():
 @hooks.hook('upgrade-charm')
 @harden()
 def upgrade_charm():
+    apt_install(determine_packages(), fatal=True)
     for rel_id in relation_ids('amqp'):
         amqp_joined(relation_id=rel_id)
     update_nrpe_config()
