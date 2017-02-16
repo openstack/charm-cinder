@@ -237,7 +237,9 @@ BASE_RESOURCE_MAP = OrderedDict([
                      cinder_contexts.RegionContext(),
                      context.InternalEndpointContext(),
                      cinder_contexts.VolumeUsageAuditContext(),
-                     context.MemcacheContext()],
+                     context.MemcacheContext(),
+                     cinder_contexts.SectionalConfigContext(),
+                     cinder_contexts.LVMContext()],
         'services': ['cinder-api', 'cinder-volume', 'cinder-scheduler',
                      'haproxy']
     }),

@@ -16,3 +16,21 @@ enabled_backends = {{ backends }}
 {% endfor %}
 {% endif %}
 {%- endfor %}
+
+{% if sectional_default_config -%}
+{% if volume_driver -%}
+[LVM]
+volumes_dir = {{ volumes_dir }}
+volume_name_template = {{ volume_name_template }}
+volume_group = {{ volume_group }}
+volume_driver = {{ volume_driver }}
+volume_backend_name = {{ volume_backend_name }}
+{% endif -%}
+{% if rbd_pool -%}
+[CEPH]
+rbd_pool = {{ rbd_pool }}
+host = {{ host }}
+rbd_user = {{ rbd_user }}
+volume_driver = {{ ceph_volume_driver }}
+{% endif %}
+{% endif %}

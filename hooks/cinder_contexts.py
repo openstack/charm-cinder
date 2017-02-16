@@ -38,6 +38,14 @@ from charmhelpers.contrib.hahelpers.cluster import (
 )
 
 
+def enable_lvm():
+    """Check whether the LVM backend should be configured
+
+    @returns boolean - If LVM should be enabled"""
+    block_device = config('block-device') or 'none'
+    return block_device.lower() != 'none'
+
+
 class ImageServiceContext(OSContextGenerator):
     interfaces = ['image-service']
 
@@ -63,7 +71,7 @@ class CephContext(OSContextGenerator):
         else:
             volume_driver = 'cinder.volume.driver.RBDDriver'
         return {
-            'volume_driver': volume_driver,
+            'ceph_volume_driver': volume_driver,
             # ensure_ceph_pool() creates pool based on service name.
             'rbd_pool': service,
             'rbd_user': service,
@@ -117,8 +125,16 @@ class StorageBackendContext(OSContextGenerator):
                                             unit, rid)
                 if backend_name:
                     backends.append(backend_name)
+        # Ocata onwards all backends must be in there own sectional config
+        if os_release('cinder-common') >= "ocata":
+            if relation_ids('ceph'):
+                backends.append('CEPH')
+            if enable_lvm():
+                backends.append('LVM')
         if len(backends) > 0:
-            return {'backends': ",".join(backends)}
+            return {
+                'active_backends': backends,
+                'backends': ",".join(backends)}
         else:
             return {}
 
@@ -183,6 +199,36 @@ class RegionContext(OSContextGenerator):
             return {'region': region}
         else:
             return {}
+
+
+class SectionalConfigContext(OSContextGenerator):
+    """Using DEFAULT config section to configure backends cannot be used
+       with Ocata+. In this case each backend needs its own section
+
+    @returns dict - Context dictating if sectional config needs to be used
+    """
+
+    def __call__(self):
+        return {
+            'sectional_default_config': os_release('cinder-common') >= "ocata"
+        }
+
+
+class LVMContext(OSContextGenerator):
+    """Context describing the configuration of the LVM backend
+
+    @returns dict - Context describing LVM config
+    """
+    def __call__(self):
+        ctxt = {}
+        if enable_lvm():
+            ctxt = {
+                'volumes_dir': '/var/lib/cinder/volumes',
+                'volume_name_template': 'volume-%s',
+                'volume_group': config('volume-group'),
+                'volume_driver': 'cinder.volume.drivers.lvm.LVMVolumeDriver',
+                'volume_backend_name': 'LVM'}
+        return ctxt
 
 
 class VolumeUsageAuditContext(OSContextGenerator):

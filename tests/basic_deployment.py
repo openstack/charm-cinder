@@ -567,9 +567,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                 'debug': 'False',
                 'verbose': 'False',
                 'iscsi_helper': 'tgtadm',
-                'volume_group': 'cinder-volumes',
                 'auth_strategy': 'keystone',
-                'volumes_dir': '/var/lib/cinder/volumes'
             },
             'keystone_authtoken': {
                 'admin_user': rel_ks_ci['service_username'],
@@ -579,7 +577,17 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                 'signing_dir': '/var/cache/cinder'
             }
         }
-
+        if self._get_openstack_release() < self.xenial_ocata:
+            expected['DEFAULT']['volume_group'] = 'cinder-volumes'
+            expected['DEFAULT']['volumes_dir'] = '/var/lib/cinder/volumes'
+        else:
+            expected['DEFAULT']['enabled_backends'] = 'LVM'
+            expected['LVM'] = {
+                'volume_group': 'cinder-volumes',
+                'volumes_dir': '/var/lib/cinder/volumes',
+                'volume_name_template': 'volume-%s',
+                'volume_driver': 'cinder.volume.drivers.lvm.LVMVolumeDriver',
+                'volume_backend_name': 'LVM'}
         expected_rmq = {
             'rabbit_userid': 'cinder',
             'rabbit_virtual_host': 'openstack',

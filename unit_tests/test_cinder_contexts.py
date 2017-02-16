@@ -39,6 +39,15 @@ class TestCinderContext(CharmTestCase):
     def setUp(self):
         super(TestCinderContext, self).setUp(contexts, TO_PATCH)
 
+    def test_enable_lvm_disabled(self):
+        for v in [None, 'None', 'none']:
+            self.config.return_value = v
+            self.assertFalse(contexts.enable_lvm())
+
+    def test_enable_lvm_enabled(self):
+        self.config.return_value = '/dev/sdd'
+        self.assertTrue(contexts.enable_lvm())
+
     def test_glance_not_related(self):
         self.relation_ids.return_value = []
         self.assertEquals(contexts.ImageServiceContext()(), {})
@@ -66,7 +75,7 @@ class TestCinderContext(CharmTestCase):
         self.service_name.return_value = service
         self.assertEquals(
             contexts.CephContext()(),
-            {'volume_driver': 'cinder.volume.driver.RBDDriver',
+            {'ceph_volume_driver': 'cinder.volume.driver.RBDDriver',
              'rbd_pool': service,
              'rbd_user': service,
              'host': service})
@@ -78,7 +87,7 @@ class TestCinderContext(CharmTestCase):
         self.service_name.return_value = service
         self.assertEquals(
             contexts.CephContext()(),
-            {'volume_driver': 'cinder.volume.drivers.rbd.RBDDriver',
+            {'ceph_volume_driver': 'cinder.volume.drivers.rbd.RBDDriver',
              'rbd_pool': service,
              'rbd_user': service,
              'host': service})
@@ -89,23 +98,35 @@ class TestCinderContext(CharmTestCase):
         self.assertEquals(contexts.ApacheSSLContext()(), {})
 
     def test_storage_backend_no_backends(self):
+        self.config.return_value = None
         self.relation_ids.return_value = []
         self.assertEquals(contexts.StorageBackendContext()(), {})
 
     def test_storage_backend_single_backend(self):
-        self.relation_ids.return_value = ['cinder-ceph:0']
+        rel_dict = {
+            'storage-backend': ['cinder-ceph:0'],
+            'ceph': []}
+        self.config.return_value = None
+        self.relation_ids.side_effect = lambda x: rel_dict[x]
         self.related_units.return_value = ['cinder-ceph/0']
         self.relation_get.return_value = 'cinder-ceph'
         self.assertEquals(contexts.StorageBackendContext()(),
-                          {'backends': 'cinder-ceph'})
+                          {'backends': 'cinder-ceph',
+                           'active_backends': ['cinder-ceph']})
 
     def test_storage_backend_multi_backend(self):
-        self.relation_ids.return_value = ['cinder-ceph:0', 'cinder-vmware:0']
+        self.config.return_value = None
+        rel_dict = {
+            'storage-backend': ['cinder-ceph:0', 'cinder-vmware:0'],
+            'ceph': []}
+        self.relation_ids.side_effect = lambda x: rel_dict[x]
         self.related_units.side_effect = [['cinder-ceph/0'],
                                           ['cinder-vmware/0']]
         self.relation_get.side_effect = ['cinder-ceph', 'cinder-vmware']
-        self.assertEquals(contexts.StorageBackendContext()(),
-                          {'backends': 'cinder-ceph,cinder-vmware'})
+        self.assertEquals(
+            contexts.StorageBackendContext()(),
+            {'backends': 'cinder-ceph,cinder-vmware',
+             'active_backends': ['cinder-ceph', 'cinder-vmware']})
 
     mod_ch_context = 'charmhelpers.contrib.openstack.context'
 
@@ -358,6 +379,35 @@ class TestCinderContext(CharmTestCase):
         self.config.return_value = 'two'
         ctxt = contexts.RegionContext()()
         self.assertEqual('two', ctxt['region'])
+
+    def test_sectional_config_context_ocata(self):
+        self.os_release.return_value = 'ocata'
+        ctxt = contexts.SectionalConfigContext()()
+        self.assertTrue(ctxt['sectional_default_config'])
+
+    def test_sectional_config_context_newton(self):
+        self.os_release.return_value = 'newton'
+        ctxt = contexts.SectionalConfigContext()()
+        self.assertFalse(ctxt['sectional_default_config'])
+
+    @patch.object(contexts, 'enable_lvm')
+    def test_lvm_context_disabled(self, enable_lvm):
+        enable_lvm.return_value = False
+        ctxt = contexts.LVMContext()()
+        self.assertEqual(ctxt, {})
+
+    @patch.object(contexts, 'enable_lvm')
+    def test_lvm_context_enabled(self, enable_lvm):
+        enable_lvm.return_value = True
+        self.config.return_value = 'cinder-vol1'
+        ctxt = contexts.LVMContext()()
+        expect = {
+            'volume_backend_name': 'LVM',
+            'volume_driver': 'cinder.volume.drivers.lvm.LVMVolumeDriver',
+            'volume_group': 'cinder-vol1',
+            'volume_name_template': 'volume-%s',
+            'volumes_dir': '/var/lib/cinder/volumes'}
+        self.assertEqual(ctxt, expect)
 
     @patch('__builtin__.open')
     def test_volume_usage_audit_context(self, _open):
