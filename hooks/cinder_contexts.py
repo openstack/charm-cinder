@@ -70,8 +70,12 @@ class CephContext(OSContextGenerator):
             volume_driver = 'cinder.volume.drivers.rbd.RBDDriver'
         else:
             volume_driver = 'cinder.volume.driver.RBDDriver'
+        if os_release('cinder-common') >= "ocata":
+            driver_key = 'ceph_volume_driver'
+        else:
+            driver_key = 'volume_driver'
         return {
-            'ceph_volume_driver': volume_driver,
+            driver_key: volume_driver,
             # ensure_ceph_pool() creates pool based on service name.
             'rbd_pool': service,
             'rbd_user': service,
