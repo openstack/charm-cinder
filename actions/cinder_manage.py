@@ -58,7 +58,13 @@ def cinder_manage_remove(binary, hostname):
                                   hostname])
 
 
-def remove_services():
+def cinder_manage_volume_update_host(currenthost, newhost):
+    return subprocess.check_call(["cinder-manage", "volume", "update_host",
+                                  "--currenthost", currenthost,
+                                  "--newhost", newhost])
+
+
+def remove_services(args):
     load_config_file(os.path.join(os.path.sep, "etc", "cinder", "cinder.conf"))
 
     host = action_get(key="host")
@@ -92,5 +98,32 @@ def remove_services():
     action_set({'removed': ",".join(removed_services)})
 
 
-if __name__ == "__main__":
-    remove_services()
+def _rename_volume_host(currenthost, newhost):
+    load_config_file(os.path.join(os.path.sep, "etc", "cinder", "cinder.conf"))
+    services = model_query({}, models.Service, read_deleted="no",
+                           session=get_session())
+    services = services.filter(models.Service.host == currenthost)
+    if services.all():
+        try:
+            cinder_manage_volume_update_host(currenthost, newhost)
+        except:
+            action_set({'traceback': traceback.format_exc()})
+            action_fail("Cannot update host {}".format(currenthost))
+    else:
+        action_fail(
+            "Cannot update host attribute from {}, {} not found".format(
+                currenthost,
+                currenthost))
+
+
+def rename_volume_host(args):
+    action_args = action_get()
+    _rename_volume_host(action_args['currenthost'], action_args['newhost'])
+
+
+def volume_host_add_driver(args):
+    action_args = action_get()
+    newhost = "{}@{}".format(action_args['currenthost'], action_args['driver'])
+    if action_args.get('volume-backend-name'):
+        newhost = newhost + '#' + action_args['volume-backend-name']
+    _rename_volume_host(action_args['currenthost'], newhost)

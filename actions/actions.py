@@ -25,6 +25,7 @@ from cinder_utils import (
     resume_unit_helper,
     register_configs,
 )
+import cinder_manage
 
 
 def pause(args):
@@ -42,7 +43,13 @@ def resume(args):
 
 # A dictionary of all the defined actions to callables (which take
 # parsed arguments).
-ACTIONS = {"pause": pause, "resume": resume}
+ACTIONS = {
+    "pause": pause,
+    "resume": resume,
+    "remove-services": cinder_manage.remove_services,
+    "rename-volume-host": cinder_manage.rename_volume_host,
+    "volume-host-add-driver": cinder_manage.volume_host_add_driver,
+}
 
 
 def main(args):

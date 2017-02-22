@@ -13,6 +13,15 @@
 # limitations under the License.
 
 import sys
+import mock
 
 sys.path.append('actions')
 sys.path.append('hooks')
+cinder = mock.MagicMock()
+sqlalchemy = mock.MagicMock()
+sys.modules['sqlalchemy'] = sqlalchemy
+sys.modules['cinder'] = cinder
+sys.modules['cinder.context'] = cinder.context
+sys.modules['cinder.db'] = cinder.db
+sys.modules['cinder.db.sqlalchemy'] = cinder.db.sqlalchemy
+sys.modules['cinder.db.sqlalchemy.api'] = cinder.db.sqlalchemy.api
