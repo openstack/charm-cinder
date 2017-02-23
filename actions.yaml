@@ -13,3 +13,24 @@ remove-services:
       type: string
       default: unused
       description: Hostname of the service to be removed.
+rename-volume-host:
+  description: Update the host attribute of volumes from currenthost to newhost
+  params:
+    currenthost:
+      type: string
+      description: Current value of os-vol-host-attr:host volume attribute
+    newhost:
+      type: string
+      description: New hostname of the service
+volume-host-add-driver:
+  description: Update the os-vol-host-attr:host volume attribute to include driver and volume name. Used for migrating volumes to multi-backend and Ocata+ configurtation.
+  params:
+    currenthost:
+      type: string
+      description: Current value of os-vol-host-attr:host volume attribute
+    driver:
+      type: string
+      description: driver name (as listed in enabled_backends)
+    volume-backend-name:
+      type: string
+      description: The backend volume name as shown by the volume_backend_name parameter in the driver section
