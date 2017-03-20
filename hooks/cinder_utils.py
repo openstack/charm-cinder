@@ -687,7 +687,7 @@ def check_db_initialised():
 # NOTE(jamespage): Retry deals with sync issues during one-shot HA deploys.
 #                  mysql might be restarting or suchlike.
 @retry_on_exception(5, base_delay=3, exc_type=subprocess.CalledProcessError)
-def migrate_database():
+def migrate_database(upgrade=False):
     """Initialise cinder database if not already done so.
 
     Runs cinder-manage to initialize a new database or migrate existing and
@@ -695,7 +695,7 @@ def migrate_database():
     (leader) unit to perform this action should have broadcast this information
     to its peers so first we check whether this has already occurred.
     """
-    if is_db_intialised():
+    if not upgrade and is_db_intialised():
         log("Database is already initialised.", level=DEBUG)
         return
 
@@ -756,7 +756,7 @@ def do_openstack_upgrade(configs):
     # Stop/start services and migrate DB if leader
     [service_stop(s) for s in services()]
     if is_elected_leader(CLUSTER_RES):
-        migrate_database()
+        migrate_database(upgrade=True)
     if not is_unit_paused_set():
         [service_start(s) for s in services()]
 
