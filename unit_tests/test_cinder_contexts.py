@@ -112,6 +112,7 @@ class TestCinderContext(CharmTestCase):
     def test_storage_backend_no_backends(self):
         self.config.return_value = None
         self.relation_ids.return_value = []
+        self.os_release.return_value = 'havana'
         self.assertEquals(contexts.StorageBackendContext()(), {})
 
     def test_storage_backend_single_backend(self):
@@ -122,12 +123,14 @@ class TestCinderContext(CharmTestCase):
         self.relation_ids.side_effect = lambda x: rel_dict[x]
         self.related_units.return_value = ['cinder-ceph/0']
         self.relation_get.return_value = 'cinder-ceph'
+        self.os_release.return_value = 'havana'
         self.assertEquals(contexts.StorageBackendContext()(),
                           {'backends': 'cinder-ceph',
                            'active_backends': ['cinder-ceph']})
 
     def test_storage_backend_multi_backend(self):
         self.config.return_value = None
+        self.os_release.return_value = 'havana'
         rel_dict = {
             'storage-backend': ['cinder-ceph:0', 'cinder-vmware:0'],
             'ceph': []}

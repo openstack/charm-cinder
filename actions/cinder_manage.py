@@ -26,7 +26,10 @@ from cinder import db
 from cinder.db.sqlalchemy.api import model_query, get_session
 from cinder.db.sqlalchemy import models
 
-from charmhelpers.contrib.openstack.utils import os_release
+from charmhelpers.contrib.openstack.utils import (
+    os_release,
+    CompareOpenStackReleases,
+)
 
 from sqlalchemy import and_
 from charmhelpers.core.hookenv import (
@@ -85,7 +88,7 @@ def remove_services(args):
     for service in services.all():
         log("Removing service:%d, hostname:%s" % (service.id, service.host))
         try:
-            if os_release("cinder") >= "liberty":
+            if CompareOpenStackReleases(os_release("cinder")) >= "liberty":
                 cinder_manage_remove(service.binary, service.host)
             else:
                 db.service_destroy(ctxt, service.id)

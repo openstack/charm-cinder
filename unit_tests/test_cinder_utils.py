@@ -195,6 +195,7 @@ class TestCinderUtils(CharmTestCase):
                                               service_enabled):
         service_enabled.return_value = True
         path_exists.return_value = True
+        self.os_release.return_value = 'havana'
         self.ceph_config_file.return_value = self.charm_ceph_conf
         self.relation_ids.return_value = []
         self.enable_memcache.return_value = True
@@ -218,6 +219,7 @@ class TestCinderUtils(CharmTestCase):
         service_enabled.side_effect = self.svc_enabled
         self.test_config.set('enabled-services', 'scheduler,volume')
         path_exists.return_value = True
+        self.os_release.return_value = 'havana'
         self.ceph_config_file.return_value = self.charm_ceph_conf
         self.relation_ids.return_value = []
         ex_map = OrderedDict([
@@ -238,6 +240,7 @@ class TestCinderUtils(CharmTestCase):
                                                  service_enabled):
         service_enabled.return_value = True
         path_exists.return_value = True
+        self.os_release.return_value = 'havana'
         self.ceph_config_file.return_value = self.charm_ceph_conf
         self.relation_ids.side_effect = lambda x: {
             'storage-backend': [],
@@ -253,6 +256,7 @@ class TestCinderUtils(CharmTestCase):
                                             service_enabled):
         service_enabled.return_value = True
         path_exists.return_value = True
+        self.os_release.return_value = 'havana'
         self.ceph_config_file.return_value = self.charm_ceph_conf
         self.relation_ids.side_effect = lambda x: {
             'storage-backend': [],
@@ -268,6 +272,7 @@ class TestCinderUtils(CharmTestCase):
                                                service_enabled):
         service_enabled.return_value = True
         path_exists.return_value = True
+        self.os_release.return_value = 'havana'
         self.ceph_config_file.return_value = self.charm_ceph_conf
         self.relation_ids.side_effect = lambda x: {
             'storage-backend': [],
@@ -282,6 +287,7 @@ class TestCinderUtils(CharmTestCase):
                                             service_enabled):
         service_enabled.return_value = True
         path_exists.return_value = True
+        self.os_release.return_value = 'havana'
         self.ceph_config_file.return_value = self.charm_ceph_conf
         self.relation_ids.side_effect = lambda x: {
             'storage-backend': [],
@@ -304,6 +310,7 @@ class TestCinderUtils(CharmTestCase):
                                              service_enabled):
         service_enabled.return_value = True
         path_exists.side_effect = lambda x: x not in [self.apache24_conf_dir]
+        self.os_release.return_value = 'havana'
         self.ceph_config_file.return_value = self.charm_ceph_conf
         self.relation_ids.side_effect = lambda x: {
             'storage-backend': [],
@@ -318,6 +325,7 @@ class TestCinderUtils(CharmTestCase):
     def test_creates_resource_map_apache24(self, path_exists, service_enabled):
         service_enabled.return_value = True
         path_exists.side_effect = lambda x: x in [self.apache24_conf_dir]
+        self.os_release.return_value = 'havana'
         self.ceph_config_file.return_value = self.charm_ceph_conf
         self.relation_ids.side_effect = lambda x: {
             'storage-backend': [],
@@ -729,6 +737,7 @@ class TestCinderUtils(CharmTestCase):
     @patch.object(cinder_utils, 'determine_packages')
     def test_openstack_upgrade_leader(self, pkgs, migrate, services):
         pkgs.return_value = ['mypackage']
+        self.os_release.return_value = 'havana'
         self.config.side_effect = None
         self.config.return_value = 'cloud:precise-havana'
         services.return_value = ['cinder-api', 'cinder-volume']
@@ -748,6 +757,7 @@ class TestCinderUtils(CharmTestCase):
     @patch.object(cinder_utils, 'determine_packages')
     def test_openstack_upgrade_not_leader(self, pkgs, migrate, services):
         pkgs.return_value = ['mypackage']
+        self.os_release.return_value = 'havana'
         self.config.side_effect = None
         self.config.return_value = 'cloud:precise-havana'
         services.return_value = ['cinder-api', 'cinder-volume']

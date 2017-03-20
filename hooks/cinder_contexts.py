@@ -30,6 +30,7 @@ from charmhelpers.contrib.openstack.context import (
 
 from charmhelpers.contrib.openstack.utils import (
     os_release,
+    CompareOpenStackReleases,
 )
 
 from charmhelpers.contrib.hahelpers.cluster import (
@@ -66,11 +67,12 @@ class CephContext(OSContextGenerator):
         if not relation_ids('ceph'):
             return {}
         service = service_name()
-        if os_release('cinder-common') >= "icehouse":
+        cmp_os_release = CompareOpenStackReleases(os_release('cinder-common'))
+        if cmp_os_release >= "icehouse":
             volume_driver = 'cinder.volume.drivers.rbd.RBDDriver'
         else:
             volume_driver = 'cinder.volume.driver.RBDDriver'
-        if os_release('cinder-common') >= "ocata":
+        if cmp_os_release >= "ocata":
             driver_key = 'ceph_volume_driver'
         else:
             driver_key = 'volume_driver'
@@ -130,7 +132,7 @@ class StorageBackendContext(OSContextGenerator):
                 if backend_name:
                     backends.append(backend_name)
         # Ocata onwards all backends must be in there own sectional config
-        if os_release('cinder-common') >= "ocata":
+        if CompareOpenStackReleases(os_release('cinder-common')) >= "ocata":
             if relation_ids('ceph'):
                 backends.append('CEPH')
             if enable_lvm():
@@ -213,8 +215,9 @@ class SectionalConfigContext(OSContextGenerator):
     """
 
     def __call__(self):
+        cmp_os_release = CompareOpenStackReleases(os_release('cinder-common'))
         return {
-            'sectional_default_config': os_release('cinder-common') >= "ocata"
+            'sectional_default_config': cmp_os_release >= "ocata"
         }
 
 

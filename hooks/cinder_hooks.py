@@ -85,6 +85,7 @@ from charmhelpers.contrib.openstack.utils import (
     os_release,
     is_unit_paused_set,
     pausable_restart_on_change as restart_on_change,
+    CompareOpenStackReleases,
 )
 
 from charmhelpers.contrib.storage.linux.ceph import (
@@ -334,7 +335,7 @@ def identity_joined(rid=None):
         'cinder_internal_url': internal_url,
         'cinder_admin_url': admin_url,
     }
-    if os_release('cinder-common') >= 'icehouse':
+    if CompareOpenStackReleases(os_release('cinder-common')) >= 'icehouse':
         # NOTE(jamespage) register v2 endpoint as well
         public_url = '{}:{}/v2/$(tenant_id)s'.format(
             canonical_url(CONFIGS, PUBLIC),

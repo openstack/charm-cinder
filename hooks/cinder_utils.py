@@ -49,6 +49,7 @@ from charmhelpers.core.host import (
     adduser,
     add_group,
     add_user_to_group,
+    CompareHostReleases,
     lsb_release,
     mkdir,
     mounts,
@@ -107,6 +108,7 @@ from charmhelpers.contrib.openstack.utils import (
     os_application_version_set,
     token_cache_pkgs,
     enable_memcache,
+    CompareOpenStackReleases,
 )
 
 from charmhelpers.core.decorators import (
@@ -763,13 +765,14 @@ def do_openstack_upgrade(configs):
 
 def setup_ipv6():
     ubuntu_rel = lsb_release()['DISTRIB_CODENAME'].lower()
-    if ubuntu_rel < "trusty":
+    if CompareHostReleases(ubuntu_rel) < "trusty":
         raise Exception("IPv6 is not supported in the charms for Ubuntu "
                         "versions less than Trusty 14.04")
 
     # Need haproxy >= 1.5.3 for ipv6 so for Trusty if we are <= Kilo we need to
     # use trusty-backports otherwise we can use the UCA.
-    if ubuntu_rel == 'trusty' and os_release('cinder') < 'liberty':
+    if (ubuntu_rel == 'trusty' and
+            CompareOpenStackReleases(os_release('cinder')) < 'liberty'):
         add_source('deb http://archive.ubuntu.com/ubuntu trusty-backports '
                    'main')
         apt_update()
@@ -1081,7 +1084,7 @@ def run_in_apache():
     """Return true if cinder API is run under apache2 with mod_wsgi in
     this release.
     """
-    return os_release('cinder-common') >= 'ocata'
+    return CompareOpenStackReleases(os_release('cinder-common')) >= 'ocata'
 
 
 def disable_package_apache_site():
