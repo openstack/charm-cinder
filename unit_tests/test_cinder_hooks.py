@@ -74,9 +74,8 @@ TO_PATCH = [
     'relation_get',
     'relation_ids',
     'relation_set',
+    'related_units',
     'service_name',
-    'unit_get',
-    'network_get_primary_address',
     'open_port',
     # charmhelpers.core.host
     'apt_install',
@@ -97,6 +96,7 @@ TO_PATCH = [
     'get_ipv6_addr',
     'sync_db_with_multi_ipv6_addresses',
     'delete_keyring',
+    'get_relation_ip',
 ]
 
 
@@ -430,39 +430,15 @@ class TestJoinedHooks(CharmTestCase):
     def setUp(self):
         super(TestJoinedHooks, self).setUp(hooks, TO_PATCH)
         self.config.side_effect = self.test_config.get
-        self.network_get_primary_address.side_effect = NotImplementedError
 
     def test_db_joined(self):
         'It properly requests access to a shared-db service'
-        self.unit_get.return_value = 'cindernode1'
+        self.get_relation_ip.return_value = '10.0.0.1'
         self.is_relation_made.return_value = False
         hooks.hooks.execute(['hooks/shared-db-relation-joined'])
         expected = {'username': 'cinder',
-                    'hostname': 'cindernode1', 'database': 'cinder'}
+                    'hostname': '10.0.0.1', 'database': 'cinder'}
         self.relation_set.assert_called_with(**expected)
-
-    def test_db_joined_spaces(self):
-        'Ensure network space binding is used when provided'
-        self.network_get_primary_address.side_effect = None
-        self.network_get_primary_address.return_value = '192.168.20.1'
-        self.unit_get.return_value = 'cindernode1'
-        self.is_relation_made.return_value = False
-        hooks.hooks.execute(['hooks/shared-db-relation-joined'])
-        expected = {'username': 'cinder',
-                    'hostname': '192.168.20.1', 'database': 'cinder'}
-        self.relation_set.assert_called_with(**expected)
-
-    def test_db_joined_with_ipv6(self):
-        'It properly requests access to a shared-db service'
-        self.unit_get.return_value = 'cindernode1'
-        self.get_ipv6_addr.return_value = ['2001:db8:1::1']
-        self.sync_db_with_multi_ipv6_addresses.return_value = MagicMock()
-        self.is_relation_made.return_value = False
-        self.test_config.set('prefer-ipv6', True)
-        self.test_config.set('vip', 'dummy_vip')
-        hooks.hooks.execute(['hooks/shared-db-relation-joined'])
-        self.sync_db_with_multi_ipv6_addresses.assert_called_with(
-            'cinder', 'cinder')
 
     def test_db_joined_with_postgresql(self):
         self.is_relation_made.return_value = True
@@ -475,7 +451,6 @@ class TestJoinedHooks(CharmTestCase):
 
     def test_postgresql_db_joined(self):
         'It properly requests access to a postgresql-db service'
-        self.unit_get.return_value = 'cindernode1'
         self.is_relation_made.return_value = False
         hooks.hooks.execute(['hooks/pgsql-db-relation-joined'])
         expected = {'database': 'cinder'}
@@ -510,7 +485,6 @@ class TestJoinedHooks(CharmTestCase):
     def test_identity_service_joined(self, _canonical_url):
         'It properly requests unclustered endpoint via identity-service'
         self.os_release.return_value = 'havana'
-        self.unit_get.return_value = 'cindernode1'
         self.config.side_effect = self.test_config.get
         _canonical_url.return_value = 'http://cindernode1'
         hooks.hooks.execute(['hooks/identity-service-relation-joined'])
@@ -541,7 +515,6 @@ class TestJoinedHooks(CharmTestCase):
     def test_identity_service_joined_icehouse(self, _canonical_url):
         'It properly requests unclustered endpoint via identity-service'
         self.os_release.return_value = 'icehouse'
-        self.unit_get.return_value = 'cindernode1'
         self.config.side_effect = self.test_config.get
         _canonical_url.return_value = 'http://cindernode1'
         hooks.hooks.execute(['hooks/identity-service-relation-joined'])
@@ -572,7 +545,6 @@ class TestJoinedHooks(CharmTestCase):
     def test_identity_service_joined_public_name(self, _is_clustered,
                                                  _unit_get, _config):
         self.os_release.return_value = 'icehouse'
-        self.unit_get.return_value = 'cindernode1'
         _unit_get.return_value = 'cindernode1'
         self.config.side_effect = self.test_config.get
         _config.side_effect = self.test_config.get
