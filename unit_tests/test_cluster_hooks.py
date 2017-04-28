@@ -56,7 +56,6 @@ TO_PATCH = [
     'relation_get',
     'relation_ids',
     'service_name',
-    'unit_get',
     # charmhelpers.core.host
     'apt_install',
     'apt_update',
@@ -69,6 +68,7 @@ TO_PATCH = [
     'get_iface_for_address',
     'get_netmask_for_address',
     'get_address_in_network',
+    'get_relation_ip',
 ]
 
 
