@@ -93,7 +93,6 @@ TO_PATCH = [
     'is_elected_leader',
     'get_hacluster_config',
     'execd_preinstall',
-    'get_ipv6_addr',
     'sync_db_with_multi_ipv6_addresses',
     'delete_keyring',
     'get_relation_ip',

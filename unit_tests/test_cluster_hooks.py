@@ -67,7 +67,6 @@ TO_PATCH = [
     # charmhelpers.contrib.network.ip
     'get_iface_for_address',
     'get_netmask_for_address',
-    'get_address_in_network',
     'get_relation_ip',
 ]
 
@@ -108,26 +107,20 @@ class TestClusterHooks(CharmTestCase):
     @patch.object(hooks, 'check_db_initialised', lambda *args, **kwargs: None)
     def test_cluster_joined_hook(self):
         self.config.side_effect = self.test_config.get
-        self.get_address_in_network.return_value = None
         hooks.hooks.execute(['hooks/cluster-relation-joined'])
-        self.assertFalse(self.relation_set.called)
+        self.assertTrue(self.relation_set.called)
 
     @patch.object(hooks, 'check_db_initialised', lambda *args, **kwargs: None)
     def test_cluster_joined_hook_multinet(self):
         self.config.side_effect = self.test_config.get
-        self.get_address_in_network.side_effect = [
-            '192.168.20.2',
-            '10.20.3.2',
-            '146.162.23.45'
-        ]
+        self.get_relation_ip.return_value = '10.1.1.1'
         hooks.hooks.execute(['hooks/cluster-relation-joined'])
         self.relation_set.assert_has_calls([
-            call(relation_id=None,
-                 relation_settings={'admin-address': '192.168.20.2'}),
-            call(relation_id=None,
-                 relation_settings={'internal-address': '10.20.3.2'}),
-            call(relation_id=None,
-                 relation_settings={'public-address': '146.162.23.45'}),
+            call(relation_id=None, relation_settings={
+                 'private-address': '10.1.1.1',
+                 'admin-address': '10.1.1.1',
+                 'internal-address': '10.1.1.1',
+                 'public-address': '10.1.1.1'})
         ])
 
     def test_ha_joined_complete_config(self):

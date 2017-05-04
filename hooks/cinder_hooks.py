@@ -108,8 +108,6 @@ from charmhelpers.payload.execd import execd_preinstall
 from charmhelpers.contrib.network.ip import (
     get_iface_for_address,
     get_netmask_for_address,
-    get_address_in_network,
-    get_ipv6_addr,
     is_ipv6,
     get_relation_ip,
 )
@@ -429,24 +427,22 @@ def ceph_broken():
 
 @hooks.hook('cluster-relation-joined')
 def cluster_joined(relation_id=None):
+    settings = {}
+
     for addr_type in ADDRESS_TYPES:
-        address = get_address_in_network(
-            config('os-{}-network'.format(addr_type))
-        )
+        address = get_relation_ip(
+            addr_type,
+            cidr_network=config('os-{}-network'.format(addr_type)))
         if address:
-            relation_set(
-                relation_id=relation_id,
-                relation_settings={'{}-address'.format(addr_type): address}
-            )
+            settings['{}-address'.format(addr_type)] = address
+
+    settings['private-address'] = get_relation_ip('cluster')
+
+    relation_set(relation_id=relation_id, relation_settings=settings)
 
     # Only do if this is fired by cluster rel
     if not relation_id:
         check_db_initialised()
-
-    if config('prefer-ipv6'):
-        private_addr = get_ipv6_addr(exc_list=[config('vip')])[0]
-        relation_set(relation_id=relation_id,
-                     relation_settings={'private-address': private_addr})
 
 
 @hooks.hook('cluster-relation-changed',
