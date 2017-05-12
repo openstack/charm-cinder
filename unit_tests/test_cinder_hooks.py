@@ -538,6 +538,40 @@ class TestJoinedHooks(CharmTestCase):
         }
         self.relation_set.assert_called_with(**expected)
 
+    @patch.object(hooks, 'canonical_url')
+    def test_identity_service_joined_pike(self, _canonical_url):
+        'It properly requests unclustered endpoint via identity-service'
+        self.os_release.return_value = 'pike'
+        self.config.side_effect = self.test_config.get
+        _canonical_url.return_value = 'http://cindernode1'
+        hooks.hooks.execute(['hooks/identity-service-relation-joined'])
+        expected = {
+            'region': None,
+            'service': None,
+            'public_url': None,
+            'internal_url': None,
+            'admin_url': None,
+            'cinder_service': 'cinder',
+            'cinder_region': 'RegionOne',
+            'cinder_public_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_admin_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinder_internal_url': 'http://cindernode1:8776/v1/$(tenant_id)s',
+            'cinderv2_service': 'cinderv2',
+            'cinderv2_region': 'RegionOne',
+            'cinderv2_public_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
+            'cinderv2_admin_url': 'http://cindernode1:8776/v2/$(tenant_id)s',
+            'cinderv2_internal_url': 'http://cindernode1:8776/'
+                                     'v2/$(tenant_id)s',
+            'cinderv3_service': 'cinderv3',
+            'cinderv3_region': 'RegionOne',
+            'cinderv3_public_url': 'http://cindernode1:8776/v3/$(tenant_id)s',
+            'cinderv3_admin_url': 'http://cindernode1:8776/v3/$(tenant_id)s',
+            'cinderv3_internal_url': 'http://cindernode1:8776/'
+                                     'v3/$(tenant_id)s',
+            'relation_id': None,
+        }
+        self.relation_set.assert_called_with(**expected)
+
     @patch('charmhelpers.contrib.openstack.ip.config')
     @patch('charmhelpers.contrib.openstack.ip.unit_get')
     @patch('charmhelpers.contrib.openstack.ip.is_clustered')

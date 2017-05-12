@@ -355,6 +355,27 @@ def identity_joined(rid=None):
             'cinderv2_internal_url': internal_url,
             'cinderv2_admin_url': admin_url,
         })
+    if CompareOpenStackReleases(os_release('cinder-common')) >= 'pike':
+        # NOTE(jamespage) register v3 endpoint as well
+        public_url = '{}:{}/v3/$(tenant_id)s'.format(
+            canonical_url(CONFIGS, PUBLIC),
+            config('api-listening-port')
+        )
+        internal_url = '{}:{}/v3/$(tenant_id)s'.format(
+            canonical_url(CONFIGS, INTERNAL),
+            config('api-listening-port')
+        )
+        admin_url = '{}:{}/v3/$(tenant_id)s'.format(
+            canonical_url(CONFIGS, ADMIN),
+            config('api-listening-port')
+        )
+        settings.update({
+            'cinderv3_region': config('region'),
+            'cinderv3_service': 'cinderv3',
+            'cinderv3_public_url': public_url,
+            'cinderv3_internal_url': internal_url,
+            'cinderv3_admin_url': admin_url,
+        })
     relation_set(relation_id=rid, **settings)
 
 
