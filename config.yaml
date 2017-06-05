@@ -1,11 +1,11 @@
 options:
   debug:
-    default: False
     type: boolean
+    default: False
     description: Enable debug logging.
   verbose:
-    default: False
     type: boolean
+    default: False
     description: Enable verbose logging.
   use-syslog:
     type: boolean
@@ -13,44 +13,38 @@ options:
     description: |
       Setting this to True will allow supporting services to log to syslog.
   openstack-origin:
-    default: distro
     type: string
+    default: distro
     description: |
-      Repository from which to install.  May be one of the following:
+      Repository from which to install. May be one of the following:
       distro (default), ppa:somecustom/ppa, a deb url sources entry,
-      or a supported Cloud Archive release pocket.
-
-      Supported Cloud Archive sources include:
-
+      or a supported Ubuntu Cloud Archive e.g.
+      .
       cloud:<series>-<openstack-release>
       cloud:<series>-<openstack-release>/updates
       cloud:<series>-<openstack-release>/staging
       cloud:<series>-<openstack-release>/proposed
-
-      For series=Precise we support cloud archives for openstack-release:
-         * icehouse
-
-      For series=Trusty we support cloud archives for openstack-release:
-         * juno
-         * kilo
-         * ...
-
+      .
+      See https://wiki.ubuntu.com/OpenStack/CloudArchive for info on which
+      cloud archives are available and supported.
+      .
       NOTE: updating this setting to a source that is known to provide
-      a later version of OpenStack will trigger a software upgrade.
+      a later version of OpenStack will trigger a software upgrade unless
+      action-managed-upgrade is set to True.
   openstack-origin-git:
-    default:
     type: string
+    default:
     description: |
       Specifies a default OpenStack release name, or a YAML dictionary
       listing the git repositories to install from.
-
+      .
       The default Openstack release name may be one of the following, where
       the corresponding OpenStack github branch will be used:
         * liberty
         * mitaka
         * newton
         * master
-
+      .
       The YAML must minimally include requirements and cinder repositories,
       and may also include repositories for other dependencies:
         repositories:
@@ -61,57 +55,63 @@ options:
            repository: 'git://github.com/openstack/cinder',
            branch: master}
         release: master
-  enabled-services:
-    default: all
+  action-managed-upgrade:
+    type: boolean
+    default: False
+    description: |
+      If True enables openstack upgrades for this charm via juju actions.
+      You will still need to set openstack-origin to the new repository but
+      instead of an upgrade running automatically across all units, it will
+      wait for you to execute the openstack-upgrade action for this charm on
+      each unit. If False it will revert to existing behavior of upgrading
+      all units on config change.
+  harden:
     type: string
+    default:
+    description: |
+      Apply system hardening. Supports a space-delimited list of modules
+      to run. Supported modules currently include os, ssh, apache and mysql.
+  enabled-services:
+    type: string
+    default: all
     description: |
       If splitting cinder services between units, define which services
       to install and configure.
   block-device:
-    default: sdb
     type: string
+    default: sdb
     description: |
       The block devices on which to create LVM volume group.
-
+      .
       May be set to None for deployments that will not need local
       storage (eg, Ceph/RBD-backed volumes).
-
-      This can also be a space delimited list of block devices to attempt
+      .
+      This can also be a space-delimited list of block devices to attempt
       to use in the cinder LVM volume group - each block device detected
       will be added to the available physical volumes in the volume group.
-
+      .
       May be set to the path and size of a local file
       (/path/to/file.img|$sizeG), which will be created and used as a
-      loopback device (for testing only).  $sizeG defaults to 5G
-  ceph-osd-replication-count:
-    default: 3
-    type: int
-    description: |
-      This value dictates the number of replicas ceph must make of any
-      object it stores withing the cinder rbd pool. Of course, this only
-      applies if using Ceph as a backend store. Note that once the cinder
-      rbd pool has been created, changing this value will not have any
-      effect (although it can be changed in ceph by manually configuring
-      your ceph cluster).
+      loopback device (for testing only). $sizeG defaults to 5G
   volume-group:
-    default: cinder-volumes
     type: string
+    default: cinder-volumes
     description: Name of volume group to create and store Cinder volumes.
   overwrite:
-    default: "false"
     type: string
+    default: "false"
     description: |
       If true, charm will attempt to overwrite block devices containing
       previous filesystems or LVM, assuming it is not in use.
   remove-missing:
-    default: False
     type: boolean
+    default: False
     description: |
       If True, charm will attempt to remove missing physical volumes from
       volume group, if logical volumes are not allocated on them.
   remove-missing-force:
-    default: False
     type: boolean
+    default: False
     description: |
       If True, charm will attempt to remove missing physical volumes from
       volume group, even when logical volumes are allocated on them. This
@@ -120,58 +120,135 @@ options:
     type: string
     default:
     description: |
-      Cloud instances provide ephermeral storage which is normally mounted
+      Cloud instances provide ephemeral storage which is normally mounted
       on /mnt.
       .
       Providing this option will force an unmount of the ephemeral device
-      so that it can be used as a Cinder storage device.  This is useful for
+      so that it can be used as a Cinder storage device. This is useful for
       testing purposes (cloud deployment is not a typical use case).
   database-user:
-    default: cinder
     type: string
+    default: cinder
     description: Username to request database access.
   database:
-    default: cinder
     type: string
+    default: cinder
     description: Database to request access.
   rabbit-user:
-    default: cinder
     type: string
+    default: cinder
     description: Username to request access on rabbitmq-server.
   rabbit-vhost:
+    type: string
     default: openstack
-    type: string
     description: RabbitMQ virtual host to request access on rabbitmq-server.
-  api-listening-port:
-    default: 8776
-    type: int
-    description: OpenStack Volume API listening port.
   region:
-    default: RegionOne
     type: string
+    default: RegionOne
     description: OpenStack Region
-  use-internal-endpoints:
-    default: False
-    type: boolean
-    description: |
-      Openstack mostly defaults to using public endpoints for
-      internal communication between services. If set to True this option will
-      configure services to use internal endpoints where possible.
   glance-api-version:
-    default: 1
     type: int
+    default: 1
     description: |
       Newer storage drivers may require the v2 Glance API to perform certain
       actions e.g. the RBD driver requires requires this to support COW
       cloning of images. This option will default to v1 for backwards
-      compatibility older glance services.
-  # HA configuration settings
+      compatibility with older glance services.
+  config-flags:
+    type: string
+    default:
+    description: |
+      Comma-separated list of key=value config flags. These values will be
+      placed in the cinder.conf [DEFAULT] section.
+  api-listening-port:
+    type: int
+    default: 8776
+    description: OpenStack Volume API listening port.
+  use-internal-endpoints:
+    type: boolean
+    default: False
+    description: |
+      Openstack mostly defaults to using public endpoints for internal
+      communication between services. If set to True this option will
+      configure services to use internal endpoints where possible.
+  worker-multiplier:
+    type: float
+    default:
+    description: |
+      The CPU core multiplier to use when configuring worker processes for
+      Cinder. By default, the number of workers for each daemon is set to
+      twice the number of CPU cores a service unit has. When deployed in
+      a LXD container, this default value will be capped to 4 workers
+      unless this configuration option is set.
+  nagios_context:
+    type: string
+    default: "juju"
+    description: |
+      Used by the nrpe-external-master subordinate charm. A string that will
+      be prepended to instance name to set the host name in nagios. So for
+      instance the hostname would be something like 'juju-myservice-0'. If
+      you are running multiple environments with the same services in them
+      this allows you to differentiate between them.
+  nagios_servicegroups:
+    type: string
+    default: ""
+    description: |
+      A comma-separated list of nagios servicegroups. If left empty, the
+      nagios_context will be used as the servicegroup
+  haproxy-server-timeout:
+    type: int
+    default:
+    description: |
+      Server timeout configuration in ms for haproxy, used in HA
+      configurations. If not provided, default value of 30000ms is used.
+  haproxy-client-timeout:
+    type: int
+    default:
+    description: |
+      Client timeout configuration in ms for haproxy, used in HA
+      configurations. If not provided, default value of 30000ms is used.
+  haproxy-queue-timeout:
+    type: int
+    default:
+    description: |
+      Queue timeout configuration in ms for haproxy, used in HA
+      configurations. If not provided, default value of 5000ms is used.
+  haproxy-connect-timeout:
+    type: int
+    default:
+    description: |
+      Connect timeout configuration in ms for haproxy, used in HA
+      configurations. If not provided, default value of 5000ms is used.
+  volume-usage-audit-period:
+    type: string
+    default: "month"
+    description: |
+      Time period for which to generate volume usages. The options are hour,
+      day, month, or year.
+  # Ceph config.
+  ceph-osd-replication-count:
+    type: int
+    default: 3
+    description: |
+      This value dictates the number of replicas ceph must make of any
+      object it stores within the cinder rbd pool. Of course, this only
+      applies if using Ceph as a backend store. Note that once the cinder
+      rbd pool has been created, changing this value will not have any
+      effect (although the configuration of a pool can be always be changed
+      within ceph itself or via the charm used to deploy ceph).
+  restrict-ceph-pools:
+    type: boolean
+    default: False
+    description: |
+      Cinder can optionally restrict the key it asks Ceph for to only be able
+      to access the pools it needs.
+  # HA config.
   dns-ha:
     type: boolean
     default: False
     description: |
-        Use DNS HA with MAAS 2.0. Note if this is set do not set vip
-        settings below.
+      Use DNS HA with MAAS 2.0. Note if this is set do not set vip settings
+      below.
   vip:
     type: string
     default:
@@ -184,8 +261,8 @@ options:
     type: string
     default: eth0
     description: |
-      Default network interface to use for HA vip when it cannot be automatically
-      determined.
+      Default network interface to use for HA vip when it cannot be
+      automatically determined.
   vip_cidr:
     type: int
     default: 24
@@ -204,14 +281,14 @@ options:
     description: |
       Default multicast port number that will be used to communicate between
       HA Cluster nodes.
-  # Per-service HTTPS configuration.
+  # Per-service HTTPS config.
   ssl_cert:
     type: string
     default:
     description: |
-      SSL certificate to install and use for API ports.  Setting this value
+      SSL certificate to install and use for API ports. Setting this value
       and ssl_key will enable reverse proxying, point Cinder's entry in the
-      Keystone catalog to use https, and override any certficiate and key
+      Keystone catalog to use https, and override any certificate and key
       issued by Keystone (if it is configured to do so).
   ssl_key:
     type: string
@@ -223,19 +300,12 @@ options:
     description: |
       SSL CA to use with the certificate and key provided - this is only
       required if you are providing a privately signed ssl_cert and ssl_key.
-  config-flags:
-    type: string
-    default:
-    description: |
-      Comma-separated list of key=value config flags. These values will be
-      placed in the cinder.conf [DEFAULT] section.
-  # Network configuration options
-  # by default all access is over 'private-address'
+  # Network config (by default all access is over 'private-address').
   os-admin-network:
     type: string
     default:
     description: |
-      The IP address and netmask of the OpenStack Admin network (e.g.,
+      The IP address and netmask of the OpenStack Admin network (e.g.
       192.168.0.0/24)
       .
       This network will be used for admin endpoints.
@@ -243,7 +313,7 @@ options:
     type: string
     default:
     description: |
-      The IP address and netmask of the OpenStack Internal network (e.g.,
+      The IP address and netmask of the OpenStack Internal network (e.g.
       192.168.0.0/24)
       .
       This network will be used for internal endpoints.
@@ -251,7 +321,7 @@ options:
     type: string
     default:
     description: |
-      The IP address and netmask of the OpenStack Public network (e.g.,
+      The IP address and netmask of the OpenStack Public network (e.g.
       192.168.0.0/24)
       .
       This network will be used for public endpoints.
@@ -261,11 +331,11 @@ options:
     description: |
       The hostname or address of the public endpoints created for cinder
       in the keystone identity provider.
-
+      .
       This value will be used for public endpoints. For example, an
       os-public-hostname set to 'cinder.example.com' with ssl enabled will
       create two public endpoints for cinder:
-
+      .
       https://cinder.example.com:443/v1/$(tenant_id)s and
       https://cinder.example.com:443/v2/$(tenant_id)s
   os-internal-hostname:
@@ -274,11 +344,11 @@ options:
     description: |
       The hostname or address of the internal endpoints created for cinder
       in the keystone identity provider.
-
+      .
       This value will be used for internal endpoints. For example, an
       os-internal-hostname set to 'cinder.internal.example.com' with ssl
       enabled will create two internal endpoints for cinder:
-
+      .
       https://cinder.internal.example.com:443/v1/$(tenant_id)s and
       https://cinder.internal.example.com:443/v2/$(tenant_id)s
   os-admin-hostname:
@@ -287,11 +357,11 @@ options:
     description: |
       The hostname or address of the admin endpoints created for cinder
       in the keystone identity provider.
-
+      .
       This value will be used for admin endpoints. For example, an
       os-admin-hostname set to 'cinder.admin.example.com' with ssl enabled will
       create two admin endpoints for cinder:
-
+      .
       https://cinder.admin.example.com:443/v1/$(tenant_id)s and
       https://cinder.admin.example.com:443/v2/$(tenant_id)s
   prefer-ipv6:
@@ -301,85 +371,8 @@ options:
       If True enables IPv6 support. The charm will expect network interfaces
       to be configured with an IPv6 address. If set to False (default) IPv4
       is expected.
-
+      .
       NOTE: these charms do not currently support IPv6 privacy extension. In
       order for this charm to function correctly, the privacy extension must be
       disabled and a non-temporary address must be configured/available on
       your network interface.
-  worker-multiplier:
-    type: float
-    default:
-    description: |
-      The CPU core multiplier to use when configuring worker processes for
-      Cinder.  By default, the number of workers for each daemon is set to
-      twice the number of CPU cores a service unit has.  When deployed in
-      a LXD container, this default value will be capped to 4 workers
-      unless this configuration option is set.
-  nagios_context:
-    default: "juju"
-    type: string
-    description: |
-      Used by the nrpe-external-master subordinate charm.
-      A string that will be prepended to instance name to set the host name
-      in nagios. So for instance the hostname would be something like:
-          juju-myservice-0
-      If you're running multiple environments with the same services in them
-      this allows you to differentiate between them.
-  nagios_servicegroups:
-    default: ""
-    type: string
-    description: |
-      A comma-separated list of nagios servicegroups.
-      If left empty, the nagios_context will be used as the servicegroup
-  action-managed-upgrade:
-    type: boolean
-    default: False
-    description: |
-      If True enables openstack upgrades for this charm via juju actions.
-      You will still need to set openstack-origin to the new repository but
-      instead of an upgrade running automatically across all units, it will
-      wait for you to execute the openstack-upgrade action for this charm on
-      each unit. If False it will revert to existing behavior of upgrading
-      all units on config change.
-  haproxy-server-timeout:
-    type: int
-    default:
-    description: |
-       Server timeout configuration in ms for haproxy, used in HA
-       configurations. If not provided, default value of 30000ms is used.
-  haproxy-client-timeout:
-    type: int
-    default:
-    description: |
-       Client timeout configuration in ms for haproxy, used in HA
-       configurations. If not provided, default value of 30000ms is used.
-  haproxy-queue-timeout:
-    type: int
-    default:
-    description: |
-       Queue timeout configuration in ms for haproxy, used in HA
-       configurations. If not provided, default value of 5000ms is used.
-  haproxy-connect-timeout:
-    type: int
-    default:
-    description: |
-       Connect timeout configuration in ms for haproxy, used in HA
-       configurations. If not provided, default value of 5000ms is used.
-  harden:
-    default:
-    type: string
-    description: |
-      Apply system hardening. Supports a space-delimited list of modules
-      to run. Supported modules currently include os, ssh, apache and mysql.
-  volume-usage-audit-period:
-    default: "month"
-    type: string
-    description: |
-      Time period for which to generate volume usages. The options are hour,
-      day, month, or year.
-  restrict-ceph-pools:
-    default: False
-    type: boolean
-    description: |
-      Cinder can optionally restrict the key it asks Ceph for to only be able
-      to access the pools it needs.
