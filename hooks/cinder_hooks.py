@@ -306,34 +306,37 @@ def amqp_departed():
 
 @hooks.hook('identity-service-relation-joined')
 def identity_joined(rid=None):
+    settings = {}
+
     if not service_enabled('api'):
         juju_log('api service not enabled; skipping endpoint registration')
         return
 
-    public_url = '{}:{}/v1/$(tenant_id)s'.format(
-        canonical_url(CONFIGS, PUBLIC),
-        config('api-listening-port')
-    )
-    internal_url = '{}:{}/v1/$(tenant_id)s'.format(
-        canonical_url(CONFIGS, INTERNAL),
-        config('api-listening-port')
-    )
-    admin_url = '{}:{}/v1/$(tenant_id)s'.format(
-        canonical_url(CONFIGS, ADMIN),
-        config('api-listening-port')
-    )
-    settings = {
-        'region': None,
-        'service': None,
-        'public_url': None,
-        'internal_url': None,
-        'admin_url': None,
-        'cinder_region': config('region'),
-        'cinder_service': 'cinder',
-        'cinder_public_url': public_url,
-        'cinder_internal_url': internal_url,
-        'cinder_admin_url': admin_url,
-    }
+    if CompareOpenStackReleases(os_release('cinder-common')) < 'pike':
+        public_url = '{}:{}/v1/$(tenant_id)s'.format(
+            canonical_url(CONFIGS, PUBLIC),
+            config('api-listening-port')
+        )
+        internal_url = '{}:{}/v1/$(tenant_id)s'.format(
+            canonical_url(CONFIGS, INTERNAL),
+            config('api-listening-port')
+        )
+        admin_url = '{}:{}/v1/$(tenant_id)s'.format(
+            canonical_url(CONFIGS, ADMIN),
+            config('api-listening-port')
+        )
+        settings.update({
+            'region': None,
+            'service': None,
+            'public_url': None,
+            'internal_url': None,
+            'admin_url': None,
+            'cinder_region': config('region'),
+            'cinder_service': 'cinder',
+            'cinder_public_url': public_url,
+            'cinder_internal_url': internal_url,
+            'cinder_admin_url': admin_url,
+        })
     if CompareOpenStackReleases(os_release('cinder-common')) >= 'icehouse':
         # NOTE(jamespage) register v2 endpoint as well
         public_url = '{}:{}/v2/$(tenant_id)s'.format(

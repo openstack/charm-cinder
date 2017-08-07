@@ -336,8 +336,8 @@ options:
       os-public-hostname set to 'cinder.example.com' with ssl enabled will
       create two public endpoints for cinder:
       .
-      https://cinder.example.com:443/v1/$(tenant_id)s and
-      https://cinder.example.com:443/v2/$(tenant_id)s
+      https://cinder.example.com:443/v2/$(tenant_id)s and
+      https://cinder.example.com:443/v3/$(tenant_id)s
   os-internal-hostname:
     type: string
     default:
@@ -349,8 +349,8 @@ options:
       os-internal-hostname set to 'cinder.internal.example.com' with ssl
       enabled will create two internal endpoints for cinder:
       .
-      https://cinder.internal.example.com:443/v1/$(tenant_id)s and
-      https://cinder.internal.example.com:443/v2/$(tenant_id)s
+      https://cinder.internal.example.com:443/v2/$(tenant_id)s and
+      https://cinder.internal.example.com:443/v3/$(tenant_id)s
   os-admin-hostname:
     type: string
     default:
@@ -362,8 +362,8 @@ options:
       os-admin-hostname set to 'cinder.admin.example.com' with ssl enabled will
       create two admin endpoints for cinder:
       .
-      https://cinder.admin.example.com:443/v1/$(tenant_id)s and
-      https://cinder.admin.example.com:443/v2/$(tenant_id)s
+      https://cinder.admin.example.com:443/v2/$(tenant_id)s and
+      https://cinder.admin.example.com:443/v3/$(tenant_id)s
   prefer-ipv6:
     type: boolean
     default: False
