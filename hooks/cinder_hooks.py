@@ -42,7 +42,7 @@ from cinder_utils import (
     CINDER_API_CONF,
     ceph_config_file,
     setup_ipv6,
-    check_db_initialised,
+    check_local_db_actions_complete,
     filesystem_mounted,
     assess_status,
 )
@@ -467,14 +467,14 @@ def cluster_joined(relation_id=None):
 
     # Only do if this is fired by cluster rel
     if not relation_id:
-        check_db_initialised()
+        check_local_db_actions_complete()
 
 
 @hooks.hook('cluster-relation-changed',
             'cluster-relation-departed')
 @restart_on_change(restart_map(), stopstart=True)
 def cluster_changed():
-    check_db_initialised()
+    check_local_db_actions_complete()
     CONFIGS.write_all()
 
 

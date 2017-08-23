@@ -622,12 +622,11 @@ def _parse_block_device(block_device):
         return ('/dev/{}'.format(block_device), 0)
 
 
-def is_db_intialised(cluster_rid=None):
+def is_db_initialised(cluster_rid=None):
     """
-    Check whether a db intialisation has been performed by any unit in this
-    cluster.
+    Check whether a db intialisation has been performed by any peer unit.
 
-    We make decision based in whether we or any of our peers has previously
+    We base our decision on whether we or any of our peers has previously
     sent or echoed an initialisation notification.
 
     @param cluster_rid: current relation id. If none provided, all cluster
@@ -639,30 +638,37 @@ def is_db_intialised(cluster_rid=None):
     else:
         rids = relation_ids('cluster')
 
-    settings = {}
     for c_rid in rids:
         units = related_units(relid=c_rid) + [local_unit()]
         for unit in units:
-                _settings = relation_get(unit=unit, rid=c_rid) or {}
-                for key in [CINDER_DB_INIT_RKEY, CINDER_DB_INIT_ECHO_RKEY]:
-                    if _settings.get(key):
-                        settings[key] = _settings.get(key)
+            settings = relation_get(unit=unit, rid=c_rid) or {}
+            for key in [CINDER_DB_INIT_RKEY, CINDER_DB_INIT_ECHO_RKEY]:
+                if settings.get(key):
+                    return True
 
-    if not settings:
-        return False
-
-    if (settings.get(CINDER_DB_INIT_RKEY) or
-            settings.get(CINDER_DB_INIT_ECHO_RKEY)):
-        return True
+    return False
 
 
-def check_db_initialised():
-    """Check if we have received db init'd notify and restart services if we
-    have not already.
+def is_new_dbinit_notification(init_id, echoed_init_id):
+    """Returns True if we have a received a new db initialisation notification
+    from a peer unit and we have not previously echoed it to indicate that we
+    have already performed the necessary actions as result.
+
+    @param init_db: received initialisation notification.
+    @param echoed_init_db: value currently set for the echo key.
+    @return: True if new notification and False if not.
+    """
+    return (init_id and (local_unit() not in init_id) and
+            (echoed_init_id != init_id))
+
+
+def check_local_db_actions_complete():
+    """Check if we have received db init'd notification and restart services
+    if we have not already.
 
     NOTE: this must only be called from peer relation context.
     """
-    if not is_db_intialised():
+    if not is_db_initialised():
         return
 
     settings = relation_get() or {}
@@ -671,18 +677,18 @@ def check_db_initialised():
         echoed_init_id = relation_get(unit=local_unit(),
                                       attribute=CINDER_DB_INIT_ECHO_RKEY)
 
-        # If this unit has previously received an init notification (and echoed
-        # it) then we can ignore further notifications.
-        if not echoed_init_id:
-            if init_id and local_unit() not in init_id:
-                log("Restarting cinder services following db initialisation",
-                    level=DEBUG)
-                if not is_unit_paused_set():
-                    for svc in enabled_services():
-                        service_restart(svc)
+        # If we have received an init notification from a peer unit
+        # (assumed to be the leader) then restart cinder-* and echo the
+        # notification and don't restart again unless we receive a new
+        # (different) notification.
+        if is_new_dbinit_notification(init_id, echoed_init_id):
+            if not is_unit_paused_set():
+                log("Restarting cinder services following db "
+                    "initialisation", level=DEBUG)
+                for svc in enabled_services():
+                    service_restart(svc)
 
-        # Set echo
-        if init_id and local_unit() not in init_id:
+            # Echo notification
             relation_set(**{CINDER_DB_INIT_ECHO_RKEY: init_id})
 
 
@@ -697,7 +703,7 @@ def migrate_database(upgrade=False):
     (leader) unit to perform this action should have broadcast this information
     to its peers so first we check whether this has already occurred.
     """
-    if not upgrade and is_db_intialised():
+    if not upgrade and is_db_initialised():
         log("Database is already initialised.", level=DEBUG)
         return
 
