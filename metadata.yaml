@@ -10,7 +10,6 @@ tags:
 series:
   - xenial
   - zesty
-  - yakkety
   - trusty
 extra-bindings:
   public:
