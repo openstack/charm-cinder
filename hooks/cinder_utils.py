@@ -101,6 +101,7 @@ from charmhelpers.contrib.openstack.utils import (
     git_src_dir,
     git_yaml_value,
     os_release,
+    reset_os_release,
     make_assess_status_func,
     pause_unit,
     resume_unit,
@@ -752,6 +753,7 @@ def do_openstack_upgrade(configs):
     ]
     apt_update()
     apt_upgrade(options=dpkg_opts, fatal=True, dist=True)
+    reset_os_release()
     apt_install(determine_packages(), fatal=True)
 
     # set CONFIGS to load templates from new release and regenerate config
