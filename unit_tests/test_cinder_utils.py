@@ -127,7 +127,7 @@ class TestCinderUtils(CharmTestCase):
         enabled = []
         for s in ['volume', 'api', 'scheduler']:
             enabled.append(cinder_utils.service_enabled(s))
-        self.assertEquals(enabled, [True, True, True])
+        self.assertEqual(enabled, [True, True, True])
 
     def test_service_enabled(self):
         'It determines services are enabled based on config'
@@ -146,11 +146,11 @@ class TestCinderUtils(CharmTestCase):
         git_requested.return_value = False
         service_enabled.return_value = True
         pkgs = cinder_utils.determine_packages()
-        self.assertEquals(sorted(pkgs),
-                          sorted(cinder_utils.COMMON_PACKAGES +
-                                 cinder_utils.VOLUME_PACKAGES +
-                                 cinder_utils.API_PACKAGES +
-                                 cinder_utils.SCHEDULER_PACKAGES))
+        self.assertEqual(sorted(pkgs),
+                         sorted(cinder_utils.COMMON_PACKAGES +
+                                cinder_utils.VOLUME_PACKAGES +
+                                cinder_utils.API_PACKAGES +
+                                cinder_utils.SCHEDULER_PACKAGES))
 
     @patch('cinder_utils.service_enabled')
     @patch('cinder_utils.git_install_requested')
@@ -164,19 +164,19 @@ class TestCinderUtils(CharmTestCase):
         self.test_config.set('enabled-services', 'api')
         pkgs = cinder_utils.determine_packages()
         common = cinder_utils.COMMON_PACKAGES
-        self.assertEquals(
+        self.assertEqual(
             sorted(pkgs),
             sorted(common + cinder_utils.API_PACKAGES + ['memcached']))
         self.test_config.set('enabled-services', 'volume')
         pkgs = cinder_utils.determine_packages()
         common = cinder_utils.COMMON_PACKAGES
-        self.assertEquals(
+        self.assertEqual(
             sorted(pkgs),
             sorted(common + cinder_utils.VOLUME_PACKAGES + ['memcached']))
         self.test_config.set('enabled-services', 'api,scheduler')
         pkgs = cinder_utils.determine_packages()
         common = cinder_utils.COMMON_PACKAGES
-        self.assertEquals(
+        self.assertEqual(
             sorted(pkgs),
             sorted(common + cinder_utils.API_PACKAGES + ['memcached'] +
                    cinder_utils.SCHEDULER_PACKAGES))
@@ -187,7 +187,7 @@ class TestCinderUtils(CharmTestCase):
             ('test_conf1', ['svc1']),
             ('test_conf2', ['svc2', 'svc3', 'svc1']),
         ])
-        self.assertEquals(cinder_utils.services(), ['svc2', 'svc3', 'svc1'])
+        self.assertEqual(cinder_utils.services(), ['svc2', 'svc3', 'svc1'])
 
     @patch('cinder_utils.service_enabled')
     @patch('os.path.exists')
@@ -209,8 +209,8 @@ class TestCinderUtils(CharmTestCase):
              ['apache2']),
         ])
         for cfg in ex_map.keys():
-            self.assertEquals(cinder_utils.resource_map()[cfg]['services'],
-                              ex_map[cfg])
+            self.assertEqual(cinder_utils.resource_map()[cfg]['services'],
+                             ex_map[cfg])
 
     @patch('cinder_utils.service_enabled')
     @patch('os.path.exists')
@@ -231,8 +231,8 @@ class TestCinderUtils(CharmTestCase):
              ['apache2']),
         ])
         for cfg in ex_map.keys():
-            self.assertEquals(cinder_utils.resource_map()[cfg]['services'],
-                              ex_map[cfg])
+            self.assertEqual(cinder_utils.resource_map()[cfg]['services'],
+                             ex_map[cfg])
 
     @patch('cinder_utils.service_enabled')
     @patch('os.path.exists')
@@ -370,7 +370,7 @@ class TestCinderUtils(CharmTestCase):
         ex_map = OrderedDict([
             ('/etc/testfile1.conf', ['svc1']),
         ])
-        self.assertEquals(cinder_utils.restart_map(), ex_map)
+        self.assertEqual(cinder_utils.restart_map(), ex_map)
 
     def test_clean_storage_unmount(self):
         'It unmounts block device when cleaning storage'
@@ -810,7 +810,7 @@ class TestCinderUtils(CharmTestCase):
             call('/var/log/cinder', owner='cinder', perms=488, force=False,
                  group='cinder'),
         ]
-        self.assertEquals(mkdir.call_args_list, expected)
+        self.assertEqual(mkdir.call_args_list, expected)
         expected = [
             call('/var/log/cinder/cinder-api.log', '', perms=0600,
                  owner='cinder', group='cinder'),
@@ -821,7 +821,7 @@ class TestCinderUtils(CharmTestCase):
             call('/var/log/cinder/cinder-volume.log', '', perms=0600,
                  owner='cinder', group='cinder'),
         ]
-        self.assertEquals(write_file.call_args_list, expected)
+        self.assertEqual(write_file.call_args_list, expected)
 
     @patch.object(cinder_utils, 'services')
     @patch('os.path.join')
@@ -912,9 +912,9 @@ class TestCinderUtils(CharmTestCase):
                  cinder_volume_context, perms=0o644,
                  templates_dir='joined-string'),
         ]
-        self.assertEquals(self.render.call_args_list, expected)
+        self.assertEqual(self.render.call_args_list, expected)
         expected = [call('tgtd'), call('svc1')]
-        self.assertEquals(self.service_restart.call_args_list, expected)
+        self.assertEqual(self.service_restart.call_args_list, expected)
 
     @patch.object(cinder_utils, 'services')
     @patch('os.path.join')
@@ -948,7 +948,7 @@ class TestCinderUtils(CharmTestCase):
             call('git/cinder-volume.init.in.template', 'joined-string',
                  {'daemon_path': 'joined-string'}, perms=420),
         ]
-        self.assertEquals(self.render.call_args_list, expected)
+        self.assertEqual(self.render.call_args_list, expected)
 
     @patch.object(cinder_utils, 'local_unit', lambda *args: 'unit/0')
     def test_check_local_db_actions_complete_by_self(self):

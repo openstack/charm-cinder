@@ -103,7 +103,7 @@ class TestClusterHooks(CharmTestCase):
             call('stop', 'apache2'),
             call('start', 'apache2'),
         ]
-        self.assertEquals(ex, service.call_args_list)
+        self.assertEqual(ex, service.call_args_list)
 
     @patch.object(hooks, 'check_local_db_actions_complete',
                   lambda *args, **kwargs: None)

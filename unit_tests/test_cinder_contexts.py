@@ -50,30 +50,30 @@ class TestCinderContext(CharmTestCase):
 
     def test_glance_not_related(self):
         self.relation_ids.return_value = []
-        self.assertEquals(contexts.ImageServiceContext()(), {})
+        self.assertEqual(contexts.ImageServiceContext()(), {})
 
     def test_glance_related(self):
         self.relation_ids.return_value = ['image-service:0']
         self.config.return_value = '1'
-        self.assertEquals(contexts.ImageServiceContext()(),
-                          {'glance_api_version': '1'})
+        self.assertEqual(contexts.ImageServiceContext()(),
+                         {'glance_api_version': '1'})
 
     def test_glance_related_api_v2(self):
         self.relation_ids.return_value = ['image-service:0']
         self.config.return_value = '2'
-        self.assertEquals(contexts.ImageServiceContext()(),
-                          {'glance_api_version': '2'})
+        self.assertEqual(contexts.ImageServiceContext()(),
+                         {'glance_api_version': '2'})
 
     def test_ceph_not_related(self):
         self.relation_ids.return_value = []
-        self.assertEquals(contexts.CephContext()(), {})
+        self.assertEqual(contexts.CephContext()(), {})
 
     def test_ceph_related(self):
         self.relation_ids.return_value = ['ceph:0']
         self.os_release.return_value = 'havana'
         service = 'mycinder'
         self.service_name.return_value = service
-        self.assertEquals(
+        self.assertEqual(
             contexts.CephContext()(),
             {'volume_driver': 'cinder.volume.driver.RBDDriver',
              'rbd_pool': service,
@@ -85,7 +85,7 @@ class TestCinderContext(CharmTestCase):
         self.os_release.return_value = 'icehouse'
         service = 'mycinder'
         self.service_name.return_value = service
-        self.assertEquals(
+        self.assertEqual(
             contexts.CephContext()(),
             {'volume_driver': 'cinder.volume.drivers.rbd.RBDDriver',
              'rbd_pool': service,
@@ -97,7 +97,7 @@ class TestCinderContext(CharmTestCase):
         self.os_release.return_value = 'ocata'
         service = 'mycinder'
         self.service_name.return_value = service
-        self.assertEquals(
+        self.assertEqual(
             contexts.CephContext()(),
             {'ceph_volume_driver': 'cinder.volume.drivers.rbd.RBDDriver',
              'rbd_pool': service,
@@ -107,13 +107,13 @@ class TestCinderContext(CharmTestCase):
     @patch.object(utils, 'service_enabled')
     def test_apache_ssl_context_service_disabled(self, service_enabled):
         service_enabled.return_value = False
-        self.assertEquals(contexts.ApacheSSLContext()(), {})
+        self.assertEqual(contexts.ApacheSSLContext()(), {})
 
     def test_storage_backend_no_backends(self):
         self.config.return_value = None
         self.relation_ids.return_value = []
         self.os_release.return_value = 'havana'
-        self.assertEquals(contexts.StorageBackendContext()(), {})
+        self.assertEqual(contexts.StorageBackendContext()(), {})
 
     def test_storage_backend_single_backend(self):
         rel_dict = {
@@ -124,9 +124,9 @@ class TestCinderContext(CharmTestCase):
         self.related_units.return_value = ['cinder-ceph/0']
         self.relation_get.return_value = 'cinder-ceph'
         self.os_release.return_value = 'havana'
-        self.assertEquals(contexts.StorageBackendContext()(),
-                          {'backends': 'cinder-ceph',
-                           'active_backends': ['cinder-ceph']})
+        self.assertEqual(contexts.StorageBackendContext()(),
+                         {'backends': 'cinder-ceph',
+                          'active_backends': ['cinder-ceph']})
 
     def test_storage_backend_multi_backend(self):
         self.config.return_value = None
@@ -138,7 +138,7 @@ class TestCinderContext(CharmTestCase):
         self.related_units.side_effect = [['cinder-ceph/0'],
                                           ['cinder-vmware/0']]
         self.relation_get.side_effect = ['cinder-ceph', 'cinder-vmware']
-        self.assertEquals(
+        self.assertEqual(
             contexts.StorageBackendContext()(),
             {'backends': 'cinder-ceph,cinder-vmware',
              'active_backends': ['cinder-ceph', 'cinder-vmware']})
@@ -179,13 +179,13 @@ class TestCinderContext(CharmTestCase):
         ctxt.configure_ca = MagicMock()
         ctxt.canonical_names = MagicMock()
         service_enabled.return_value = False
-        self.assertEquals(ctxt(), {})
+        self.assertEqual(ctxt(), {})
         self.assertFalse(mock_https.called)
         service_enabled.return_value = True
-        self.assertEquals(ctxt(), {'endpoints': [('1.2.3.4', '1.2.3.4',
-                                                  34, 12)],
-                                   'ext_ports': [34],
-                                   'namespace': 'cinder'})
+        self.assertEqual(ctxt(), {'endpoints': [('1.2.3.4', '1.2.3.4',
+                                                 34, 12)],
+                                  'ext_ports': [34],
+                                  'namespace': 'cinder'})
         self.assertTrue(mock_https.called)
         mock_unit_get.assert_called_with('private-address')
 
@@ -240,7 +240,7 @@ class TestCinderContext(CharmTestCase):
                                 [u'rbd_pool', u'cinder-ceph'],
                                 [u'rbd_user', u'cinder-ceph']]}}
 
-        self.assertEquals(ctxt, exp)
+        self.assertEqual(ctxt, exp)
 
     @patch('%s.relation_get' % (mod_ch_context))
     @patch('%s.related_units' % (mod_ch_context))
@@ -294,7 +294,7 @@ class TestCinderContext(CharmTestCase):
                                  [u'rbd_pool', u'cinder-ceph'],
                                  [u'rbd_user', u'cinder-ceph']]}}
 
-        self.assertEquals(ctxt, exp)
+        self.assertEqual(ctxt, exp)
 
         del settings['stateless']
 
@@ -311,7 +311,7 @@ class TestCinderContext(CharmTestCase):
                                  [u'rbd_pool', u'cinder-ceph'],
                                  [u'rbd_user', u'cinder-ceph']]}}
 
-        self.assertEquals(ctxt, exp)
+        self.assertEqual(ctxt, exp)
 
     @patch('%s.relation_get' % (mod_ch_context))
     @patch('%s.related_units' % (mod_ch_context))
@@ -393,7 +393,7 @@ class TestCinderContext(CharmTestCase):
                                   [u'volume_driver',
                                    u'cinder.volume.drivers.OtherDriver']]}}
 
-        self.assertEquals(ctxt, exp)
+        self.assertEqual(ctxt, exp)
 
     def test_region_context(self):
         self.config.return_value = 'two'
