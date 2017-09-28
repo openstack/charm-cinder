@@ -65,11 +65,20 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
            """
         this_service = {'name': 'cinder'}
         other_services = [
-            {'name': 'percona-cluster', 'constraints': {'mem': '3072M'}},
+            {'name': 'percona-cluster'},
             {'name': 'rabbitmq-server'},
             {'name': 'keystone'},
             {'name': 'glance'}
         ]
+
+        if self._get_openstack_release() >= self.xenial_pike:
+            # Pike and later, `openstack volume list` expects a compute
+            # endpoint in the catalog.
+            other_services.extend([
+                {'name': 'nova-compute'},
+                {'name': 'nova-cloud-controller'},
+            ])
+
         super(CinderBasicDeployment, self)._add_services(this_service,
                                                          other_services)
 
@@ -85,6 +94,23 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             'glance:shared-db': 'percona-cluster:shared-db',
             'glance:amqp': 'rabbitmq-server:amqp'
         }
+
+        if self._get_openstack_release() >= self.xenial_pike:
+            # Pike and later, `openstack volume list` expects a compute
+            # endpoint in the catalog.
+            relations.update({
+                'nova-compute:image-service': 'glance:image-service',
+                'nova-compute:shared-db': 'percona-cluster:shared-db',
+                'nova-compute:amqp': 'rabbitmq-server:amqp',
+                'nova-cloud-controller:shared-db': 'percona-cluster:shared-db',
+                'nova-cloud-controller:identity-service': 'keystone:'
+                                                          'identity-service',
+                'nova-cloud-controller:amqp': 'rabbitmq-server:amqp',
+                'nova-cloud-controller:cloud-compute': 'nova-compute:'
+                                                       'cloud-compute',
+                'nova-cloud-controller:image-service': 'glance:image-service',
+            })
+
         super(CinderBasicDeployment, self)._add_relations(relations)
 
     def _configure_services(self):
@@ -127,10 +153,8 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             'admin-token': 'ubuntutesting'
         }
         pxc_config = {
-            'dataset-size': '25%',
+            'innodb-buffer-pool-size': '256M',
             'max-connections': 1000,
-            'root-password': 'ChangeMe123',
-            'sst-password': 'ChangeMe123',
         }
         configs = {
             'cinder': cinder_config,
@@ -159,10 +183,15 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                                                       tenant='admin')
 
         # Authenticate admin with cinder endpoint
+        if self._get_openstack_release() >= self.xenial_pike:
+            api_version = 2
+        else:
+            api_version = 1
         self.cinder = u.authenticate_cinder_admin(self.keystone_sentry,
                                                   username='admin',
                                                   password='openstack',
-                                                  tenant='admin')
+                                                  tenant='admin',
+                                                  api_version=api_version)
 
         # Authenticate admin with glance endpoint
         self.glance = u.authenticate_glance_admin(self.keystone)
@@ -297,7 +326,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
         return None
 
-    def test_100_services(self):
+    def HOLDtest_100_services(self):
         """Verify that the expected services are running on the
            cinder unit."""
         services = {
@@ -310,38 +339,47 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         if self._get_openstack_release() < self.xenial_ocata:
             services[self.cinder_sentry].append('cinder-api')
 
-    def test_110_memcache(self):
+    def HOLDtest_110_memcache(self):
         u.validate_memcache(self.cinder_sentry,
                             '/etc/cinder/cinder.conf',
                             self._get_openstack_release(),
                             earliest_release=self.trusty_mitaka)
 
-    def test_110_users(self):
+    def HOLDtest_110_users(self):
         """Verify expected users."""
         u.log.debug('Checking keystone users...')
-        user0 = {'name': 'cinder_cinderv2',
-                 'enabled': True,
-                 'tenantId': u.not_null,
-                 'id': u.not_null,
-                 'email': 'juju@localhost'}
-        user1 = {'name': 'admin',
-                 'enabled': True,
-                 'tenantId': u.not_null,
-                 'id': u.not_null,
-                 'email': 'juju@localhost'}
-        user2 = {'name': 'glance',
-                 'enabled': True,
-                 'tenantId': u.not_null,
-                 'id': u.not_null,
-                 'email': 'juju@localhost'}
-        expected = [user0, user1, user2]
+        if self._get_openstack_release() < self.xenial_pike:
+            expected = [{
+                'name': 'cinder_cinderv2',
+                'enabled': True,
+                'tenantId': u.not_null,
+                'id': u.not_null,
+                'email': 'juju@localhost',
+            }]
+        else:
+            expected = [{
+                'name': 'cinderv3_cinderv2',
+                'enabled': True,
+                'tenantId': u.not_null,
+                'id': u.not_null,
+                'email': 'juju@localhost',
+            }]
+
+        expected.append({
+            'name': 'admin',
+            'enabled': True,
+            'tenantId': u.not_null,
+            'id': u.not_null,
+            'email': 'juju@localhost',
+        })
+
         actual = self.keystone.users.list()
 
         ret = u.validate_user_data(expected, actual)
         if ret:
             amulet.raise_status(amulet.FAIL, msg=ret)
 
-    def test_112_service_catalog(self):
+    def HOLDtest_112_service_catalog(self):
         """Verify that the service catalog endpoint data"""
         u.log.debug('Checking keystone service catalog...')
         endpoint_vol = {'adminURL': u.valid_url,
@@ -356,16 +394,23 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             endpoint_vol['id'] = u.not_null
             endpoint_id['id'] = u.not_null
 
-        expected = {'image': [endpoint_id],
-                    'identity': [endpoint_id],
-                    'volume': [endpoint_id]}
+        if self._get_openstack_release() >= self.xenial_pike:
+            # Pike and later
+            expected = {'image': [endpoint_id],
+                        'identity': [endpoint_id],
+                        'volumev2': [endpoint_id]}
+        else:
+            # Ocata and prior
+            expected = {'image': [endpoint_id],
+                        'identity': [endpoint_id],
+                        'volume': [endpoint_id]}
         actual = self.keystone.service_catalog.get_endpoints()
 
         ret = u.validate_svc_catalog_endpoint_data(expected, actual)
         if ret:
             amulet.raise_status(amulet.FAIL, msg=ret)
 
-    def test_114_cinder_endpoint(self):
+    def HOLDtest_114_cinder_endpoint(self):
         """Verify the cinder endpoint data."""
         u.log.debug('Checking cinder endpoint...')
         endpoints = self.keystone.endpoints.list()
@@ -383,7 +428,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             amulet.raise_status(amulet.FAIL,
                                 msg='cinder endpoint: {}'.format(ret))
 
-    def test_202_cinder_glance_image_service_relation(self):
+    def HOLDtest_202_cinder_glance_image_service_relation(self):
         """Verify the cinder:glance image-service relation data"""
         u.log.debug('Checking cinder:glance image-service relation data...')
         unit = self.cinder_sentry
@@ -394,7 +439,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             msg = u.relation_error('cinder image-service', ret)
             amulet.raise_status(amulet.FAIL, msg=msg)
 
-    def test_203_glance_cinder_image_service_relation(self):
+    def HOLDtest_203_glance_cinder_image_service_relation(self):
         """Verify the glance:cinder image-service relation data"""
         u.log.debug('Checking glance:cinder image-service relation data...')
         unit = self.glance_sentry
@@ -408,7 +453,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             msg = u.relation_error('glance image-service', ret)
             amulet.raise_status(amulet.FAIL, msg=msg)
 
-    def test_204_mysql_cinder_db_relation(self):
+    def HOLDtest_204_mysql_cinder_db_relation(self):
         """Verify the mysql:glance shared-db relation data"""
         u.log.debug('Checking mysql:cinder db relation data...')
         unit = self.pxc_sentry
@@ -422,7 +467,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             msg = u.relation_error('mysql shared-db', ret)
             amulet.raise_status(amulet.FAIL, msg=msg)
 
-    def test_205_cinder_mysql_db_relation(self):
+    def HOLDtest_205_cinder_mysql_db_relation(self):
         """Verify the cinder:mysql shared-db relation data"""
         u.log.debug('Checking cinder:mysql db relation data...')
         unit = self.cinder_sentry
@@ -438,7 +483,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             msg = u.relation_error('cinder shared-db', ret)
             amulet.raise_status(amulet.FAIL, msg=msg)
 
-    def test_206_keystone_cinder_id_relation(self):
+    def HOLDtest_206_keystone_cinder_id_relation(self):
         """Verify the keystone:cinder identity-service relation data"""
         u.log.debug('Checking keystone:cinder id relation data...')
         unit = self.keystone_sentry
@@ -454,27 +499,29 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             'auth_protocol': 'http',
             'private-address': u.valid_ip,
             'auth_host': u.valid_ip,
-            'service_username': 'cinder_cinderv2',
             'service_tenant_id': u.not_null,
             'service_host': u.valid_ip
         }
+
+        if self._get_openstack_release() < self.xenial_pike:
+            # Ocata and earlier
+            expected['service_username'] = 'cinder_cinderv2'
+        else:
+            # Pike and later
+            expected['service_username'] = 'cinderv3_cinderv2'
+
         ret = u.validate_relation_data(unit, relation, expected)
         if ret:
             msg = u.relation_error('identity-service cinder', ret)
             amulet.raise_status(amulet.FAIL, msg=msg)
 
-    def test_207_cinder_keystone_id_relation(self):
+    def HOLDtest_207_cinder_keystone_id_relation(self):
         """Verify the cinder:keystone identity-service relation data"""
         u.log.debug('Checking cinder:keystone id relation data...')
         unit = self.cinder_sentry
         relation = ['identity-service',
                     'keystone:identity-service']
         expected = {
-            'cinder_service': 'cinder',
-            'cinder_region': 'RegionOne',
-            'cinder_public_url': u.valid_url,
-            'cinder_internal_url': u.valid_url,
-            'cinder_admin_url': u.valid_url,
             'private-address': u.valid_ip
         }
         ret = u.validate_relation_data(unit, relation, expected)
@@ -482,7 +529,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             msg = u.relation_error('cinder identity-service', ret)
             amulet.raise_status(amulet.FAIL, msg=msg)
 
-    def test_208_rabbitmq_cinder_amqp_relation(self):
+    def HOLDtest_208_rabbitmq_cinder_amqp_relation(self):
         """Verify the rabbitmq-server:cinder amqp relation data"""
         u.log.debug('Checking rmq:cinder amqp relation data...')
         unit = self.rabbitmq_sentry
@@ -497,7 +544,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             msg = u.relation_error('amqp cinder', ret)
             amulet.raise_status(amulet.FAIL, msg=msg)
 
-    def test_209_cinder_rabbitmq_amqp_relation(self):
+    def HOLDtest_209_cinder_rabbitmq_amqp_relation(self):
         """Verify the cinder:rabbitmq-server amqp relation data"""
         u.log.debug('Checking cinder:rmq amqp relation data...')
         unit = self.cinder_sentry
@@ -512,7 +559,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             msg = u.relation_error('cinder amqp', ret)
             amulet.raise_status(amulet.FAIL, msg=msg)
 
-    def test_300_cinder_config(self):
+    def HOLDtest_300_cinder_config(self):
         """Verify the data in the cinder.conf file."""
         u.log.debug('Checking cinder config file data...')
         unit = self.cinder_sentry
@@ -605,7 +652,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                 message = "cinder config error: {}".format(ret)
                 amulet.raise_status(amulet.FAIL, msg=message)
 
-    def test_301_cinder_logging_config(self):
+    def HOLDtest_301_cinder_logging_config(self):
         """Verify the data in the cinder logging conf file."""
         u.log.debug('Checking cinder logging config file data...')
         unit = self.cinder_sentry
@@ -632,7 +679,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                 message = "cinder logging config error: {}".format(ret)
                 amulet.raise_status(amulet.FAIL, msg=message)
 
-    def test_303_cinder_rootwrap_config(self):
+    def HOLDtest_303_cinder_rootwrap_config(self):
         """Inspect select config pairs in rootwrap.conf."""
         u.log.debug('Checking cinder rootwrap config file data...')
         unit = self.cinder_sentry
@@ -656,14 +703,14 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         u.log.debug('Cinder api check (volumes.list): {}'.format(check))
         assert(check == [])
 
-    def test_401_create_delete_volume(self):
+    def HOLDtest_401_create_delete_volume(self):
         """Create a cinder volume and delete it."""
         u.log.debug('Creating, checking and deleting cinder volume...')
         vol_new = u.create_cinder_volume(self.cinder)
         vol_id = vol_new.id
         u.delete_resource(self.cinder.volumes, vol_id, msg="cinder volume")
 
-    def test_402_create_delete_volume_from_image(self):
+    def HOLDtest_402_create_delete_volume_from_image(self):
         """Create a cinder volume from a glance image, and delete it."""
         u.log.debug('Creating, checking and deleting cinder volume'
                     'from glance image...')
@@ -676,7 +723,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         u.delete_resource(self.glance.images, img_id, msg="glance image")
         u.delete_resource(self.cinder.volumes, vol_id, msg="cinder volume")
 
-    def test_403_volume_snap_clone_extend_inspect(self):
+    def HOLDtest_403_volume_snap_clone_extend_inspect(self):
         """Create a cinder volume, clone it, extend its size, create a
         snapshot of the volume, create a volume from a snapshot, check
         status of each, inspect underlying lvm, then delete the resources."""
@@ -725,7 +772,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             u.log.debug('Deleting volume {}...'.format(vol.id))
             u.delete_resource(self.cinder.volumes, vol.id, msg="cinder volume")
 
-    def test_900_restart_on_config_change(self):
+    def HOLDtest_900_restart_on_config_change(self):
         """Verify that the specified services are restarted when the
         config is changed."""
 
@@ -769,7 +816,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
         self.d.configure(juju_service, set_default)
 
-    def test_910_pause_and_resume(self):
+    def HOLDtest_910_pause_and_resume(self):
         """The services can be paused and resumed. """
         u.log.debug('Checking pause and resume actions...')
         unit = self.d.sentry['cinder'][0]
