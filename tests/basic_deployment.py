@@ -297,226 +297,221 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
 
         return None
 
+    def test_100_services(self):
+        """Verify that the expected services are running on the
+           cinder unit."""
+        services = {
+            self.cinder_sentry: ['cinder-scheduler',
+                                 'cinder-volume'],
+        }
+        ret = u.validate_services_by_name(services)
+        if ret:
+            amulet.raise_status(amulet.FAIL, msg=ret)
+        if self._get_openstack_release() < self.xenial_ocata:
+            services[self.cinder_sentry].append('cinder-api')
 
-#    def test_100_services(self):
-#        """Verify that the expected services are running on the
-#           corresponding service units."""
-#        services = {
-#            self.cinder_sentry: ['cinder-api',
-#                                 'cinder-scheduler',
-#                                 'cinder-volume'],
-#            self.glance_sentry: ['glance-registry',
-#                                 'glance-api'],
-#            self.pxc_sentry: ['mysql'],
-#            self.keystone_sentry: ['keystone'],
-#            self.rabbitmq_sentry: ['rabbitmq-server']
-#        }
-#        ret = u.validate_services_by_name(services)
-#        if ret:
-#            amulet.raise_status(amulet.FAIL, msg=ret)
-#
     def test_110_memcache(self):
         u.validate_memcache(self.cinder_sentry,
                             '/etc/cinder/cinder.conf',
                             self._get_openstack_release(),
                             earliest_release=self.trusty_mitaka)
 
-#    def test_110_users(self):
-#        """Verify expected users."""
-#        u.log.debug('Checking keystone users...')
-#        user0 = {'name': 'cinder_cinderv2',
-#                 'enabled': True,
-#                 'tenantId': u.not_null,
-#                 'id': u.not_null,
-#                 'email': 'juju@localhost'}
-#        user1 = {'name': 'admin',
-#                 'enabled': True,
-#                 'tenantId': u.not_null,
-#                 'id': u.not_null,
-#                 'email': 'juju@localhost'}
-#        user2 = {'name': 'glance',
-#                 'enabled': True,
-#                 'tenantId': u.not_null,
-#                 'id': u.not_null,
-#                 'email': 'juju@localhost'}
-#        expected = [user0, user1, user2]
-#        actual = self.keystone.users.list()
-#
-#        ret = u.validate_user_data(expected, actual)
-#        if ret:
-#            amulet.raise_status(amulet.FAIL, msg=ret)
-#
-#    def test_112_service_catalog(self):
-#        """Verify that the service catalog endpoint data"""
-#        u.log.debug('Checking keystone service catalog...')
-#        endpoint_vol = {'adminURL': u.valid_url,
-#                        'region': 'RegionOne',
-#                        'publicURL': u.valid_url,
-#                        'internalURL': u.valid_url}
-#        endpoint_id = {'adminURL': u.valid_url,
-#                       'region': 'RegionOne',
-#                       'publicURL': u.valid_url,
-#                       'internalURL': u.valid_url}
-#        if self._get_openstack_release() >= self.trusty_icehouse:
-#            endpoint_vol['id'] = u.not_null
-#            endpoint_id['id'] = u.not_null
-#
-#        expected = {'image': [endpoint_id],
-#                    'identity': [endpoint_id],
-#                    'volume': [endpoint_id]}
-#        actual = self.keystone.service_catalog.get_endpoints()
-#
-#        ret = u.validate_svc_catalog_endpoint_data(expected, actual)
-#        if ret:
-#            amulet.raise_status(amulet.FAIL, msg=ret)
-#
-#    def test_114_cinder_endpoint(self):
-#        """Verify the cinder endpoint data."""
-#        u.log.debug('Checking cinder endpoint...')
-#        endpoints = self.keystone.endpoints.list()
-#        admin_port = internal_port = public_port = '8776'
-#        expected = {'id': u.not_null,
-#                    'region': 'RegionOne',
-#                    'adminurl': u.valid_url,
-#                    'internalurl': u.valid_url,
-#                    'publicurl': u.valid_url,
-#                    'service_id': u.not_null}
-#
-#        ret = u.validate_endpoint_data(endpoints, admin_port, internal_port,
-#                                       public_port, expected)
-#        if ret:
-#            amulet.raise_status(amulet.FAIL,
-#                                msg='cinder endpoint: {}'.format(ret))
-#
-#    def test_202_cinder_glance_image_service_relation(self):
-#        """Verify the cinder:glance image-service relation data"""
-#        u.log.debug('Checking cinder:glance image-service relation data...')
-#        unit = self.cinder_sentry
-#        relation = ['image-service', 'glance:image-service']
-#        expected = {'private-address': u.valid_ip}
-#        ret = u.validate_relation_data(unit, relation, expected)
-#        if ret:
-#            msg = u.relation_error('cinder image-service', ret)
-#            amulet.raise_status(amulet.FAIL, msg=msg)
-#
-#    def test_203_glance_cinder_image_service_relation(self):
-#        """Verify the glance:cinder image-service relation data"""
-#        u.log.debug('Checking glance:cinder image-service relation data...')
-#        unit = self.glance_sentry
-#        relation = ['image-service', 'cinder:image-service']
-#        expected = {
-#            'private-address': u.valid_ip,
-#            'glance-api-server': u.valid_url
-#        }
-#        ret = u.validate_relation_data(unit, relation, expected)
-#        if ret:
-#            msg = u.relation_error('glance image-service', ret)
-#            amulet.raise_status(amulet.FAIL, msg=msg)
-#
-#    def test_204_mysql_cinder_db_relation(self):
-#        """Verify the mysql:glance shared-db relation data"""
-#        u.log.debug('Checking mysql:cinder db relation data...')
-#        unit = self.pxc_sentry
-#        relation = ['shared-db', 'cinder:shared-db']
-#        expected = {
-#            'private-address': u.valid_ip,
-#            'db_host': u.valid_ip
-#        }
-#        ret = u.validate_relation_data(unit, relation, expected)
-#        if ret:
-#            msg = u.relation_error('mysql shared-db', ret)
-#            amulet.raise_status(amulet.FAIL, msg=msg)
-#
-#    def test_205_cinder_mysql_db_relation(self):
-#        """Verify the cinder:mysql shared-db relation data"""
-#        u.log.debug('Checking cinder:mysql db relation data...')
-#        unit = self.cinder_sentry
-#        relation = ['shared-db', 'percona-cluster:shared-db']
-#        expected = {
-#            'private-address': u.valid_ip,
-#            'hostname': u.valid_ip,
-#            'username': 'cinder',
-#            'database': 'cinder'
-#        }
-#        ret = u.validate_relation_data(unit, relation, expected)
-#        if ret:
-#            msg = u.relation_error('cinder shared-db', ret)
-#            amulet.raise_status(amulet.FAIL, msg=msg)
-#
-#    def test_206_keystone_cinder_id_relation(self):
-#        """Verify the keystone:cinder identity-service relation data"""
-#        u.log.debug('Checking keystone:cinder id relation data...')
-#        unit = self.keystone_sentry
-#        relation = ['identity-service',
-#                    'cinder:identity-service']
-#        expected = {
-#            'service_protocol': 'http',
-#            'service_tenant': 'services',
-#            'admin_token': 'ubuntutesting',
-#            'service_password': u.not_null,
-#            'service_port': '5000',
-#            'auth_port': '35357',
-#            'auth_protocol': 'http',
-#            'private-address': u.valid_ip,
-#            'auth_host': u.valid_ip,
-#            'service_username': 'cinder_cinderv2',
-#            'service_tenant_id': u.not_null,
-#            'service_host': u.valid_ip
-#        }
-#        ret = u.validate_relation_data(unit, relation, expected)
-#        if ret:
-#            msg = u.relation_error('identity-service cinder', ret)
-#            amulet.raise_status(amulet.FAIL, msg=msg)
-#
-#    def test_207_cinder_keystone_id_relation(self):
-#        """Verify the cinder:keystone identity-service relation data"""
-#        u.log.debug('Checking cinder:keystone id relation data...')
-#        unit = self.cinder_sentry
-#        relation = ['identity-service',
-#                    'keystone:identity-service']
-#        expected = {
-#            'cinder_service': 'cinder',
-#            'cinder_region': 'RegionOne',
-#            'cinder_public_url': u.valid_url,
-#            'cinder_internal_url': u.valid_url,
-#            'cinder_admin_url': u.valid_url,
-#            'private-address': u.valid_ip
-#        }
-#        ret = u.validate_relation_data(unit, relation, expected)
-#        if ret:
-#            msg = u.relation_error('cinder identity-service', ret)
-#            amulet.raise_status(amulet.FAIL, msg=msg)
-#
-#    def test_208_rabbitmq_cinder_amqp_relation(self):
-#        """Verify the rabbitmq-server:cinder amqp relation data"""
-#        u.log.debug('Checking rmq:cinder amqp relation data...')
-#        unit = self.rabbitmq_sentry
-#        relation = ['amqp', 'cinder:amqp']
-#        expected = {
-#            'private-address': u.valid_ip,
-#            'password': u.not_null,
-#            'hostname': u.valid_ip
-#        }
-#        ret = u.validate_relation_data(unit, relation, expected)
-#        if ret:
-#            msg = u.relation_error('amqp cinder', ret)
-#            amulet.raise_status(amulet.FAIL, msg=msg)
-#
-#    def test_209_cinder_rabbitmq_amqp_relation(self):
-#        """Verify the cinder:rabbitmq-server amqp relation data"""
-#        u.log.debug('Checking cinder:rmq amqp relation data...')
-#        unit = self.cinder_sentry
-#        relation = ['amqp', 'rabbitmq-server:amqp']
-#        expected = {
-#            'private-address': u.valid_ip,
-#            'vhost': 'openstack',
-#            'username': u.not_null
-#        }
-#        ret = u.validate_relation_data(unit, relation, expected)
-#        if ret:
-#            msg = u.relation_error('cinder amqp', ret)
-#            amulet.raise_status(amulet.FAIL, msg=msg)
-#
+    def test_110_users(self):
+        """Verify expected users."""
+        u.log.debug('Checking keystone users...')
+        user0 = {'name': 'cinder_cinderv2',
+                 'enabled': True,
+                 'tenantId': u.not_null,
+                 'id': u.not_null,
+                 'email': 'juju@localhost'}
+        user1 = {'name': 'admin',
+                 'enabled': True,
+                 'tenantId': u.not_null,
+                 'id': u.not_null,
+                 'email': 'juju@localhost'}
+        user2 = {'name': 'glance',
+                 'enabled': True,
+                 'tenantId': u.not_null,
+                 'id': u.not_null,
+                 'email': 'juju@localhost'}
+        expected = [user0, user1, user2]
+        actual = self.keystone.users.list()
+
+        ret = u.validate_user_data(expected, actual)
+        if ret:
+            amulet.raise_status(amulet.FAIL, msg=ret)
+
+    def test_112_service_catalog(self):
+        """Verify that the service catalog endpoint data"""
+        u.log.debug('Checking keystone service catalog...')
+        endpoint_vol = {'adminURL': u.valid_url,
+                        'region': 'RegionOne',
+                        'publicURL': u.valid_url,
+                        'internalURL': u.valid_url}
+        endpoint_id = {'adminURL': u.valid_url,
+                       'region': 'RegionOne',
+                       'publicURL': u.valid_url,
+                       'internalURL': u.valid_url}
+        if self._get_openstack_release() >= self.trusty_icehouse:
+            endpoint_vol['id'] = u.not_null
+            endpoint_id['id'] = u.not_null
+
+        expected = {'image': [endpoint_id],
+                    'identity': [endpoint_id],
+                    'volume': [endpoint_id]}
+        actual = self.keystone.service_catalog.get_endpoints()
+
+        ret = u.validate_svc_catalog_endpoint_data(expected, actual)
+        if ret:
+            amulet.raise_status(amulet.FAIL, msg=ret)
+
+    def test_114_cinder_endpoint(self):
+        """Verify the cinder endpoint data."""
+        u.log.debug('Checking cinder endpoint...')
+        endpoints = self.keystone.endpoints.list()
+        admin_port = internal_port = public_port = '8776'
+        expected = {'id': u.not_null,
+                    'region': 'RegionOne',
+                    'adminurl': u.valid_url,
+                    'internalurl': u.valid_url,
+                    'publicurl': u.valid_url,
+                    'service_id': u.not_null}
+
+        ret = u.validate_endpoint_data(endpoints, admin_port, internal_port,
+                                       public_port, expected)
+        if ret:
+            amulet.raise_status(amulet.FAIL,
+                                msg='cinder endpoint: {}'.format(ret))
+
+    def test_202_cinder_glance_image_service_relation(self):
+        """Verify the cinder:glance image-service relation data"""
+        u.log.debug('Checking cinder:glance image-service relation data...')
+        unit = self.cinder_sentry
+        relation = ['image-service', 'glance:image-service']
+        expected = {'private-address': u.valid_ip}
+        ret = u.validate_relation_data(unit, relation, expected)
+        if ret:
+            msg = u.relation_error('cinder image-service', ret)
+            amulet.raise_status(amulet.FAIL, msg=msg)
+
+    def test_203_glance_cinder_image_service_relation(self):
+        """Verify the glance:cinder image-service relation data"""
+        u.log.debug('Checking glance:cinder image-service relation data...')
+        unit = self.glance_sentry
+        relation = ['image-service', 'cinder:image-service']
+        expected = {
+            'private-address': u.valid_ip,
+            'glance-api-server': u.valid_url
+        }
+        ret = u.validate_relation_data(unit, relation, expected)
+        if ret:
+            msg = u.relation_error('glance image-service', ret)
+            amulet.raise_status(amulet.FAIL, msg=msg)
+
+    def test_204_mysql_cinder_db_relation(self):
+        """Verify the mysql:glance shared-db relation data"""
+        u.log.debug('Checking mysql:cinder db relation data...')
+        unit = self.pxc_sentry
+        relation = ['shared-db', 'cinder:shared-db']
+        expected = {
+            'private-address': u.valid_ip,
+            'db_host': u.valid_ip
+        }
+        ret = u.validate_relation_data(unit, relation, expected)
+        if ret:
+            msg = u.relation_error('mysql shared-db', ret)
+            amulet.raise_status(amulet.FAIL, msg=msg)
+
+    def test_205_cinder_mysql_db_relation(self):
+        """Verify the cinder:mysql shared-db relation data"""
+        u.log.debug('Checking cinder:mysql db relation data...')
+        unit = self.cinder_sentry
+        relation = ['shared-db', 'percona-cluster:shared-db']
+        expected = {
+            'private-address': u.valid_ip,
+            'hostname': u.valid_ip,
+            'username': 'cinder',
+            'database': 'cinder'
+        }
+        ret = u.validate_relation_data(unit, relation, expected)
+        if ret:
+            msg = u.relation_error('cinder shared-db', ret)
+            amulet.raise_status(amulet.FAIL, msg=msg)
+
+    def test_206_keystone_cinder_id_relation(self):
+        """Verify the keystone:cinder identity-service relation data"""
+        u.log.debug('Checking keystone:cinder id relation data...')
+        unit = self.keystone_sentry
+        relation = ['identity-service',
+                    'cinder:identity-service']
+        expected = {
+            'service_protocol': 'http',
+            'service_tenant': 'services',
+            'admin_token': 'ubuntutesting',
+            'service_password': u.not_null,
+            'service_port': '5000',
+            'auth_port': '35357',
+            'auth_protocol': 'http',
+            'private-address': u.valid_ip,
+            'auth_host': u.valid_ip,
+            'service_username': 'cinder_cinderv2',
+            'service_tenant_id': u.not_null,
+            'service_host': u.valid_ip
+        }
+        ret = u.validate_relation_data(unit, relation, expected)
+        if ret:
+            msg = u.relation_error('identity-service cinder', ret)
+            amulet.raise_status(amulet.FAIL, msg=msg)
+
+    def test_207_cinder_keystone_id_relation(self):
+        """Verify the cinder:keystone identity-service relation data"""
+        u.log.debug('Checking cinder:keystone id relation data...')
+        unit = self.cinder_sentry
+        relation = ['identity-service',
+                    'keystone:identity-service']
+        expected = {
+            'cinder_service': 'cinder',
+            'cinder_region': 'RegionOne',
+            'cinder_public_url': u.valid_url,
+            'cinder_internal_url': u.valid_url,
+            'cinder_admin_url': u.valid_url,
+            'private-address': u.valid_ip
+        }
+        ret = u.validate_relation_data(unit, relation, expected)
+        if ret:
+            msg = u.relation_error('cinder identity-service', ret)
+            amulet.raise_status(amulet.FAIL, msg=msg)
+
+    def test_208_rabbitmq_cinder_amqp_relation(self):
+        """Verify the rabbitmq-server:cinder amqp relation data"""
+        u.log.debug('Checking rmq:cinder amqp relation data...')
+        unit = self.rabbitmq_sentry
+        relation = ['amqp', 'cinder:amqp']
+        expected = {
+            'private-address': u.valid_ip,
+            'password': u.not_null,
+            'hostname': u.valid_ip
+        }
+        ret = u.validate_relation_data(unit, relation, expected)
+        if ret:
+            msg = u.relation_error('amqp cinder', ret)
+            amulet.raise_status(amulet.FAIL, msg=msg)
+
+    def test_209_cinder_rabbitmq_amqp_relation(self):
+        """Verify the cinder:rabbitmq-server amqp relation data"""
+        u.log.debug('Checking cinder:rmq amqp relation data...')
+        unit = self.cinder_sentry
+        relation = ['amqp', 'rabbitmq-server:amqp']
+        expected = {
+            'private-address': u.valid_ip,
+            'vhost': 'openstack',
+            'username': u.not_null
+        }
+        ret = u.validate_relation_data(unit, relation, expected)
+        if ret:
+            msg = u.relation_error('cinder amqp', ret)
+            amulet.raise_status(amulet.FAIL, msg=msg)
+
     def test_300_cinder_config(self):
         """Verify the data in the cinder.conf file."""
         u.log.debug('Checking cinder config file data...')
