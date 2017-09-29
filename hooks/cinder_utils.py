@@ -184,7 +184,7 @@ APACHE_SITE_24_CONF = '/etc/apache2/sites-available/' \
     'openstack_https_frontend.conf'
 MEMCACHED_CONF = '/etc/memcached.conf'
 WSGI_CINDER_API_CONF = '/etc/apache2/sites-enabled/wsgi-openstack-api.conf'
-PACKAGE_CINDER_API_CONF = '/etc/apache2/sites-enabled/cinder-wsgi.conf'
+PACKAGE_CINDER_API_CONF = '/etc/apache2/conf-enabled/cinder-wsgi.conf'
 
 VERSION_PACKAGE = 'cinder-common'
 
@@ -1100,4 +1100,4 @@ def disable_package_apache_site():
     prevent it from conflicting with the charm-provided version.
     """
     if os.path.exists(PACKAGE_CINDER_API_CONF):
-        subprocess.check_call(['a2dissite', 'cinder-wsgi'])
+        subprocess.check_call(['a2disconf', 'cinder-wsgi'])
