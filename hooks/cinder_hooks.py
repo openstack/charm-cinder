@@ -59,6 +59,7 @@ from charmhelpers.core.hookenv import (
     related_units,
     service_name,
     log,
+    DEBUG,
     ERROR,
     WARNING,
     status_set,
@@ -97,6 +98,7 @@ from charmhelpers.contrib.storage.linux.ceph import (
 )
 
 from charmhelpers.contrib.hahelpers.cluster import (
+    is_clustered,
     is_elected_leader,
     get_hacluster_config,
 )
@@ -307,13 +309,19 @@ def amqp_departed():
 
 @hooks.hook('identity-service-relation-joined')
 def identity_joined(rid=None):
+    if config('vip') and not is_clustered():
+        log('Defering registration until clustered', level=DEBUG)
+        return
+
     settings = {}
 
     if not service_enabled('api'):
-        juju_log('api service not enabled; skipping endpoint registration')
+        juju_log('api service not enabled; skipping endpoint '
+                 'registration')
         return
 
-    if CompareOpenStackReleases(os_release('cinder-common')) < 'pike':
+    cinder_release = os_release('cinder-common')
+    if CompareOpenStackReleases(cinder_release) < 'pike':
         public_url = '{}:{}/v1/$(tenant_id)s'.format(
             canonical_url(CONFIGS, PUBLIC),
             config('api-listening-port')
@@ -338,7 +346,7 @@ def identity_joined(rid=None):
             'cinder_internal_url': internal_url,
             'cinder_admin_url': admin_url,
         })
-    if CompareOpenStackReleases(os_release('cinder-common')) >= 'icehouse':
+    if CompareOpenStackReleases(cinder_release) >= 'icehouse':
         # NOTE(jamespage) register v2 endpoint as well
         public_url = '{}:{}/v2/$(tenant_id)s'.format(
             canonical_url(CONFIGS, PUBLIC),
@@ -359,7 +367,7 @@ def identity_joined(rid=None):
             'cinderv2_internal_url': internal_url,
             'cinderv2_admin_url': admin_url,
         })
-    if CompareOpenStackReleases(os_release('cinder-common')) >= 'pike':
+    if CompareOpenStackReleases(cinder_release) >= 'pike':
         # NOTE(jamespage) register v3 endpoint as well
         public_url = '{}:{}/v3/$(tenant_id)s'.format(
             canonical_url(CONFIGS, PUBLIC),

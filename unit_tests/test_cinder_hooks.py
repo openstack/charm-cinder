@@ -55,6 +55,7 @@ TO_PATCH = [
     'do_openstack_upgrade',
     'ensure_ceph_keyring',
     'git_install',
+    'is_clustered',
     'juju_log',
     'log',
     'lsb_release',
@@ -367,6 +368,12 @@ class TestChangedHooks(CharmTestCase):
         self.CONFIGS.complete_contexts.return_value = ['']
         hooks.hooks.execute(['hooks/amqp-relation-changed'])
         self.assertFalse(self.CONFIGS.write.called)
+
+    def test_identity_joined_partial_cluster(self):
+        self.is_clustered.return_value = False
+        self.test_config.set('vip', '10.0.0.10')
+        hooks.identity_joined()
+        self.assertFalse(self.relation_set.called)
 
     @patch.object(hooks, 'configure_https')
     def test_identity_changed(self, conf_https):
