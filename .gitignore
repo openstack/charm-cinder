@@ -5,3 +5,4 @@ bin
 *.sw[nop]
 *.pyc
 .unit-state.db
+.stestr
