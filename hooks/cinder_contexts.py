@@ -137,12 +137,12 @@ class StorageBackendContext(OSContextGenerator):
                 backends.append('CEPH')
             if enable_lvm():
                 backends.append('LVM')
-        if len(backends) > 0:
-            return {
-                'active_backends': backends,
-                'backends': ",".join(backends)}
-        else:
-            return {}
+        # Use the package default backend to stop the service flapping.
+        if not backends:
+            backends = ['LVM']
+        return {
+            'active_backends': backends,
+            'backends': ",".join(backends)}
 
 
 class LoggingConfigContext(OSContextGenerator):
