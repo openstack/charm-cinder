@@ -732,10 +732,12 @@ class TestCinderUtils(CharmTestCase):
                     out.write('env CEPH_ARGS="--id %s"\n' % service)
         """
 
+    @patch.object(cinder_utils, 'register_configs')
     @patch.object(cinder_utils, 'services')
     @patch.object(cinder_utils, 'migrate_database')
     @patch.object(cinder_utils, 'determine_packages')
-    def test_openstack_upgrade_leader(self, pkgs, migrate, services):
+    def test_openstack_upgrade_leader(self, pkgs, migrate, services,
+                                      mock_register_configs):
         pkgs.return_value = ['mypackage']
         self.os_release.return_value = 'havana'
         self.config.side_effect = None
@@ -743,8 +745,9 @@ class TestCinderUtils(CharmTestCase):
         services.return_value = ['cinder-api', 'cinder-volume']
         self.is_elected_leader.return_value = True
         self.get_os_codename_install_source.return_value = 'havana'
-        configs = MagicMock()
+        configs = mock_register_configs.return_value
         cinder_utils.do_openstack_upgrade(configs)
+        self.assertTrue(mock_register_configs.called)
         self.assertTrue(configs.write_all.called)
         self.apt_upgrade.assert_called_with(options=DPKG_OPTIONS,
                                             fatal=True, dist=True)
@@ -752,10 +755,12 @@ class TestCinderUtils(CharmTestCase):
         configs.set_release.assert_called_with(openstack_release='havana')
         self.assertTrue(migrate.called)
 
+    @patch.object(cinder_utils, 'register_configs')
     @patch.object(cinder_utils, 'services')
     @patch.object(cinder_utils, 'migrate_database')
     @patch.object(cinder_utils, 'determine_packages')
-    def test_openstack_upgrade_not_leader(self, pkgs, migrate, services):
+    def test_openstack_upgrade_not_leader(self, pkgs, migrate, services,
+                                          mock_register_configs):
         pkgs.return_value = ['mypackage']
         self.os_release.return_value = 'havana'
         self.config.side_effect = None
@@ -763,8 +768,9 @@ class TestCinderUtils(CharmTestCase):
         services.return_value = ['cinder-api', 'cinder-volume']
         self.is_elected_leader.return_value = False
         self.get_os_codename_install_source.return_value = 'havana'
-        configs = MagicMock()
+        configs = mock_register_configs.return_value
         cinder_utils.do_openstack_upgrade(configs)
+        self.assertTrue(mock_register_configs.called)
         self.assertTrue(configs.write_all.called)
         self.apt_upgrade.assert_called_with(options=DPKG_OPTIONS,
                                             fatal=True, dist=True)

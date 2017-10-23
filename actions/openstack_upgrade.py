@@ -30,7 +30,6 @@ from charmhelpers.core.hookenv import (
 
 from cinder_hooks import (
     config_changed,
-    CONFIGS,
 )
 
 from cinder_utils import (
@@ -48,7 +47,7 @@ def openstack_upgrade():
 
     if (do_action_openstack_upgrade('cinder-common',
                                     do_openstack_upgrade,
-                                    CONFIGS)):
+                                    configs=None)):
         # tell any storage-backends we just upgraded
         for rid in relation_ids('storage-backend'):
             relation_set(relation_id=rid,

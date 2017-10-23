@@ -733,7 +733,7 @@ def set_ceph_env_variables(service):
         out.write('env CEPH_ARGS="--id %s"\n' % service)
 
 
-def do_openstack_upgrade(configs):
+def do_openstack_upgrade(configs=None):
     """Perform an uprade of cinder. Takes care of upgrading
     packages, rewriting configs + database migration and
     potentially any other post-upgrade actions.
@@ -755,6 +755,11 @@ def do_openstack_upgrade(configs):
     apt_upgrade(options=dpkg_opts, fatal=True, dist=True)
     reset_os_release()
     apt_install(determine_packages(), fatal=True)
+
+    # NOTE(hopem): must do this after packages have been upgraded so that
+    # we ensure that correct configs are selected for the target release.
+    # See LP 1726527.
+    configs = register_configs()
 
     # set CONFIGS to load templates from new release and regenerate config
     configs.set_release(openstack_release=new_os_rel)
