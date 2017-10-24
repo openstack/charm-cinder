@@ -28,12 +28,11 @@ from charmhelpers.core.hookenv import (
     relation_set,
 )
 
-from cinder_hooks import (
-    config_changed,
-)
+import cinder_hooks
 
 from cinder_utils import (
     do_openstack_upgrade,
+    register_configs,
 )
 
 
@@ -52,7 +51,11 @@ def openstack_upgrade():
         for rid in relation_ids('storage-backend'):
             relation_set(relation_id=rid,
                          upgrade_nonce=uuid.uuid4())
-        config_changed()
+
+        # Force reload to get any chances resulting from upgrade.
+        # See LP 1726527.
+        cinder_hooks.CONFIGS = register_configs()
+        cinder_hooks.config_changed()
 
 if __name__ == '__main__':
     openstack_upgrade()

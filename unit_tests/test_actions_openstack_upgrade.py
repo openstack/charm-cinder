@@ -14,7 +14,7 @@
 
 import os
 
-from mock import patch
+from mock import patch, MagicMock
 
 from test_utils import (
     CharmTestCase,
@@ -28,7 +28,6 @@ with patch('cinder_utils.register_configs') as register_configs:
         import openstack_upgrade
 
 TO_PATCH = [
-    'config_changed',
     'do_openstack_upgrade',
     'relation_set',
     'relation_ids',
@@ -42,13 +41,16 @@ class TestCinderUpgradeActions(CharmTestCase):
         super(TestCinderUpgradeActions, self).setUp(openstack_upgrade,
                                                     TO_PATCH)
 
+    @patch.object(openstack_upgrade, 'cinder_hooks')
     @patch('charmhelpers.contrib.openstack.utils.juju_log')
     @patch('charmhelpers.contrib.openstack.utils.config')
     @patch('charmhelpers.contrib.openstack.utils.action_set')
     @patch('charmhelpers.contrib.openstack.utils.git_install_requested')
     @patch('charmhelpers.contrib.openstack.utils.openstack_upgrade_available')
     def test_openstack_upgrade_true(self, upgrade_avail, git_requested,
-                                    action_set, config, log):
+                                    action_set, config, log,
+                                    mock_cinder_hooks):
+        mock_cinder_hooks.config_changed = MagicMock()
         git_requested.return_value = False
         upgrade_avail.return_value = True
         config.return_value = True
@@ -61,15 +63,18 @@ class TestCinderUpgradeActions(CharmTestCase):
         self.assertTrue(self.relation_ids.called)
         self.relation_set.assert_called_with(relation_id='relid1',
                                              upgrade_nonce=12345)
-        self.assertTrue(self.config_changed.called)
+        self.assertTrue(mock_cinder_hooks.config_changed.called)
 
+    @patch.object(openstack_upgrade, 'cinder_hooks')
     @patch('charmhelpers.contrib.openstack.utils.juju_log')
     @patch('charmhelpers.contrib.openstack.utils.config')
     @patch('charmhelpers.contrib.openstack.utils.action_set')
     @patch('charmhelpers.contrib.openstack.utils.git_install_requested')
     @patch('charmhelpers.contrib.openstack.utils.openstack_upgrade_available')
     def test_openstack_upgrade_false(self, upgrade_avail, git_requested,
-                                     action_set, config, log):
+                                     action_set, config, log,
+                                     mock_cinder_hooks):
+        mock_cinder_hooks.config_changed = MagicMock()
         git_requested.return_value = False
         upgrade_avail.return_value = True
         config.return_value = False
@@ -79,4 +84,4 @@ class TestCinderUpgradeActions(CharmTestCase):
         self.assertFalse(self.do_openstack_upgrade.called)
         self.assertFalse(self.relation_ids.called)
         self.assertFalse(self.relation_set.called)
-        self.assertFalse(self.config_changed.called)
+        self.assertFalse(mock_cinder_hooks.config_changed.called)
