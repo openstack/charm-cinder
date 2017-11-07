@@ -218,6 +218,8 @@ def principal_unit():
         for rid in relation_ids(reltype):
             for unit in related_units(rid):
                 md = _metadata_unit(unit)
+                if not md:
+                    continue
                 subordinate = md.pop('subordinate', None)
                 if not subordinate:
                     return unit
@@ -511,7 +513,10 @@ def _metadata_unit(unit):
     """
     basedir = os.sep.join(charm_dir().split(os.sep)[:-2])
     unitdir = 'unit-{}'.format(unit.replace(os.sep, '-'))
-    with open(os.path.join(basedir, unitdir, 'charm', 'metadata.yaml')) as md:
+    joineddir = os.path.join(basedir, unitdir, 'charm', 'metadata.yaml')
+    if not os.path.exists(joineddir):
+        return None
+    with open(joineddir) as md:
         return yaml.safe_load(md)
 
 
@@ -639,18 +644,31 @@ def is_relation_made(relation, keys='private-address'):
     return False
 
 
+def _port_op(op_name, port, protocol="TCP"):
+    """Open or close a service network port"""
+    _args = [op_name]
+    icmp = protocol.upper() == "ICMP"
+    if icmp:
+        _args.append(protocol)
+    else:
+        _args.append('{}/{}'.format(port, protocol))
+    try:
+        subprocess.check_call(_args)
+    except subprocess.CalledProcessError:
+        # Older Juju pre 2.3 doesn't support ICMP
+        # so treat it as a no-op if it fails.
+        if not icmp:
+            raise
+
+
 def open_port(port, protocol="TCP"):
     """Open a service network port"""
-    _args = ['open-port']
-    _args.append('{}/{}'.format(port, protocol))
-    subprocess.check_call(_args)
+    _port_op('open-port', port, protocol)
 
 
 def close_port(port, protocol="TCP"):
     """Close a service network port"""
-    _args = ['close-port']
-    _args.append('{}/{}'.format(port, protocol))
-    subprocess.check_call(_args)
+    _port_op('close-port', port, protocol)
 
 
 def open_ports(start, end, protocol="TCP"):
@@ -665,6 +683,17 @@ def close_ports(start, end, protocol="TCP"):
     _args = ['close-port']
     _args.append('{}-{}/{}'.format(start, end, protocol))
     subprocess.check_call(_args)
+
+
+def opened_ports():
+    """Get the opened ports
+
+    *Note that this will only show ports opened in a previous hook*
+
+    :returns: Opened ports as a list of strings: ``['8080/tcp', '8081-8083/tcp']``
+    """
+    _args = ['opened-ports', '--format=json']
+    return json.loads(subprocess.check_output(_args).decode('UTF-8'))
 
 
 @cached
@@ -1075,6 +1104,35 @@ def network_get_primary_address(binding):
     '''
     cmd = ['network-get', '--primary-address', binding]
     return subprocess.check_output(cmd).decode('UTF-8').strip()
+
+
+@translate_exc(from_exc=OSError, to_exc=NotImplementedError)
+def network_get(endpoint, relation_id=None):
+    """
+    Retrieve the network details for a relation endpoint
+
+    :param endpoint: string. The name of a relation endpoint
+    :param relation_id: int. The ID of the relation for the current context.
+    :return: dict. The loaded YAML output of the network-get query.
+    :raise: NotImplementedError if run on Juju < 2.1
+    """
+    cmd = ['network-get', endpoint, '--format', 'yaml']
+    if relation_id:
+        cmd.append('-r')
+        cmd.append(relation_id)
+    try:
+        response = subprocess.check_output(
+            cmd,
+            stderr=subprocess.STDOUT).decode('UTF-8').strip()
+    except CalledProcessError as e:
+        # Early versions of Juju 2.0.x required the --primary-address argument.
+        # We catch that condition here and raise NotImplementedError since
+        # the requested semantics are not available - the caller can then
+        # use the network_get_primary_address() method instead.
+        if '--primary-address is currently required' in e.output.decode('UTF-8'):
+            raise NotImplementedError
+        raise
+    return yaml.safe_load(response)
 
 
 def add_metric(*args, **kwargs):
