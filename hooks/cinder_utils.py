@@ -130,6 +130,7 @@ COMMON_PACKAGES = [
     'python-mysqldb',
     'python-psycopg2',
     'qemu-utils',
+    'thin-provisioning-tools',
 ]
 
 API_PACKAGES = ['cinder-api']
