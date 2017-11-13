@@ -134,7 +134,12 @@ COMMON_PACKAGES = [
 ]
 
 API_PACKAGES = ['cinder-api']
-VOLUME_PACKAGES = ['cinder-volume']
+
+VOLUME_PACKAGES = [
+    'cinder-volume',
+	'thin-provisioning-tools',
+]
+
 SCHEDULER_PACKAGES = ['cinder-scheduler']
 
 BASE_GIT_PACKAGES = [
