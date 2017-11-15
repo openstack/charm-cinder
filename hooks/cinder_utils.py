@@ -25,6 +25,10 @@ from charmhelpers.contrib.python.packages import (
     pip_install,
 )
 
+from charmhelpers.core.strutils import (
+    bytes_from_string
+)
+
 from charmhelpers.core.hookenv import (
     charm_dir,
     config,
@@ -517,7 +521,7 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
             if size == 0 and is_block_device(block_device):
                 devices.append(block_device)
             elif size > 0:
-                devices.append(ensure_loopback_device(block_device, size))
+                devices.append(ensure_loopback_device(block_device, str(size)))
 
     # NOTE(jamespage)
     # might need todo an initial one-time scrub on install if need be
@@ -618,7 +622,7 @@ def _parse_block_device(block_device):
         else:
             bdev = block_device
             size = DEFAULT_LOOPBACK_SIZE
-        return (bdev, size)
+        return (bdev, bytes_from_string(str(size)))
     else:
         return ('/dev/{}'.format(block_device), 0)
 
