@@ -426,6 +426,7 @@ class TestCinderUtils(CharmTestCase):
                                    clean_storage, ensure_non_existent):
         devices = ['/dev/fakevbd', '/dev/fakevdc']
         self.is_lvm_physical_volume.return_value = False
+        self.ensure_loopback_device.side_effect = lambda x, y: x
         cinder_utils.configure_lvm_storage(devices, 'test', True, True)
         clean_storage.assert_has_calls(
             [call('/dev/fakevbd'),
@@ -450,6 +451,7 @@ class TestCinderUtils(CharmTestCase):
         devices = ['/dev/fakevbd', '/dev/fakevdc']
         self.is_lvm_physical_volume.return_value = False
         has_part.return_value = False
+        self.ensure_loopback_device.side_effect = lambda x, y: x
         cinder_utils.configure_lvm_storage(devices, 'test', False, True)
         clean_storage.assert_has_calls(
             [call('/dev/fakevbd'),
@@ -517,6 +519,7 @@ class TestCinderUtils(CharmTestCase):
         lvm_exists.return_value = False
         self.is_lvm_physical_volume.side_effect = pv_lookup
         self.list_lvm_volume_group.side_effect = vg_lookup
+        self.ensure_loopback_device.side_effect = lambda x, y: x
         cinder_utils.configure_lvm_storage(devices, 'test', True, True)
         clean_storage.assert_has_calls(
             [call('/dev/fakevdc')]
@@ -552,6 +555,7 @@ class TestCinderUtils(CharmTestCase):
         self.is_lvm_physical_volume.side_effect = pv_lookup
         self.list_lvm_volume_group.side_effect = vg_lookup
         lvm_exists.return_value = False
+        self.ensure_loopback_device.side_effect = lambda x, y: x
         cinder_utils.configure_lvm_storage(devices, 'test', True, True)
         clean_storage.assert_called_with('/dev/fakevdc')
         self.create_lvm_physical_volume.assert_called_with('/dev/fakevdc')
@@ -582,6 +586,7 @@ class TestCinderUtils(CharmTestCase):
         devices = ['/dev/fakevbd', '/dev/fakevdc']
         self.is_lvm_physical_volume.side_effect = pv_lookup
         self.list_lvm_volume_group.side_effect = vg_lookup
+        self.ensure_loopback_device.side_effect = lambda x, y: x
         cinder_utils.configure_lvm_storage(devices, 'test', False, False)
         self.assertFalse(clean_storage.called)
         self.assertFalse(self.create_lvm_physical_volume.called)
