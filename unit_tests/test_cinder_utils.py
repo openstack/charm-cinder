@@ -446,12 +446,17 @@ class TestCinderUtils(CharmTestCase):
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
-    def test_configure_lvm_storage_unused_dev(self, extend_lvm, reduce_lvm,
+    @patch.object(cinder_utils, 'list_thin_logical_volume_pools')
+    @patch.object(cinder_utils, 'extend_logical_volume_by_device')
+    def test_configure_lvm_storage_unused_dev(self, extend_lv_by_dev,
+                                              list_thin_pools,
+                                              extend_lvm, reduce_lvm,
                                               clean_storage, has_part):
         devices = ['/dev/fakevbd', '/dev/fakevdc']
         self.is_lvm_physical_volume.return_value = False
         has_part.return_value = False
         self.ensure_loopback_device.side_effect = lambda x, y: x
+        list_thin_pools.return_value = ['vg/thinpool']
         cinder_utils.configure_lvm_storage(devices, 'test', False, True)
         clean_storage.assert_has_calls(
             [call('/dev/fakevbd'),
@@ -464,6 +469,8 @@ class TestCinderUtils(CharmTestCase):
         self.create_lvm_volume_group.assert_called_with('test', '/dev/fakevbd')
         reduce_lvm.assert_called_with('test')
         extend_lvm.assert_called_with('test', '/dev/fakevdc')
+        extend_lv_by_dev.assert_called_once_with('vg/thinpool',
+                                                 '/dev/fakevdc')
 
     @patch('cinder_utils.log_lvm_info', Mock())
     @patch.object(cinder_utils, 'has_partition_table')

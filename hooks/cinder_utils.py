@@ -80,9 +80,11 @@ from charmhelpers.contrib.storage.linux.lvm import (
     create_lvm_physical_volume,
     create_lvm_volume_group,
     deactivate_lvm_volume_group,
+    extend_logical_volume_by_device,
     is_lvm_physical_volume,
+    list_lvm_volume_group,
+    list_thin_logical_volume_pools,
     remove_lvm_physical_volume,
-    list_lvm_volume_group
 )
 
 from charmhelpers.contrib.storage.linux.loopback import (
@@ -565,7 +567,19 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
         # Extend the volume group as required
         for new_device in new_devices:
             extend_lvm_volume_group(volume_group, new_device)
-
+            thin_pools = list_thin_logical_volume_pools(path_mode=True)
+            if len(thin_pools) == 0:
+                juju_log("No thin pools found")
+            elif len(thin_pools) == 1:
+                juju_log("Thin pool {} found, extending with {}".format(
+                    thin_pools[0],
+                    new_device))
+                extend_logical_volume_by_device(thin_pools[0], new_device)
+            else:
+                juju_log("Multiple thin pools ({}) found, "
+                         "skipping auto extending with {}".format(
+                             ','.join(thin_pools),
+                             new_device))
     log_lvm_info()
 
 
