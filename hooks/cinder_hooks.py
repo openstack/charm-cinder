@@ -416,12 +416,18 @@ def get_ceph_request():
                           replica_count=replicas,
                           group="volumes")
     if config('restrict-ceph-pools'):
-        rq.add_op_request_access_to_group(name="volumes",
-                                          permission='rwx')
-        rq.add_op_request_access_to_group(name="images",
-                                          permission='rwx')
-        rq.add_op_request_access_to_group(name="vms",
-                                          permission='rwx')
+        rq.add_op_request_access_to_group(
+            name="volumes",
+            object_prefix_permissions={'class-read': ['rbd_children']},
+            permission='rwx')
+        rq.add_op_request_access_to_group(
+            name="images",
+            object_prefix_permissions={'class-read': ['rbd_children']},
+            permission='rwx')
+        rq.add_op_request_access_to_group(
+            name="vms",
+            object_prefix_permissions={'class-read': ['rbd_children']},
+            permission='rwx')
     return rq
 
 
