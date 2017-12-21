@@ -201,7 +201,7 @@ TEMPLATES = 'templates/'
 # the
 # list has a complete context.
 REQUIRED_INTERFACES = {
-    'database': ('shared-db', 'pgsql-db'),
+    'database': ('shared-db',),
     'messaging': ('amqp',),
     'identity': ('identity-service',),
 }
@@ -225,7 +225,6 @@ def ceph_config_file():
 BASE_RESOURCE_MAP = OrderedDict([
     (CINDER_CONF, {
         'contexts': [context.SharedDBContext(ssl_dir=CINDER_CONF_DIR),
-                     context.PostgresqlDBContext(),
                      context.AMQPContext(ssl_dir=CINDER_CONF_DIR),
                      context.ImageServiceContext(),
                      context.OSConfigFlagContext(),

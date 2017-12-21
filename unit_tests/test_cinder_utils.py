@@ -1058,7 +1058,7 @@ class TestCinderUtils(CharmTestCase):
     def test_required_interfaces_api(self):
         '''identity-service interface required for api service'''
         expected = {
-            'database': ('shared-db', 'pgsql-db'),
+            'database': ('shared-db',),
             'messaging': ('amqp',),
             'identity': ('identity-service',),
         }
@@ -1071,7 +1071,7 @@ class TestCinderUtils(CharmTestCase):
         '''
         self.test_config.set('enabled-services', 'volume,scheduler')
         expected = {
-            'database': ('shared-db', 'pgsql-db'),
+            'database': ('shared-db',),
             'messaging': ('amqp',),
         }
         self.assertEqual(cinder_utils.required_interfaces(), expected)

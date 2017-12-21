@@ -51,7 +51,6 @@ from charmhelpers.core.hookenv import (
     Hooks,
     UnregisteredHookError,
     config,
-    is_relation_made,
     local_unit,
     relation_get,
     relation_ids,
@@ -60,7 +59,6 @@ from charmhelpers.core.hookenv import (
     service_name,
     log,
     DEBUG,
-    ERROR,
     WARNING,
     status_set,
     open_port,
@@ -211,13 +209,6 @@ def config_changed():
 
 @hooks.hook('shared-db-relation-joined')
 def db_joined():
-    if is_relation_made('pgsql-db'):
-        # error, postgresql is used
-        e = ('Attempting to associate a mysql database when there is already '
-             'associated a postgresql one')
-        log(e, level=ERROR)
-        raise Exception(e)
-
     if config('prefer-ipv6'):
         sync_db_with_multi_ipv6_addresses(config('database'),
                                           config('database-user'))
@@ -235,19 +226,6 @@ def db_joined():
         relation_set(database=conf['database'],
                      username=conf['database-user'],
                      hostname=host)
-
-
-@hooks.hook('pgsql-db-relation-joined')
-def pgsql_db_joined():
-    if is_relation_made('shared-db'):
-        # raise error
-        e = ('Attempting to associate a postgresql database when there is'
-             ' already associated a mysql one')
-        log(e, level=ERROR)
-        raise Exception(e)
-
-    conf = config()
-    relation_set(database=conf['database'])
 
 
 @hooks.hook('shared-db-relation-changed')
@@ -268,18 +246,6 @@ def db_changed():
         else:
             juju_log('allowed_units either not presented, or local unit '
                      'not in acl list: %s' % repr(allowed_units))
-
-
-@hooks.hook('pgsql-db-relation-changed')
-@restart_on_change(restart_map())
-def pgsql_db_changed():
-    if 'pgsql-db' not in CONFIGS.complete_contexts():
-        juju_log('pgsql-db relation incomplete. Peer not ready?')
-        return
-    CONFIGS.write(CINDER_CONF)
-    if is_elected_leader(CLUSTER_RES):
-        juju_log('Cluster leader, performing db sync')
-        migrate_database()
 
 
 @hooks.hook('amqp-relation-joined')
@@ -583,8 +549,7 @@ def image_service_changed():
 @hooks.hook('amqp-relation-broken',
             'identity-service-relation-broken',
             'image-service-relation-broken',
-            'shared-db-relation-broken',
-            'pgsql-db-relation-broken')
+            'shared-db-relation-broken')
 @restart_on_change(restart_map(), stopstart=True)
 def relation_broken():
     CONFIGS.write_all()

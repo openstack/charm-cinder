@@ -70,7 +70,6 @@ TO_PATCH = [
     'update_nrpe_config',
     # charmhelpers.core.hookenv
     'config',
-    'is_relation_made',
     'local_unit',
     'relation_get',
     'relation_ids',
@@ -300,13 +299,6 @@ class TestChangedHooks(CharmTestCase):
         self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
         self.assertTrue(self.migrate_database.called)
 
-    def test_pgsql_db_changed(self):
-        'It writes out cinder.conf on db changed'
-        self.CONFIGS.complete_contexts.return_value = ['pgsql-db']
-        hooks.hooks.execute(['hooks/pgsql-db-relation-changed'])
-        self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
-        self.assertTrue(self.migrate_database.called)
-
     def test_db_changed_relation_incomplete(self):
         'It does not write out cinder.conf with incomplete shared-db rel'
         self.relation_get.return_value = 'cinder/0 cinder/1'
@@ -333,12 +325,6 @@ class TestChangedHooks(CharmTestCase):
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
         self.assertFalse(self.migrate_database.called)
 
-    def test_pgsql_db_changed_relation_incomplete(self):
-        'It does not write out cinder.conf with incomplete pgsql-db rel'
-        hooks.hooks.execute(['hooks/pgsql-db-relation-changed'])
-        self.assertFalse(self.CONFIGS.write.called)
-        self.assertFalse(self.migrate_database.called)
-
     def test_db_changed_not_leader(self):
         'It does not migrate database when not leader'
         self.relation_get.return_value = 'cinder/0 cinder/1'
@@ -346,14 +332,6 @@ class TestChangedHooks(CharmTestCase):
         self.is_elected_leader.return_value = False
         self.CONFIGS.complete_contexts.return_value = ['shared-db']
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
-        self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
-        self.assertFalse(self.migrate_database.called)
-
-    def test_pgsql_db_changed_not_leader(self):
-        'It does not migrate database when not leader'
-        self.is_elected_leader.return_value = False
-        self.CONFIGS.complete_contexts.return_value = ['pgsql-db']
-        hooks.hooks.execute(['hooks/pgsql-db-relation-changed'])
         self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
         self.assertFalse(self.migrate_database.called)
 
@@ -440,36 +418,10 @@ class TestJoinedHooks(CharmTestCase):
     def test_db_joined(self):
         'It properly requests access to a shared-db service'
         self.get_relation_ip.return_value = '10.0.0.1'
-        self.is_relation_made.return_value = False
         hooks.hooks.execute(['hooks/shared-db-relation-joined'])
         expected = {'username': 'cinder',
                     'hostname': '10.0.0.1', 'database': 'cinder'}
         self.relation_set.assert_called_with(**expected)
-
-    def test_db_joined_with_postgresql(self):
-        self.is_relation_made.return_value = True
-
-        with self.assertRaises(Exception) as context:
-            hooks.hooks.execute(['hooks/shared-db-relation-joined'])
-        self.assertEqual(context.exception.message,
-                         'Attempting to associate a mysql database when there '
-                         'is already associated a postgresql one')
-
-    def test_postgresql_db_joined(self):
-        'It properly requests access to a postgresql-db service'
-        self.is_relation_made.return_value = False
-        hooks.hooks.execute(['hooks/pgsql-db-relation-joined'])
-        expected = {'database': 'cinder'}
-        self.relation_set.assert_called_with(**expected)
-
-    def test_postgresql_joined_with_db(self):
-        self.is_relation_made.return_value = True
-
-        with self.assertRaises(Exception) as context:
-            hooks.hooks.execute(['hooks/pgsql-db-relation-joined'])
-        self.assertEqual(context.exception.message,
-                         'Attempting to associate a postgresql database when'
-                         ' there is already associated a mysql one')
 
     def test_amqp_joined(self):
         'It properly requests access to an amqp service'
