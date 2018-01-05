@@ -115,7 +115,7 @@ class ApacheSSLContext(SSLContext):
     def __call__(self):
         # late import to work around circular dependency
         from cinder_utils import service_enabled
-        if not service_enabled('cinder-common'):
+        if not service_enabled('api'):
             return {}
         return super(ApacheSSLContext, self).__call__()
 
