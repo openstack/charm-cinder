@@ -26,7 +26,6 @@ from cinder_utils import (
     determine_packages,
     disable_package_apache_site,
     do_openstack_upgrade,
-    git_install,
     juju_log,
     migrate_database,
     configure_lvm_storage,
@@ -78,7 +77,6 @@ from charmhelpers.core.host import (
 from charmhelpers.contrib.openstack.utils import (
     config_value_changed,
     configure_installation_source,
-    git_install_requested,
     openstack_upgrade_available,
     sync_db_with_multi_ipv6_addresses,
     os_release,
@@ -145,9 +143,6 @@ def install():
     if run_in_apache():
         disable_package_apache_site()
 
-    status_set('maintenance', 'Git install')
-    git_install(config('openstack-origin-git'))
-
 
 @hooks.hook('config-changed')
 @restart_on_change(restart_map(), stopstart=True)
@@ -175,11 +170,7 @@ def config_changed():
                               conf['remove-missing'],
                               conf['remove-missing-force'])
 
-    if git_install_requested():
-        if config_value_changed('openstack-origin-git'):
-            status_set('maintenance', 'Running Git install')
-            git_install(config('openstack-origin-git'))
-    elif not config('action-managed-upgrade'):
+    if not config('action-managed-upgrade'):
         if openstack_upgrade_available('cinder-common'):
             status_set('maintenance', 'Running openstack upgrade')
             do_openstack_upgrade(configs=CONFIGS)

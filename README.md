@@ -107,9 +107,6 @@ Users should be aware of three options, in particular:
 openstack-origin:  Allows Cinder to be installed from a specific apt repository.
                    See config.yaml for a list of supported sources.
 
-openstack-origin-git:  Allows Cinder to be installed from source.
-                       See config.yaml for a list of supported sources.
-
 block-device:  When using local storage, a block device should be specified to
                back a LVM volume group.  It's important this device exists on
                all nodes that the service may be deployed to.

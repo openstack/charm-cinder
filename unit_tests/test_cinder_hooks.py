@@ -13,11 +13,8 @@
 # limitations under the License.
 
 import json
-import sys
 
-import yaml
 from mock import (
-    MagicMock,
     patch,
     call
 )
@@ -27,13 +24,6 @@ from test_utils import (
     RESTART_MAP,
 )
 
-# python-apt is not installed as part of test-requirements but is imported by
-# some charmhelpers modules so create a fake import.
-mock_apt = MagicMock()
-sys.modules['apt'] = mock_apt
-mock_apt.apt_pkg = MagicMock()
-
-
 with patch('charmhelpers.contrib.hardening.harden.harden') as mock_dec:
     mock_dec.side_effect = (lambda *dargs, **dkwargs: lambda f:
                             lambda *args, **kwargs: f(*args, **kwargs))
@@ -41,6 +31,7 @@ with patch('charmhelpers.contrib.hardening.harden.harden') as mock_dec:
         with patch('cinder_utils.restart_map') as restart_map:
             restart_map.return_value = RESTART_MAP
             import cinder_hooks as hooks
+            reload(hooks)
 
 hooks.hooks._config_save = False
 import cinder_utils as utils
@@ -54,7 +45,6 @@ TO_PATCH = [
     'determine_packages',
     'do_openstack_upgrade',
     'ensure_ceph_keyring',
-    'git_install',
     'is_clustered',
     'juju_log',
     'log',
@@ -105,45 +95,15 @@ class TestInstallHook(CharmTestCase):
         super(TestInstallHook, self).setUp(hooks, TO_PATCH)
         self.config.side_effect = self.test_config.get
 
-    @patch.object(utils, 'git_install_requested')
-    def test_install_precise_distro(self, git_requested):
+    def test_install_precise_distro(self):
         'It redirects to cloud archive if setup to install precise+distro'
-        git_requested.return_value = False
         self.lsb_release.return_value = {'DISTRIB_CODENAME': 'precise'}
         hooks.hooks.execute(['hooks/install.real'])
         ca = 'cloud:precise-folsom'
         self.configure_installation_source.assert_called_with(ca)
 
-    @patch.object(utils, 'git_install_requested')
-    def test_install_git(self, git_requested):
-        git_requested.return_value = True
-        self.determine_packages.return_value = ['foo', 'bar', 'baz']
-        repo = 'cloud:trusty-juno'
-        openstack_origin_git = {
-            'repositories': [
-                {'name': 'requirements',
-                 'repository': 'git://git.openstack.org/openstack/requirements',  # noqa
-                 'branch': 'stable/juno'},
-                {'name': 'cinder',
-                 'repository': 'git://git.openstack.org/openstack/cinder',
-                 'branch': 'stable/juno'}
-            ],
-            'directory': '/mnt/openstack-git',
-        }
-        projects_yaml = yaml.dump(openstack_origin_git)
-        self.test_config.set('openstack-origin', repo)
-        self.test_config.set('openstack-origin-git', projects_yaml)
-        hooks.hooks.execute(['hooks/install.real'])
-        self.assertTrue(self.execd_preinstall.called)
-        self.configure_installation_source.assert_called_with(repo)
-        self.apt_update.assert_called_with()
-        self.apt_install.assert_called_with(['foo', 'bar', 'baz'], fatal=True)
-        self.git_install.assert_called_with(projects_yaml)
-
-    @patch.object(utils, 'git_install_requested')
-    def test_correct_install_packages(self, git_requested):
+    def test_correct_install_packages(self):
         'It installs the correct packages based on what is determined'
-        git_requested.return_value = False
         self.determine_packages.return_value = ['foo', 'bar', 'baz']
         hooks.hooks.execute(['hooks/install.real'])
         self.apt_install.assert_called_with(['foo', 'bar', 'baz'], fatal=True)
@@ -168,12 +128,10 @@ class TestChangedHooks(CharmTestCase):
         _joined.assert_called_with(relation_id='amqp:1')
 
     @patch.object(hooks, 'configure_https')
-    @patch.object(hooks, 'git_install_requested')
     @patch.object(hooks, 'config_value_changed')
     def test_config_changed(self, config_val_changed,
-                            git_requested, conf_https):
+                            conf_https):
         'It writes out all config'
-        git_requested.return_value = False
         self.openstack_upgrade_available.return_value = False
         hooks.hooks.execute(['hooks/config-changed'])
         self.assertTrue(self.CONFIGS.write_all.called)
@@ -184,12 +142,10 @@ class TestChangedHooks(CharmTestCase):
         self.open_port.assert_called_with(8776)
 
     @patch.object(hooks, 'configure_https')
-    @patch.object(hooks, 'git_install_requested')
     @patch.object(hooks, 'config_value_changed')
     def test_config_changed_block_devices(self, config_val_changed,
-                                          git_requested, conf_https):
+                                          conf_https):
         'It writes out all config'
-        git_requested.return_value = False
         self.openstack_upgrade_available.return_value = False
         self.test_config.set('block-device', 'sdb /dev/sdc sde')
         self.test_config.set('volume-group', 'cinder-new')
@@ -204,14 +160,11 @@ class TestChangedHooks(CharmTestCase):
             True, True, False)
 
     @patch.object(hooks, 'configure_https')
-    @patch.object(hooks, 'git_install_requested')
     @patch.object(hooks, 'config_value_changed')
     def test_config_changed_uses_remove_missing_force(self,
                                                       config_val_changed,
-                                                      git_requested,
                                                       conf_https):
         'It uses the remove-missing-force config option'
-        git_requested.return_value = False
         self.openstack_upgrade_available.return_value = False
         self.test_config.set('block-device', 'sdb')
         self.test_config.set('remove-missing-force', True)
@@ -222,51 +175,21 @@ class TestChangedHooks(CharmTestCase):
             False, False, True)
 
     @patch.object(hooks, 'configure_https')
-    @patch.object(hooks, 'git_install_requested')
     @patch.object(hooks, 'config_value_changed')
     def test_config_changed_upgrade_available(self, config_val_changed,
-                                              git_requested, conf_https):
+                                              conf_https):
         'It writes out all config with an available OS upgrade'
-        git_requested.return_value = False
         self.openstack_upgrade_available.return_value = True
         hooks.hooks.execute(['hooks/config-changed'])
         self.do_openstack_upgrade.assert_called_with(configs=self.CONFIGS)
 
-    @patch.object(hooks, 'configure_https')
-    @patch.object(hooks, 'git_install_requested')
-    @patch.object(hooks, 'config_value_changed')
-    def test_config_changed_git_updated(self, config_val_changed,
-                                        git_requested, conf_https):
-        git_requested.return_value = True
-        repo = 'cloud:trusty-juno'
-        openstack_origin_git = {
-            'repositories': [
-                {'name': 'requirements',
-                 'repository': 'git://git.openstack.org/openstack/requirements',  # noqa
-                 'branch': 'stable/juno'},
-                {'name': 'cinder',
-                 'repository': 'git://git.openstack.org/openstack/',
-                 'branch': 'stable/juno'}
-            ],
-            'directory': '/mnt/openstack-git',
-        }
-        projects_yaml = yaml.dump(openstack_origin_git)
-        self.test_config.set('openstack-origin', repo)
-        self.test_config.set('openstack-origin-git', projects_yaml)
-        hooks.hooks.execute(['hooks/config-changed'])
-        self.git_install.assert_called_with(projects_yaml)
-        self.assertFalse(self.do_openstack_upgrade.called)
-        self.assertTrue(conf_https.called)
-
     @patch('charmhelpers.core.host.service')
     @patch.object(hooks, 'configure_https')
-    @patch.object(hooks, 'git_install_requested')
     @patch.object(hooks, 'config_value_changed')
     def test_config_changed_overwrite_changed(self, config_val_changed,
-                                              git_requested, conf_https,
+                                              conf_https,
                                               _services):
         'It uses the overwrite config option'
-        git_requested.return_value = False
         self.openstack_upgrade_available.return_value = False
         config_val_changed.return_value = True
         hooks.hooks.execute(['hooks/config-changed'])
@@ -277,12 +200,10 @@ class TestChangedHooks(CharmTestCase):
                                                       False, False, False)
         self.service_restart.assert_called_with('cinder-volume')
 
-    @patch.object(hooks, 'git_install_requested')
     @patch.object(hooks, 'config_value_changed')
-    def test_config_changed_with_openstack_upgrade_action(self,
-                                                          config_value_changed,
-                                                          git_requested):
-        git_requested.return_value = False
+    def test_config_changed_with_openstack_upgrade_action(
+            self,
+            config_value_changed):
         self.openstack_upgrade_available.return_value = True
         self.test_config.set('action-managed-upgrade', True)
 

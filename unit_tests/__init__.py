@@ -25,3 +25,9 @@ sys.modules['cinder.context'] = cinder.context
 sys.modules['cinder.db'] = cinder.db
 sys.modules['cinder.db.sqlalchemy'] = cinder.db.sqlalchemy
 sys.modules['cinder.db.sqlalchemy.api'] = cinder.db.sqlalchemy.api
+
+# python-apt is not installed as part of test-requirements but is imported by
+# some charmhelpers modules so create a fake import.
+mock_apt = mock.MagicMock()
+sys.modules['apt'] = mock_apt
+mock_apt.apt_pkg = mock.MagicMock()
