@@ -202,7 +202,7 @@ BASE_RESOURCE_MAP = OrderedDict([
                      context.BindHostContext(),
                      context.WorkerConfigContext(),
                      cinder_contexts.RegionContext(),
-                     context.InternalEndpointContext('cinder-common'),
+                     context.InternalEndpointContext(),
                      cinder_contexts.VolumeUsageAuditContext(),
                      context.MemcacheContext(),
                      cinder_contexts.SectionalConfigContext(),
