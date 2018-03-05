@@ -145,21 +145,16 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             self._get_openstack_release_string()))
 
         # Authenticate admin with keystone
-        self.keystone = u.authenticate_keystone_admin(self.keystone_sentry,
-                                                      user='admin',
-                                                      password='openstack',
-                                                      tenant='admin')
+        self.keystone_session, self.keystone = u.get_default_keystone_session(
+            self.keystone_sentry,
+            openstack_release=self._get_openstack_release())
 
         # Authenticate admin with cinder endpoint
         if self._get_openstack_release() >= self.xenial_pike:
             api_version = 2
         else:
             api_version = 1
-        self.cinder = u.authenticate_cinder_admin(self.keystone_sentry,
-                                                  username='admin',
-                                                  password='openstack',
-                                                  tenant='admin',
-                                                  api_version=api_version)
+        self.cinder = u.authenticate_cinder_admin(self.keystone, api_version)
 
         # Authenticate admin with glance endpoint
         self.glance = u.authenticate_glance_admin(self.keystone)
@@ -323,34 +318,48 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
     def test_110_users(self):
         """Verify expected users."""
         u.log.debug('Checking keystone users...')
-        if self._get_openstack_release() < self.xenial_pike:
-            expected = [{
-                'name': 'cinder_cinderv2',
-                'enabled': True,
-                'tenantId': u.not_null,
-                'id': u.not_null,
-                'email': 'juju@localhost',
-            }]
-        else:
+        if self._get_openstack_release() >= self.xenial_queens:
             expected = [{
                 'name': 'cinderv2_cinderv3',
                 'enabled': True,
-                'tenantId': u.not_null,
+                'default_project_id': u.not_null,
                 'id': u.not_null,
                 'email': 'juju@localhost',
             }]
-
-        expected.append({
-            'name': 'admin',
-            'enabled': True,
-            'tenantId': u.not_null,
-            'id': u.not_null,
-            'email': 'juju@localhost',
-        })
-
-        actual = self.keystone.users.list()
-
-        ret = u.validate_user_data(expected, actual)
+            domain = self.keystone.domains.find(name='service_domain')
+            actual = self.keystone.users.list(domain=domain)
+            api_version = 3
+        elif self._get_openstack_release() >= self.xenial_pike:
+            expected = [
+                {'name': 'cinderv2_cinderv3',
+                 'enabled': True,
+                 'tenantId': u.not_null,
+                 'id': u.not_null,
+                 'email': 'juju@localhost'},
+                {'name': 'admin',
+                 'enabled': True,
+                 'tenantId': u.not_null,
+                 'id': u.not_null,
+                 'email': 'juju@localhost'}
+            ]
+            actual = self.keystone.users.list()
+            api_version = 2
+        else:
+            expected = [
+                {'name': 'cinder_cinderv2',
+                 'enabled': True,
+                 'tenantId': u.not_null,
+                 'id': u.not_null,
+                 'email': 'juju@localhost'},
+                {'name': 'admin',
+                 'enabled': True,
+                 'tenantId': u.not_null,
+                 'id': u.not_null,
+                 'email': 'juju@localhost'}
+            ]
+            actual = self.keystone.users.list()
+            api_version = 2
+        ret = u.validate_user_data(expected, actual, api_version)
         if ret:
             amulet.raise_status(amulet.FAIL, msg=ret)
 
@@ -381,7 +390,10 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                         'volume': [endpoint_id]}
         actual = self.keystone.service_catalog.get_endpoints()
 
-        ret = u.validate_svc_catalog_endpoint_data(expected, actual)
+        ret = u.validate_svc_catalog_endpoint_data(
+            expected,
+            actual,
+            openstack_release=self._get_openstack_release())
         if ret:
             amulet.raise_status(amulet.FAIL, msg=ret)
 
@@ -390,15 +402,35 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         u.log.debug('Checking cinder endpoint...')
         endpoints = self.keystone.endpoints.list()
         admin_port = internal_port = public_port = '8776'
-        expected = {'id': u.not_null,
-                    'region': 'RegionOne',
-                    'adminurl': u.valid_url,
-                    'internalurl': u.valid_url,
-                    'publicurl': u.valid_url,
-                    'service_id': u.not_null}
-
-        ret = u.validate_endpoint_data(endpoints, admin_port, internal_port,
-                                       public_port, expected)
+        if self._get_openstack_release() >= self.xenial_queens:
+            expected = {
+                'id': u.not_null,
+                'region': 'RegionOne',
+                'region_id': 'RegionOne',
+                'url': u.valid_url,
+                'interface': u.not_null,
+                'service_id': u.not_null}
+            ret = u.validate_v3_endpoint_data(
+                endpoints,
+                admin_port,
+                internal_port,
+                public_port,
+                expected,
+                6)
+        else:
+            expected = {
+                'id': u.not_null,
+                'region': 'RegionOne',
+                'adminurl': u.valid_url,
+                'internalurl': u.valid_url,
+                'publicurl': u.valid_url,
+                'service_id': u.not_null}
+            ret = u.validate_v2_endpoint_data(
+                endpoints,
+                admin_port,
+                internal_port,
+                public_port,
+                expected)
         if ret:
             amulet.raise_status(amulet.FAIL,
                                 msg='cinder endpoint: {}'.format(ret))
@@ -582,7 +614,19 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             'rabbit_password': rel_mq_ci['password'],
             'rabbit_host': rel_mq_ci['hostname'],
         }
-        if self._get_openstack_release() >= self.trusty_mitaka:
+        if self._get_openstack_release() >= self.xenial_queens:
+            expected['keystone_authtoken'] = {
+                'auth_uri': auth_uri.rstrip('/'),
+                'auth_url': auth_url.rstrip('/'),
+                'auth_type': 'password',
+                'project_domain_name': 'service_domain',
+                'user_domain_name': 'service_domain',
+                'project_name': 'services',
+                'username': rel_ks_ci['service_username'],
+                'password': rel_ks_ci['service_password'],
+                'signing_dir': '/var/cache/cinder'
+            }
+        elif self._get_openstack_release() >= self.trusty_mitaka:
             expected['keystone_authtoken'] = {
                 'auth_uri': auth_uri.rstrip('/'),
                 'auth_url': auth_url.rstrip('/'),
