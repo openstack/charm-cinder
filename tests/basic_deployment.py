@@ -37,7 +37,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
        Create volume snapshot. Create volume from snapshot."""
 
     def __init__(self, series=None, openstack=None, source=None,
-                 stable=False):
+                 stable=True):
         """Deploy the entire test environment."""
         super(CinderBasicDeployment, self).__init__(series, openstack, source,
                                                     stable)
