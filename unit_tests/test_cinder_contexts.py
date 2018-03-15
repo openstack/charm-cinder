@@ -118,7 +118,7 @@ class TestCinderContext(CharmTestCase):
         self.os_release.return_value = 'havana'
         self.assertEqual(
             contexts.StorageBackendContext()(),
-            {'active_backends': ['LVM'], 'backends': 'LVM'})
+            {'active_backends': [], 'backends': ''})
 
     def test_storage_backend_single_backend(self):
         rel_dict = {
