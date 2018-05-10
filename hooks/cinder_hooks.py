@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import os
 import sys
 import uuid
@@ -35,16 +36,17 @@ from cinder_utils import (
     services,
     service_enabled,
     service_restart,
-    set_ceph_env_variables,
     CLUSTER_RES,
     CINDER_CONF,
     CINDER_API_CONF,
-    ceph_config_file,
     setup_ipv6,
     check_local_db_actions_complete,
     filesystem_mounted,
     assess_status,
+    scrub_old_style_ceph,
 )
+
+from cinder_contexts import ceph_config_file
 
 from charmhelpers.core.hookenv import (
     Hooks,
@@ -403,7 +405,6 @@ def ceph_changed(relation_id=None):
 
     if is_request_complete(get_ceph_request()):
         log('Request complete')
-        set_ceph_env_variables(service=service)
         CONFIGS.write(CINDER_CONF)
         CONFIGS.write(ceph_config_file())
         # Ensure that cinder-volume is restarted since only now can we
@@ -577,6 +578,7 @@ def upgrade_charm():
     for rel_id in relation_ids('amqp'):
         amqp_joined(relation_id=rel_id)
     update_nrpe_config()
+    scrub_old_style_ceph()
 
 
 @hooks.hook('storage-backend-relation-changed')

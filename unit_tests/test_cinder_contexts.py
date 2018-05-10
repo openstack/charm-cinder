@@ -78,6 +78,7 @@ class TestCinderContext(CharmTestCase):
             {'volume_driver': 'cinder.volume.driver.RBDDriver',
              'rbd_pool': service,
              'rbd_user': service,
+             'rbd_ceph_conf': '/var/lib/charm/mycinder/ceph.conf',
              'host': service})
 
     def test_ceph_related_icehouse(self):
@@ -90,6 +91,7 @@ class TestCinderContext(CharmTestCase):
             {'volume_driver': 'cinder.volume.drivers.rbd.RBDDriver',
              'rbd_pool': service,
              'rbd_user': service,
+             'rbd_ceph_conf': '/var/lib/charm/mycinder/ceph.conf',
              'host': service})
 
     def test_ceph_related_ocata(self):
@@ -102,6 +104,7 @@ class TestCinderContext(CharmTestCase):
             {'ceph_volume_driver': 'cinder.volume.drivers.rbd.RBDDriver',
              'rbd_pool': service,
              'rbd_user': service,
+             'rbd_ceph_conf': '/var/lib/charm/mycinder/ceph.conf',
              'host': service})
 
     @patch.object(utils, 'service_enabled')

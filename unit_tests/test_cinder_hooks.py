@@ -53,7 +53,6 @@ TO_PATCH = [
     'register_configs',
     'restart_map',
     'service_enabled',
-    'set_ceph_env_variables',
     'CONFIGS',
     'CLUSTER_RES',
     'ceph_config_file',
@@ -115,17 +114,21 @@ class TestChangedHooks(CharmTestCase):
         super(TestChangedHooks, self).setUp(hooks, TO_PATCH)
         self.config.side_effect = self.test_config.get
 
+    @patch.object(hooks, 'scrub_old_style_ceph')
     @patch.object(hooks, 'amqp_joined')
-    def test_upgrade_charm_no_amqp(self, _joined):
+    def test_upgrade_charm_no_amqp(self, _joined, _scrub_old_style_ceph):
         self.relation_ids.return_value = []
         hooks.hooks.execute(['hooks/upgrade-charm'])
         _joined.assert_not_called()
+        _scrub_old_style_ceph.assert_called_once_with()
 
+    @patch.object(hooks, 'scrub_old_style_ceph')
     @patch.object(hooks, 'amqp_joined')
-    def test_upgrade_charm_with_amqp(self, _joined):
+    def test_upgrade_charm_with_amqp(self, _joined, _scrub_old_style_ceph):
         self.relation_ids.return_value = ['amqp:1']
         hooks.hooks.execute(['hooks/upgrade-charm'])
         _joined.assert_called_with(relation_id='amqp:1')
+        _scrub_old_style_ceph.assert_called_once_with()
 
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'config_value_changed')
@@ -509,7 +512,6 @@ class TestJoinedHooks(CharmTestCase):
         for c in [call('/var/lib/charm/cinder/ceph.conf'),
                   call('/etc/cinder/cinder.conf')]:
             self.assertNotIn(c, self.CONFIGS.write.call_args_list)
-        self.assertFalse(self.set_ceph_env_variables.called)
 
     @patch('charmhelpers.core.host.service')
     @patch("cinder_hooks.relation_get", autospec=True)
@@ -529,7 +531,6 @@ class TestJoinedHooks(CharmTestCase):
         for c in [call('/var/lib/charm/cinder/ceph.conf'),
                   call('/etc/cinder/cinder.conf')]:
             self.assertIn(c, self.CONFIGS.write.call_args_list)
-        self.set_ceph_env_variables.assert_called_with(service='cinder')
         self.service_restart.assert_called_with('cinder-volume')
 
     def test_ceph_changed_broker_nonzero_rc(self):
@@ -545,7 +546,6 @@ class TestJoinedHooks(CharmTestCase):
         for c in [call('/var/lib/charm/cinder/ceph.conf'),
                   call('/etc/cinder/cinder.conf')]:
             self.assertNotIn(c, self.CONFIGS.write.call_args_list)
-        self.assertFalse(self.set_ceph_env_variables.called)
 
     def test_ceph_changed_no_keys(self):
         'It ensures ceph assets created on ceph changed'

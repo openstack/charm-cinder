@@ -12,13 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
+
 import os
+import re
 import subprocess
 import uuid
 
 from copy import deepcopy
 from collections import OrderedDict
 from copy import copy
+from tempfile import NamedTemporaryFile
 
 from charmhelpers.core.strutils import (
     bytes_from_string
@@ -33,7 +37,6 @@ from charmhelpers.core.hookenv import (
     related_units,
     log,
     DEBUG,
-    service_name,
 )
 
 from charmhelpers.fetch import (
@@ -107,6 +110,8 @@ from charmhelpers.core.decorators import (
 
 import cinder_contexts
 
+from cinder_contexts import ceph_config_file
+
 COMMON_PACKAGES = [
     'apache2',
     'cinder-common',
@@ -141,7 +146,6 @@ CINDER_CONF_DIR = "/etc/cinder"
 CINDER_CONF = '%s/cinder.conf' % CINDER_CONF_DIR
 CINDER_API_CONF = '%s/api-paste.ini' % CINDER_CONF_DIR
 CEPH_CONF = '/etc/ceph/ceph.conf'
-CHARM_CEPH_CONF = '/var/lib/charm/{}/ceph.conf'
 
 HAPROXY_CONF = '/etc/haproxy/haproxy.cfg'
 APACHE_SITE_CONF = '/etc/apache2/sites-available/openstack_https_frontend'
@@ -174,9 +178,6 @@ def required_interfaces():
 
     return _interfaces
 
-
-def ceph_config_file():
-    return CHARM_CEPH_CONF.format(service_name())
 
 # Map config files to hook contexts and services that will be associated
 # with file in restart_on_changes()'s service map.
@@ -692,17 +693,6 @@ def migrate_database(upgrade=False):
         relation_set(relation_id=r_id, **{CINDER_DB_INIT_RKEY: id})
 
 
-def set_ceph_env_variables(service):
-    # XXX: Horrid kludge to make cinder-volume use
-    # a different ceph username than admin
-    env = open('/etc/environment', 'r').read()
-    if 'CEPH_ARGS' not in env:
-        with open('/etc/environment', 'a') as out:
-            out.write('CEPH_ARGS="--id %s"\n' % service)
-    with open('/etc/init/cinder-volume.override', 'w') as out:
-        out.write('env CEPH_ARGS="--id %s"\n' % service)
-
-
 def do_openstack_upgrade(configs=None):
     """Perform an uprade of cinder. Takes care of upgrading
     packages, rewriting configs + database migration and
@@ -893,3 +883,21 @@ def disable_package_apache_site():
     """
     if os.path.exists(PACKAGE_CINDER_API_CONF):
         subprocess.check_call(['a2disconf', 'cinder-wsgi'])
+
+
+def scrub_old_style_ceph():
+    """Purge any legacy ceph configuration from install"""
+    # NOTE: purge old override file - no longer needed
+    if os.path.exists('/etc/init/cinder-volume.override'):
+        os.remove('/etc/init/cinder-volume.override')
+    # NOTE: purge any CEPH_ARGS data from /etc/environment
+    env_file = '/etc/environment'
+    ceph_match = re.compile("^CEPH_ARGS.*").search
+    with open(env_file, 'r') as input_file:
+        with NamedTemporaryFile(mode='w',
+                                delete=False,
+                                dir=os.path.dirname(env_file)) as outfile:
+            for line in input_file:
+                if not ceph_match(line):
+                    print(line, end='', file=outfile)
+            os.rename(outfile.name, input_file.name)

@@ -47,7 +47,6 @@ TO_PATCH = [
     'configure_lvm_storage',
     'register_configs',
     'service_enabled',
-    'set_ceph_env_variables',
     'CONFIGS',
     'CLUSTER_RES',
     # charmhelpers.core.hookenv

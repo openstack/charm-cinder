@@ -32,5 +32,6 @@ rbd_pool = {{ rbd_pool }}
 host = {{ host }}
 rbd_user = {{ rbd_user }}
 volume_driver = {{ ceph_volume_driver }}
+rbd_ceph_conf = {{ rbd_ceph_conf }}
 {% endif %}
 {% endif %}

@@ -38,6 +38,8 @@ from charmhelpers.contrib.hahelpers.cluster import (
     determine_api_port,
 )
 
+CHARM_CEPH_CONF = '/var/lib/charm/{}/ceph.conf'
+
 
 def enable_lvm():
     """Check whether the LVM backend should be configured
@@ -45,6 +47,10 @@ def enable_lvm():
     @returns boolean - If LVM should be enabled"""
     block_device = config('block-device') or 'none'
     return block_device.lower() != 'none'
+
+
+def ceph_config_file():
+    return CHARM_CEPH_CONF.format(service_name())
 
 
 class ImageServiceContext(OSContextGenerator):
@@ -81,7 +87,8 @@ class CephContext(OSContextGenerator):
             # ensure_ceph_pool() creates pool based on service name.
             'rbd_pool': service,
             'rbd_user': service,
-            'host': service
+            'host': service,
+            'rbd_ceph_conf': ceph_config_file()
         }
 
 
