@@ -150,6 +150,7 @@ class TestCinderContext(CharmTestCase):
 
     mod_ch_context = 'charmhelpers.contrib.openstack.context'
 
+    @patch('charmhelpers.contrib.openstack.context.relation_ids')
     @patch('charmhelpers.contrib.openstack.context.resolve_address')
     @patch('charmhelpers.contrib.openstack.ip.config')
     @patch('%s.ApacheSSLContext.canonical_names' % (mod_ch_context))
@@ -170,7 +171,9 @@ class TestCinderContext(CharmTestCase):
                                                 mock_configure_ca,
                                                 mock_cfg_canonical_names,
                                                 mock_ip_config,
-                                                mock_ip_network_get):
+                                                mock_ip_network_get,
+                                                mock_relation_ids):
+        mock_relation_ids.return_value = []
         mock_https.return_value = True
         mock_unit_get.return_value = '1.2.3.4'
         mock_ip_network_get.return_value = '1.2.3.4'

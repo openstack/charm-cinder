@@ -116,6 +116,10 @@ from charmhelpers.contrib.openstack.ip import (
     canonical_url,
     PUBLIC, INTERNAL, ADMIN
 )
+from charmhelpers.contrib.openstack.cert_utils import (
+    get_certificate_request,
+    process_certificates,
+)
 from charmhelpers.contrib.openstack.context import ADDRESS_TYPES
 
 from charmhelpers.contrib.charmsupport import nrpe
@@ -613,6 +617,20 @@ def update_nrpe_config():
 @harden()
 def update_status():
     log('Updating status.')
+
+
+@hooks.hook('certificates-relation-joined')
+def certs_joined(relation_id=None):
+    relation_set(
+        relation_id=relation_id,
+        relation_settings=get_certificate_request())
+
+
+@hooks.hook('certificates-relation-changed')
+@restart_on_change(restart_map())
+def certs_changed(relation_id=None, unit=None):
+    process_certificates('cinder', relation_id, unit)
+    configure_https()
 
 
 if __name__ == '__main__':

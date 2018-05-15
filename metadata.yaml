@@ -42,6 +42,8 @@ requires:
   backup-backend:
     interface: cinder-backup
     scope: container
+  certificates:
+    interface: tls-certificates
 peers:
   cluster:
     interface: cinder-ha
