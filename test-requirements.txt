@@ -7,6 +7,8 @@ flake8>=2.2.4,<=2.4.1
 os-testr>=0.4.1
 charm-tools>=2.0.0
 requests==2.6.0
+cmd2!=0.8.3,<0.9.0;python_version<'3.0'  # MIT
+cmd2!=0.8.3;python_version>='3.0'  # MIT
 # BEGIN: Amulet OpenStack Charm Helper Requirements
 # Liberty client lower constraints
 amulet>=1.14.3,<2.0
