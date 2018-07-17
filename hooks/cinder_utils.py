@@ -157,6 +157,7 @@ class CinderCharmError(Exception):
 CINDER_CONF_DIR = "/etc/cinder"
 CINDER_CONF = '%s/cinder.conf' % CINDER_CONF_DIR
 CINDER_API_CONF = '%s/api-paste.ini' % CINDER_CONF_DIR
+CINDER_POLICY_JSON = '%s/policy.json' % CINDER_CONF_DIR
 CEPH_CONF = '/etc/ceph/ceph.conf'
 
 HAPROXY_CONF = '/etc/haproxy/haproxy.cfg'
@@ -227,6 +228,10 @@ BASE_RESOURCE_MAP = OrderedDict([
         'contexts': [context.IdentityServiceContext()],
         'services': ['cinder-api'],
     }),
+    (CINDER_POLICY_JSON, {
+        'contexts': [],
+        'services': ['cinder-api']
+    }),
     (ceph_config_file(), {
         'contexts': [context.CephContext()],
         'services': ['cinder-volume']
@@ -269,6 +274,7 @@ def resource_map(release=None):
     hook execution.
     """
     resource_map = deepcopy(BASE_RESOURCE_MAP)
+    release = release or os_release('cinder-common', base='icehouse')
     if relation_ids('backup-backend'):
         resource_map[CINDER_CONF]['services'].append('cinder-backup')
         resource_map[ceph_config_file()]['services'].append('cinder-backup')
@@ -321,6 +327,9 @@ def resource_map(release=None):
                          cinder_contexts.HAProxyContext()],
             'services': ['apache2']
         }
+
+    if release and CompareOpenStackReleases(release) < 'queens':
+        resource_map.pop(CINDER_POLICY_JSON)
 
     return resource_map
 

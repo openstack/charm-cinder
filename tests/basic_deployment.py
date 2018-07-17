@@ -26,6 +26,8 @@ from charmhelpers.contrib.openstack.amulet.utils import (
     # ERROR
 )
 
+import keystoneclient
+
 # Use DEBUG to turn on debug logging
 u = OpenStackAmuletUtils(DEBUG)
 
@@ -154,6 +156,22 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         else:
             api_version = 1
         self.cinder = u.authenticate_cinder_admin(self.keystone, api_version)
+        if self._get_openstack_release() >= self.xenial_queens:
+            self.create_users_v3()
+            self.keystone_non_admin = u.authenticate_keystone(
+                self.keystone_sentry.info['public-address'],
+                user_domain_name=self.demo_domain,
+                username=self.demo_user_v3,
+                password='password',
+                api_version=self.keystone_api_version,
+                project_domain_name=self.demo_domain,
+                project_name=self.demo_project,
+            )
+        else:
+            self.create_users_v2()
+            self.keystone_non_admin = u.authenticate_keystone_user(
+                self.keystone, user=self.demo_user,
+                password='password', tenant=self.demo_tenant)
 
         force_v1_client = False
         if self._get_openstack_release() == self.trusty_icehouse:
@@ -167,6 +185,118 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         self.glance = u.authenticate_glance_admin(
             self.keystone,
             force_v1_client=force_v1_client)
+
+        self.cinder_non_admin = u.authenticate_cinder_admin(
+            self.keystone_non_admin, api_version)
+
+    def create_users_v2(self):
+        # Create a demo tenant/role/user
+        self.demo_tenant = 'demoTenant'
+        self.demo_role = 'demoRole'
+        self.demo_user = 'demoUser'
+        self.keystone_api_version = 2
+        if not u.tenant_exists(self.keystone, self.demo_tenant):
+            tenant = self.keystone.tenants.create(
+                tenant_name=self.demo_tenant,
+                description='demo tenant',
+                enabled=True)
+            self.keystone.roles.create(name=self.demo_role)
+            self.keystone.users.create(name=self.demo_user,
+                                       password='password',
+                                       tenant_id=tenant.id,
+                                       email='demo@demo.com')
+
+    def create_users_v3(self):
+        # Create a demo tenant/role/user
+        self.demo_project = 'demoProject'
+        self.demo_user_v3 = 'demoUserV3'
+        self.demo_role = 'demoRoleV3'
+        self.demo_domain_admin = 'demoDomainAdminV3'
+        self.demo_domain = 'demoDomain'
+        self.keystone_api_version = 3
+        try:
+            domain = self.keystone.domains.find(name=self.demo_domain)
+        except keystoneclient.exceptions.NotFound:
+            domain = self.keystone.domains.create(
+                self.demo_domain,
+                description='Demo Domain',
+                enabled=True
+            )
+
+        try:
+            self.keystone.projects.find(name=self.demo_project)
+        except keystoneclient.exceptions.NotFound:
+            self.keystone.projects.create(
+                self.demo_project,
+                domain,
+                description='Demo Project',
+                enabled=True,
+            )
+
+        try:
+            self.keystone.roles.find(name=self.demo_role)
+        except keystoneclient.exceptions.NotFound:
+            self.keystone.roles.create(name=self.demo_role)
+
+        try:
+            self.keystone.roles.find(name='Member')
+        except keystoneclient.exceptions.NotFound:
+            self.keystone.roles.create(name='Member')
+
+        if not self.find_keystone_v3_user(self.keystone,
+                                          self.demo_user_v3,
+                                          self.demo_domain):
+            user = self.keystone.users.create(
+                self.demo_user_v3,
+                domain=domain.id,
+                project=self.demo_project,
+                password='password',
+                email='demov3@demo.com',
+                description='Demo',
+                enabled=True)
+            role = self.keystone.roles.find(name='Member')
+            u.log.debug("self.keystone.roles.grant('{}', user='{}', "
+                        "domain='{}')".format(role.id, user.id, domain.id))
+
+            self.keystone.roles.grant(
+                role.id,
+                user=user.id,
+                project=self.keystone.projects.find(name=self.demo_project).id)
+
+        try:
+            self.keystone.roles.find(name='Admin')
+        except keystoneclient.exceptions.NotFound:
+            self.keystone.roles.create(name='Admin')
+
+        if not self.find_keystone_v3_user(self.keystone,
+                                          self.demo_domain_admin,
+                                          self.demo_domain):
+            user = self.keystone.users.create(
+                self.demo_domain_admin,
+                domain=domain.id,
+                project=self.demo_project,
+                password='password',
+                email='demoadminv3@demo.com',
+                description='Demo Admin',
+                enabled=True)
+
+            role = self.keystone.roles.find(name='Admin')
+            u.log.debug("self.keystone.roles.grant('{}', user='{}', "
+                        "domain='{}')".format(role.id, user.id, domain.id))
+            self.keystone.roles.grant(
+                role.id,
+                user=user.id,
+                domain=domain.id)
+
+    def find_keystone_v3_user(self, client, username, domain):
+        """Find a user within a specified keystone v3 domain"""
+        domain_users = client.users.list(
+            domain=client.domains.find(name=domain).id
+        )
+        for user in domain_users:
+            if username.lower() == user.name.lower():
+                return user
+        return None
 
     def _extend_cinder_volume(self, vol_id, new_size=2):
         """Extend an existing cinder volume size.
@@ -742,6 +872,22 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         for vol in vols:
             u.log.debug('Deleting volume {}...'.format(vol.id))
             u.delete_resource(self.cinder.volumes, vol.id, msg="cinder volume")
+
+    def test_404_admin_force_delete_volume(self):
+        """Create a cinder volume and delete it."""
+        u.log.debug('Creating, checking and deleting cinder volume...')
+        vol_new = u.create_cinder_volume(self.cinder)
+        vol_new.force_delete()
+
+    def test_405_non_admin_force_delete_volume(self):
+        """Create a cinder volume and delete it."""
+        os_release = self._get_openstack_release()
+        if os_release < self.xenial_queens:
+            u.log.info('Skipping test, {} < queens'.format(os_release))
+            return
+        u.log.debug('Creating, checking and deleting cinder volume...')
+        vol_new = u.create_cinder_volume(self.cinder_non_admin)
+        vol_new.force_delete()
 
     def test_900_restart_on_config_change(self):
         """Verify that the specified services are restarted when the
