@@ -97,7 +97,6 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             # endpoint in the catalog.
             relations.update({
                 'nova-compute:image-service': 'glance:image-service',
-                'nova-compute:shared-db': 'percona-cluster:shared-db',
                 'nova-compute:amqp': 'rabbitmq-server:amqp',
                 'nova-cloud-controller:shared-db': 'percona-cluster:shared-db',
                 'nova-cloud-controller:identity-service': 'keystone:'
