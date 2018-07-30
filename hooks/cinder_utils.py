@@ -145,7 +145,6 @@ class CinderCharmError(Exception):
 CINDER_CONF_DIR = "/etc/cinder"
 CINDER_CONF = '%s/cinder.conf' % CINDER_CONF_DIR
 CINDER_API_CONF = '%s/api-paste.ini' % CINDER_CONF_DIR
-CINDER_POLICY_JSON = '%s/policy.json' % CINDER_CONF_DIR
 CEPH_CONF = '/etc/ceph/ceph.conf'
 
 HAPROXY_CONF = '/etc/haproxy/haproxy.cfg'
@@ -215,10 +214,6 @@ BASE_RESOURCE_MAP = OrderedDict([
     (CINDER_API_CONF, {
         'contexts': [context.IdentityServiceContext()],
         'services': ['cinder-api'],
-    }),
-    (CINDER_POLICY_JSON, {
-        'contexts': [],
-        'services': ['cinder-api']
     }),
     (ceph_config_file(), {
         'contexts': [context.CephContext()],

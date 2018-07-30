@@ -1,3 +1,0 @@
-{
-    "volume_extension:volume_admin_actions:force_delete": "rule:admin_or_owner"
-}
