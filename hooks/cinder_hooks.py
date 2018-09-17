@@ -44,6 +44,8 @@ from cinder_utils import (
     filesystem_mounted,
     assess_status,
     scrub_old_style_ceph,
+    pause_unit_helper,
+    resume_unit_helper,
 )
 
 from cinder_contexts import ceph_config_file
@@ -85,6 +87,8 @@ from charmhelpers.contrib.openstack.utils import (
     is_unit_paused_set,
     pausable_restart_on_change as restart_on_change,
     CompareOpenStackReleases,
+    series_upgrade_prepare,
+    series_upgrade_complete,
 )
 
 from charmhelpers.contrib.storage.linux.ceph import (
@@ -154,6 +158,12 @@ def install():
 @restart_on_change(restart_map(), stopstart=True)
 @harden()
 def config_changed():
+    # if we are paused, delay doing any config changed hooks.
+    # It is forced on the resume.
+    if is_unit_paused_set():
+        log("Unit is pause or upgrading. Skipping config_changed", "WARN")
+        return
+
     conf = config()
 
     if conf['prefer-ipv6']:
@@ -631,6 +641,20 @@ def certs_joined(relation_id=None):
 def certs_changed(relation_id=None, unit=None):
     process_certificates('cinder', relation_id, unit)
     configure_https()
+
+
+@hooks.hook('pre-series-upgrade')
+def pre_series_upgrade():
+    log("Running prepare series upgrade hook", "INFO")
+    series_upgrade_prepare(
+        pause_unit_helper, CONFIGS)
+
+
+@hooks.hook('post-series-upgrade')
+def post_series_upgrade():
+    log("Running complete series upgrade hook", "INFO")
+    series_upgrade_complete(
+        resume_unit_helper, CONFIGS)
 
 
 if __name__ == '__main__':
