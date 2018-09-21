@@ -61,6 +61,9 @@ TO_PATCH = [
     'apt_update',
     'apt_upgrade',
     'apt_install',
+    'apt_purge',
+    'apt_autoremove',
+    'filter_missing_packages',
     'service_stop',
     'service_start',
     # cinder
@@ -123,10 +126,24 @@ class TestCinderUtils(CharmTestCase):
         self.test_config.set('enabled-services', 'api,scheduler')
         self.assertFalse(cinder_utils.service_enabled('volume'))
 
+    def test_determine_purge_packages(self):
+        'Ensure no packages are identified for purge prior to rocky'
+        self.os_release.return_value = 'queens'
+        self.assertEqual(cinder_utils.determine_purge_packages(), [])
+
+    def test_determine_purge_packages_rocky(self):
+        'Ensure python packages are identified for purge at rocky'
+        self.os_release.return_value = 'rocky'
+        self.assertEqual(cinder_utils.determine_purge_packages(),
+                         [p for p in cinder_utils.COMMON_PACKAGES
+                          if p.startswith('python-')] +
+                         ['python-cinder', 'python-memcache'])
+
     @patch('cinder_utils.service_enabled')
     def test_determine_packages_all(self, service_enabled):
         'It determines all packages required when all services enabled'
         service_enabled.return_value = True
+        self.os_release.return_value = 'icehouse'
         pkgs = cinder_utils.determine_packages()
         self.assertEqual(sorted(pkgs),
                          sorted(cinder_utils.COMMON_PACKAGES +
@@ -135,10 +152,26 @@ class TestCinderUtils(CharmTestCase):
                                 cinder_utils.SCHEDULER_PACKAGES))
 
     @patch('cinder_utils.service_enabled')
+    def test_determine_packages_all_rocky(self, service_enabled):
+        'Check python3 packages are installed @ rocky'
+        service_enabled.return_value = True
+        self.os_release.return_value = 'rocky'
+        pkgs = cinder_utils.determine_packages()
+        self.assertEqual(
+            sorted(pkgs),
+            sorted([p for p in cinder_utils.COMMON_PACKAGES
+                    if not p.startswith('python-')] +
+                   cinder_utils.VOLUME_PACKAGES +
+                   cinder_utils.API_PACKAGES +
+                   cinder_utils.SCHEDULER_PACKAGES +
+                   cinder_utils.PY3_PACKAGES))
+
+    @patch('cinder_utils.service_enabled')
     def test_determine_packages_subset(self, service_enabled):
         'It determines packages required for a subset of enabled services'
         service_enabled.side_effect = self.svc_enabled
         self.test_config.set('openstack-origin', 'cloud:xenial-newton')
+        self.os_release.return_value = 'newton'
         self.token_cache_pkgs.return_value = ['memcached']
 
         self.test_config.set('enabled-services', 'api')
@@ -769,6 +802,36 @@ class TestCinderUtils(CharmTestCase):
         self.apt_install.assert_called_with(['mypackage'], fatal=True)
         configs.set_release.assert_called_with(openstack_release='havana')
         self.assertFalse(migrate.called)
+
+    @patch.object(cinder_utils, 'register_configs')
+    @patch.object(cinder_utils, 'services')
+    @patch.object(cinder_utils, 'migrate_database')
+    @patch.object(cinder_utils, 'determine_packages')
+    def test_openstack_upgrade_rocky(self, pkgs, migrate, services,
+                                     mock_register_configs):
+        pkgs.return_value = ['mypackage']
+        self.os_release.return_value = 'rocky'
+        self.config.side_effect = None
+        self.config.return_value = 'cloud:bionic-rocky'
+        services.return_value = ['cinder-api', 'cinder-volume']
+        self.is_elected_leader.return_value = True
+        self.get_os_codename_install_source.return_value = 'rocky'
+        configs = mock_register_configs.return_value
+        self.filter_missing_packages.return_value = [
+            'python-cinder',
+        ]
+        cinder_utils.do_openstack_upgrade(configs)
+        self.assertTrue(mock_register_configs.called)
+        self.assertTrue(configs.write_all.called)
+        self.apt_upgrade.assert_called_with(options=DPKG_OPTIONS,
+                                            fatal=True, dist=True)
+        self.apt_install.assert_called_with(['mypackage'], fatal=True)
+        self.apt_purge.assert_called_with(
+            ['python-cinder'],
+            fatal=True)
+        self.apt_autoremove.assert_called_with(purge=True, fatal=True)
+        configs.set_release.assert_called_with(openstack_release='rocky')
+        self.assertTrue(migrate.called)
 
     @patch.object(cinder_utils, 'local_unit', lambda *args: 'unit/0')
     def test_check_local_db_actions_complete_by_self(self):

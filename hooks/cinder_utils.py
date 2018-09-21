@@ -43,7 +43,10 @@ from charmhelpers.fetch import (
     apt_upgrade,
     apt_update,
     apt_install,
-    add_source
+    add_source,
+    apt_purge,
+    apt_autoremove,
+    filter_missing_packages,
 )
 
 from charmhelpers.core.host import (
@@ -124,6 +127,14 @@ COMMON_PACKAGES = [
     'python-psycopg2',
     'qemu-utils',
     'thin-provisioning-tools',
+]
+
+PY3_PACKAGES = [
+    'python3-cinder',
+    'python3-memcache',
+    'python3-rados',
+    'python3-rbd',
+    'libapache2-mod-wsgi-py3',
 ]
 
 API_PACKAGES = ['cinder-api']
@@ -341,7 +352,27 @@ def determine_packages():
             pkgs += p
 
     pkgs.extend(token_cache_pkgs(source=config()['openstack-origin']))
+
+    if CompareOpenStackReleases(os_release('cinder')) >= 'rocky':
+        pkgs = [p for p in pkgs if not p.startswith('python-')]
+        pkgs.extend(PY3_PACKAGES)
+
     return pkgs
+
+
+def determine_purge_packages():
+    '''
+    Determine list of packages that where previously installed which are no
+    longer needed.
+
+    :returns: list of package names
+    '''
+    if CompareOpenStackReleases(os_release('cinder')) >= 'rocky':
+        pkgs = [p for p in COMMON_PACKAGES if p.startswith('python-')]
+        pkgs.append('python-cinder')
+        pkgs.append('python-memcache')
+        return pkgs
+    return []
 
 
 def service_enabled(service):
@@ -715,6 +746,11 @@ def do_openstack_upgrade(configs=None):
     apt_upgrade(options=dpkg_opts, fatal=True, dist=True)
     reset_os_release()
     apt_install(determine_packages(), fatal=True)
+
+    installed_packages = filter_missing_packages(determine_purge_packages())
+    if installed_packages:
+        apt_purge(installed_packages, fatal=True)
+        apt_autoremove(purge=True, fatal=True)
 
     # NOTE(hopem): must do this after packages have been upgraded so that
     # we ensure that correct configs are selected for the target release.
