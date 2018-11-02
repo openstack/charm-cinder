@@ -14,6 +14,8 @@
 
 import json
 
+from six.moves import reload_module
+
 from mock import (
     patch,
     call
@@ -31,7 +33,7 @@ with patch('charmhelpers.contrib.hardening.harden.harden') as mock_dec:
         with patch('cinder_utils.restart_map') as restart_map:
             restart_map.return_value = RESTART_MAP
             import cinder_hooks as hooks
-            reload(hooks)
+            reload_module(hooks)
 
 hooks.hooks._config_save = False
 import cinder_utils as utils
