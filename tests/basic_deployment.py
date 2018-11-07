@@ -155,8 +155,18 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             api_version = 1
         self.cinder = u.authenticate_cinder_admin(self.keystone, api_version)
 
+        force_v1_client = False
+        if self._get_openstack_release() == self.trusty_icehouse:
+            # Updating image properties (such as arch or hypervisor) using the
+            # v2 api in icehouse results in:
+            # https://bugs.launchpad.net/python-glanceclient/+bug/1371559
+            u.log.debug('Forcing glance to use v1 api')
+            force_v1_client = True
+
         # Authenticate admin with glance endpoint
-        self.glance = u.authenticate_glance_admin(self.keystone)
+        self.glance = u.authenticate_glance_admin(
+            self.keystone,
+            force_v1_client=force_v1_client)
 
     def _extend_cinder_volume(self, vol_id, new_size=2):
         """Extend an existing cinder volume size.
@@ -571,14 +581,7 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         unit = self.cinder_sentry
         conf = '/etc/cinder/cinder.conf'
         unit_mq = self.rabbitmq_sentry
-        unit_ks = self.keystone_sentry
         rel_mq_ci = unit_mq.relation('amqp', 'cinder:amqp')
-        rel_ks_ci = unit_ks.relation('identity-service',
-                                     'cinder:identity-service')
-        auth_uri = ('http://%s:%s/' %
-                    (rel_ks_ci['auth_host'], rel_ks_ci['service_port']))
-        auth_url = ('http://%s:%s/' %
-                    (rel_ks_ci['auth_host'], rel_ks_ci['auth_port']))
 
         expected = {
             'DEFAULT': {
@@ -588,13 +591,6 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
                 'iscsi_helper': 'tgtadm',
                 'auth_strategy': 'keystone',
             },
-            'keystone_authtoken': {
-                'admin_user': rel_ks_ci['service_username'],
-                'admin_password': rel_ks_ci['service_password'],
-                'admin_tenant_name': rel_ks_ci['service_tenant'],
-                'auth_uri': auth_uri,
-                'signing_dir': '/var/cache/cinder'
-            }
         }
         if self._get_openstack_release() < self.xenial_ocata:
             expected['DEFAULT']['volume_group'] = 'cinder-volumes'
@@ -613,47 +609,6 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             'rabbit_password': rel_mq_ci['password'],
             'rabbit_host': rel_mq_ci['hostname'],
         }
-        if self._get_openstack_release() >= self.xenial_queens:
-            expected['keystone_authtoken'] = {
-                'auth_uri': auth_uri.rstrip('/'),
-                'auth_url': auth_url.rstrip('/'),
-                'auth_type': 'password',
-                'project_domain_name': 'service_domain',
-                'user_domain_name': 'service_domain',
-                'project_name': 'services',
-                'username': rel_ks_ci['service_username'],
-                'password': rel_ks_ci['service_password'],
-                'signing_dir': '/var/cache/cinder'
-            }
-        elif self._get_openstack_release() >= self.trusty_mitaka:
-            expected['keystone_authtoken'] = {
-                'auth_uri': auth_uri.rstrip('/'),
-                'auth_url': auth_url.rstrip('/'),
-                'auth_type': 'password',
-                'project_domain_name': 'default',
-                'user_domain_name': 'default',
-                'project_name': 'services',
-                'username': rel_ks_ci['service_username'],
-                'password': rel_ks_ci['service_password'],
-                'signing_dir': '/var/cache/cinder'
-            }
-        elif self._get_openstack_release() >= self.trusty_liberty:
-            expected['keystone_authtoken'] = {
-                'auth_uri': auth_uri.rstrip('/'),
-                'auth_url': auth_url.rstrip('/'),
-                'auth_plugin': 'password',
-                'project_domain_id': 'default',
-                'user_domain_id': 'default',
-                'project_name': 'services',
-                'username': rel_ks_ci['service_username'],
-                'password': rel_ks_ci['service_password'],
-                'signing_dir': '/var/cache/cinder'
-            }
-
-        if self._get_openstack_release() == self.trusty_kilo:
-            expected['keystone_authtoken']['auth_uri'] = auth_uri
-            expected['keystone_authtoken']['identity_uri'] = \
-                auth_url.strip('/')
 
         if self._get_openstack_release() >= self.trusty_kilo:
             # Kilo or later
@@ -661,8 +616,6 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         else:
             # Juno or earlier
             expected['DEFAULT'].update(expected_rmq)
-            expected['keystone_authtoken']['auth_host'] = \
-                rel_ks_ci['auth_host']
 
         for section, pairs in expected.iteritems():
             ret = u.validate_config_data(unit, conf, section, pairs)
