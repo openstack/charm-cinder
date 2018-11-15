@@ -46,6 +46,7 @@ from cinder_utils import (
     scrub_old_style_ceph,
     pause_unit_helper,
     resume_unit_helper,
+    remove_old_packages,
 )
 
 from cinder_contexts import ceph_config_file
@@ -589,10 +590,15 @@ def configure_https():
 @harden()
 def upgrade_charm():
     apt_install(determine_packages(), fatal=True)
+    packages_removed = remove_old_packages()
     for rel_id in relation_ids('amqp'):
         amqp_joined(relation_id=rel_id)
     update_nrpe_config()
     scrub_old_style_ceph()
+    if packages_removed:
+        juju_log("Package purge detected, restarting services")
+        for s in services():
+            service_restart(s)
 
 
 @hooks.hook('storage-backend-relation-changed')

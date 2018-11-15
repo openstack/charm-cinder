@@ -59,6 +59,7 @@ TO_PATCH = [
     'CLUSTER_RES',
     'ceph_config_file',
     'update_nrpe_config',
+    'remove_old_packages',
     # charmhelpers.core.hookenv
     'config',
     'local_unit',
@@ -87,6 +88,7 @@ TO_PATCH = [
     'sync_db_with_multi_ipv6_addresses',
     'delete_keyring',
     'get_relation_ip',
+    'services',
 ]
 
 
@@ -119,10 +121,22 @@ class TestChangedHooks(CharmTestCase):
     @patch.object(hooks, 'scrub_old_style_ceph')
     @patch.object(hooks, 'amqp_joined')
     def test_upgrade_charm_no_amqp(self, _joined, _scrub_old_style_ceph):
+        self.remove_old_packages.return_value = False
         self.relation_ids.return_value = []
         hooks.hooks.execute(['hooks/upgrade-charm'])
         _joined.assert_not_called()
         _scrub_old_style_ceph.assert_called_once_with()
+
+    @patch.object(hooks, 'scrub_old_style_ceph')
+    @patch.object(hooks, 'amqp_joined')
+    def test_upgrade_charm_purge(self, _joined, _scrub_old_style_ceph):
+        self.remove_old_packages.return_value = True
+        self.services.return_value = ['cinder-api']
+        self.relation_ids.return_value = []
+        hooks.hooks.execute(['hooks/upgrade-charm'])
+        _joined.assert_not_called()
+        _scrub_old_style_ceph.assert_called_once_with()
+        self.service_restart.assert_called_once_with('cinder-api')
 
     @patch.object(hooks, 'scrub_old_style_ceph')
     @patch.object(hooks, 'amqp_joined')
