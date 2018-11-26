@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import json
 
 from six.moves import reload_module
@@ -57,6 +58,7 @@ TO_PATCH = [
     'service_enabled',
     'CONFIGS',
     'CLUSTER_RES',
+    'CEPH_CONF',
     'ceph_config_file',
     'update_nrpe_config',
     'remove_old_packages',
@@ -87,6 +89,7 @@ TO_PATCH = [
     'execd_preinstall',
     'sync_db_with_multi_ipv6_addresses',
     'delete_keyring',
+    'remove_alternative',
     'get_relation_ip',
     'services',
 ]
@@ -579,6 +582,9 @@ class TestJoinedHooks(CharmTestCase):
         hooks.hooks.execute(['hooks/ceph-relation-broken'])
         self.delete_keyring.assert_called_with(service='cinder')
         self.assertTrue(self.CONFIGS.write_all.called)
+        self.remove_alternative.assert_called_with(
+            os.path.basename(self.CEPH_CONF),
+            self.ceph_config_file())
 
     def test_ceph_changed_no_leadership(self):
         '''It does not attempt to create ceph pool if not leader'''

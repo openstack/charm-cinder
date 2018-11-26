@@ -37,6 +37,7 @@ from charmhelpers.core.hookenv import (
     related_units,
     log,
     DEBUG,
+    hook_name,
 )
 
 from charmhelpers.fetch import (
@@ -272,7 +273,7 @@ def resource_map(release=None):
         resource_map[CINDER_CONF]['services'].append('cinder-backup')
         resource_map[ceph_config_file()]['services'].append('cinder-backup')
 
-    if relation_ids('ceph'):
+    if relation_ids('ceph') and hook_name() != 'ceph-relation-broken':
         # need to create this early, new peers will have a relation during
         # registration # before they've run the ceph hooks to create the
         # directory.

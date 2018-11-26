@@ -39,6 +39,7 @@ from cinder_utils import (
     CLUSTER_RES,
     CINDER_CONF,
     CINDER_API_CONF,
+    CEPH_CONF,
     setup_ipv6,
     check_local_db_actions_complete,
     filesystem_mounted,
@@ -91,6 +92,8 @@ from charmhelpers.contrib.openstack.utils import (
     series_upgrade_prepare,
     series_upgrade_complete,
 )
+
+from charmhelpers.contrib.openstack.alternatives import remove_alternative
 
 from charmhelpers.contrib.storage.linux.ceph import (
     send_request_if_needed,
@@ -435,6 +438,7 @@ def ceph_broken():
     service = service_name()
     delete_keyring(service=service)
     CONFIGS.write_all()
+    remove_alternative(os.path.basename(CEPH_CONF), ceph_config_file())
 
 
 @hooks.hook('cluster-relation-joined')
