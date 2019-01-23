@@ -70,7 +70,8 @@ from charmhelpers.core.hookenv import (
 
 from charmhelpers.fetch import (
     apt_install,
-    apt_update
+    apt_update,
+    filter_installed_packages,
 )
 
 from charmhelpers.core.host import (
@@ -524,7 +525,8 @@ def configure_https():
 @hooks.hook('upgrade-charm')
 @harden()
 def upgrade_charm():
-    apt_install(determine_packages(), fatal=True)
+    apt_install(filter_installed_packages(determine_packages()),
+                fatal=True)
     packages_removed = remove_old_packages()
     for rel_id in relation_ids('amqp'):
         amqp_joined(relation_id=rel_id)

@@ -74,6 +74,7 @@ TO_PATCH = [
     # charmhelpers.core.host
     'apt_install',
     'apt_update',
+    'filter_installed_packages',
     'service_reload',
     'service_restart',
     # charmhelpers.contrib.openstack.openstack_utils
