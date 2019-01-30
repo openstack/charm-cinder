@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
 # Copyright 2016 Canonical Ltd
 #
@@ -18,6 +18,16 @@
 import os
 import sys
 import uuid
+
+_path = os.path.dirname(os.path.realpath(__file__))
+_root = os.path.abspath(os.path.join(_path, '..'))
+
+
+def _add_path(path):
+    if path not in sys.path:
+        sys.path.insert(1, path)
+
+_add_path(_root)
 
 from subprocess import (
     check_call,

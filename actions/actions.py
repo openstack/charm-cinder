@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
 # Copyright 2016 Canonical Ltd
 #
@@ -17,13 +17,23 @@
 import os
 import sys
 
-sys.path.append('hooks/')
+_path = os.path.dirname(os.path.realpath(__file__))
+_hooks = os.path.abspath(os.path.join(_path, '../hooks'))
+_root = os.path.abspath(os.path.join(_path, '..'))
+
+
+def _add_path(path):
+    if path not in sys.path:
+        sys.path.insert(1, path)
+
+_add_path(_hooks)
+_add_path(_root)
 
 from charmhelpers.core.hookenv import action_fail
 from cinder_utils import (
     pause_unit_helper,
-    resume_unit_helper,
     register_configs,
+    resume_unit_helper,
 )
 import cinder_manage
 
@@ -57,7 +67,7 @@ def main(args):
     try:
         action = ACTIONS[action_name]
     except KeyError:
-        return "Action %s undefined" % action_name
+        return "Action {} undefined".format(action_name)
     else:
         try:
             action(args)

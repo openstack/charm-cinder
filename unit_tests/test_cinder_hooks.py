@@ -579,11 +579,12 @@ class TestJoinedHooks(CharmTestCase):
 
     def test_ceph_broken(self):
         self.service_name.return_value = 'cinder'
-        hooks.hooks.execute(['hooks/ceph-relation-broken'])
+        with patch.object(hooks, 'CEPH_CONF', new="/some/random/file"):
+            hooks.hooks.execute(['hooks/ceph-relation-broken'])
         self.delete_keyring.assert_called_with(service='cinder')
         self.assertTrue(self.CONFIGS.write_all.called)
         self.remove_alternative.assert_called_with(
-            os.path.basename(self.CEPH_CONF),
+            os.path.basename("/some/random/file"),
             self.ceph_config_file())
 
     def test_ceph_changed_no_leadership(self):

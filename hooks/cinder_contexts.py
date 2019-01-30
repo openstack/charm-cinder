@@ -253,8 +253,8 @@ class VolumeUsageAuditContext(OSContextGenerator):
     DEFAULT_CRONTAB_PATH = '/etc/cron.d/cinder-volume-usage-audit'
 
     def __call__(self):
-        log("Installing crontab: %s" % self.DEFAULT_CRONTAB_PATH)
-        with open(self.DEFAULT_CRONTAB_PATH, "w+") as crontab:
+        log("Installing crontab: {}".format(self.DEFAULT_CRONTAB_PATH))
+        with open(self.DEFAULT_CRONTAB_PATH, "wt+") as crontab:
             # The cinder-volume-usage-audit executable will only gather
             # data that fits on the configured volume-usage-audit-period.
             crontab.write('0 * * * * root '

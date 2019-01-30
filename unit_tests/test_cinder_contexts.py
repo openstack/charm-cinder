@@ -437,11 +437,11 @@ class TestCinderContext(CharmTestCase):
             'volumes_dir': '/var/lib/cinder/volumes'}
         self.assertEqual(ctxt, expect)
 
-    @patch('__builtin__.open')
+    @patch('builtins.open')
     def test_volume_usage_audit_context(self, _open):
         self.config.return_value = 'month'
         ctxt = contexts.VolumeUsageAuditContext()()
         _open.assert_called_with(
-            contexts.VolumeUsageAuditContext.DEFAULT_CRONTAB_PATH, "w+")
+            contexts.VolumeUsageAuditContext.DEFAULT_CRONTAB_PATH, "wt+")
         self.assertEqual(self.config.return_value,
                          ctxt["volume_usage_audit_period"])

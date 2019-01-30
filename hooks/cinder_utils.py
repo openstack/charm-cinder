@@ -258,7 +258,7 @@ def register_configs(release=None):
     release = release or os_release('cinder-common', base='icehouse')
     configs = templating.OSConfigRenderer(templates_dir=TEMPLATES,
                                           openstack_release=release)
-    for cfg, rscs in resource_map().iteritems():
+    for cfg, rscs in resource_map().items():
         configs.register(cfg, rscs['contexts'])
     return configs
 
@@ -411,14 +411,14 @@ def restart_map():
                     that should be restarted when file changes.
     '''
     return OrderedDict([(cfg, v['services'])
-                        for cfg, v in resource_map().iteritems()
+                        for cfg, v in resource_map().items()
                         if v['services']])
 
 
 def enabled_services():
     m = restart_map()
     svcs = set()
-    for t in m.iteritems():
+    for t in m.items():
         svcs.update(t[1])
 
     return list(svcs)
@@ -426,10 +426,10 @@ def enabled_services():
 
 def services():
     ''' Returns a list of services associate with this charm '''
-    _services = []
+    _services = set()
     for v in restart_map().values():
-        _services = _services + v
-    return list(set(_services))
+        _services.update(v)
+    return list(sorted(_services))
 
 
 def reduce_lvm_volume_group_missing(volume_group, extra_args=None):
@@ -493,7 +493,7 @@ def ensure_lvm_volume_group_non_existent(volume_group):
 
 def log_lvm_info():
     """Log some useful information about how LVM is setup."""
-    pvscan_output = subprocess.check_output(['pvscan'])
+    pvscan_output = subprocess.check_output(['pvscan']).decode('UTF-8')
     juju_log('pvscan: %s' % pvscan_output)
 
 
@@ -586,7 +586,7 @@ def prepare_volume(device):
 
 def has_partition_table(block_device):
     out = subprocess.check_output(['fdisk', '-l', block_device],
-                                  stderr=subprocess.STDOUT)
+                                  stderr=subprocess.STDOUT).decode('UTF-8')
     return "doesn't contain a valid partition" not in out
 
 
@@ -939,11 +939,11 @@ def scrub_old_style_ceph():
     # NOTE: purge any CEPH_ARGS data from /etc/environment
     env_file = '/etc/environment'
     ceph_match = re.compile("^CEPH_ARGS.*").search
-    with open(env_file, 'r') as input_file:
-        with NamedTemporaryFile(mode='w',
+    with open(env_file, 'rt') as input_file:
+        with NamedTemporaryFile(mode='wt',
                                 delete=False,
                                 dir=os.path.dirname(env_file)) as outfile:
             for line in input_file:
                 if not ceph_match(line):
                     print(line, end='', file=outfile)
-            os.rename(outfile.name, input_file.name)
+    os.rename(outfile.name, input_file.name)
