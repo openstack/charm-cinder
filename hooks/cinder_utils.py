@@ -128,6 +128,7 @@ COMMON_PACKAGES = [
     'python-psycopg2',
     'qemu-utils',
     'thin-provisioning-tools',
+    'nfs-common',
 ]
 
 PY3_PACKAGES = [
