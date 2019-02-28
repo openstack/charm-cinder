@@ -32,3 +32,5 @@ volume-host-add-driver:
     volume-backend-name:
       type: string
       description: The backend volume name as shown by the volume_backend_name parameter in the driver section
+security-checklist:
+  description: Validate the running configuration against the OpenStack security guides checklist
