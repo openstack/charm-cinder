@@ -117,6 +117,10 @@ class TestInstallHook(CharmTestCase):
 
 class TestChangedHooks(CharmTestCase):
 
+    _relations = {
+        'identity-service': ['identity-service:1'],
+    }
+
     def setUp(self):
         super(TestChangedHooks, self).setUp(hooks, TO_PATCH)
         self.config.side_effect = self.test_config.get
@@ -149,12 +153,16 @@ class TestChangedHooks(CharmTestCase):
         _joined.assert_called_with(relation_id='amqp:1')
         _scrub_old_style_ceph.assert_called_once_with()
 
+    @patch.object(hooks, 'identity_joined')
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'config_value_changed')
     def test_config_changed(self, config_val_changed,
-                            conf_https):
+                            conf_https, identity_joined):
         'It writes out all config'
         self.openstack_upgrade_available.return_value = False
+        self.relation_ids.side_effect = (
+            lambda rname: self._relations.get(rname, [])
+        )
         hooks.hooks.execute(['hooks/config-changed'])
         self.assertTrue(self.CONFIGS.write_all.called)
         self.assertTrue(conf_https.called)
@@ -162,6 +170,7 @@ class TestChangedHooks(CharmTestCase):
                                                       'cinder-volumes',
                                                       False, False, False)
         self.open_port.assert_called_with(8776)
+        identity_joined.assert_called_once_with(rid='identity-service:1')
 
     @patch.object(hooks, 'configure_https')
     @patch.object(hooks, 'config_value_changed')

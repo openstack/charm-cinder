@@ -222,6 +222,13 @@ def config_changed():
         cluster_joined(relation_id=rid)
     for r_id in relation_ids('ha'):
         ha_joined(relation_id=r_id)
+    # NOTE(jamespage):
+    # ensure any new volume endpoints are created. Note that this
+    # is normally done after an openstack series upgrade, but this
+    # was not performed historically so always execute to ensure
+    # any upgrades where this step was missed are fixed.
+    for rid in relation_ids('identity-service'):
+        identity_joined(rid=rid)
 
 
 @hooks.hook('shared-db-relation-joined')
