@@ -705,54 +705,6 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
             msg = u.relation_error('cinder amqp', ret)
             amulet.raise_status(amulet.FAIL, msg=msg)
 
-    def test_300_cinder_config(self):
-        """Verify the data in the cinder.conf file."""
-        u.log.debug('Checking cinder config file data...')
-        unit = self.cinder_sentry
-        conf = '/etc/cinder/cinder.conf'
-        unit_mq = self.rabbitmq_sentry
-        rel_mq_ci = unit_mq.relation('amqp', 'cinder:amqp')
-
-        expected = {
-            'DEFAULT': {
-                'use_syslog': 'False',
-                'debug': 'False',
-                'verbose': 'False',
-                'iscsi_helper': 'tgtadm',
-                'auth_strategy': 'keystone',
-            },
-        }
-        if self._get_openstack_release() < self.xenial_ocata:
-            expected['DEFAULT']['volume_group'] = 'cinder-volumes'
-            expected['DEFAULT']['volumes_dir'] = '/var/lib/cinder/volumes'
-        else:
-            expected['DEFAULT']['enabled_backends'] = 'LVM'
-            expected['LVM'] = {
-                'volume_group': 'cinder-volumes',
-                'volumes_dir': '/var/lib/cinder/volumes',
-                'volume_name_template': 'volume-%s',
-                'volume_driver': 'cinder.volume.drivers.lvm.LVMVolumeDriver',
-                'volume_backend_name': 'LVM'}
-        expected_rmq = {
-            'rabbit_userid': 'cinder',
-            'rabbit_virtual_host': 'openstack',
-            'rabbit_password': rel_mq_ci['password'],
-            'rabbit_host': rel_mq_ci['hostname'],
-        }
-
-        if self._get_openstack_release() >= self.trusty_kilo:
-            # Kilo or later
-            expected['oslo_messaging_rabbit'] = expected_rmq
-        else:
-            # Juno or earlier
-            expected['DEFAULT'].update(expected_rmq)
-
-        for section, pairs in expected.iteritems():
-            ret = u.validate_config_data(unit, conf, section, pairs)
-            if ret:
-                message = "cinder config error: {}".format(ret)
-                amulet.raise_status(amulet.FAIL, msg=message)
-
     def test_301_cinder_logging_config(self):
         """Verify the data in the cinder logging conf file."""
         u.log.debug('Checking cinder logging config file data...')
