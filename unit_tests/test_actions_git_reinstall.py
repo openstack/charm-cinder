@@ -29,10 +29,10 @@ TO_PATCH = [
 openstack_origin_git = \
     """repositories:
          - {name: requirements,
-            repository: 'git://git.openstack.org/openstack/requirements',
+            repository: 'https://git.openstack.org/openstack/requirements',
             branch: stable/juno}
          - {name: cinder,
-            repository: 'git://git.openstack.org/openstack/cinder',
+            repository: 'https://git.openstack.org/openstack/cinder',
             branch: stable/juno}"""
 
 

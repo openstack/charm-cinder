@@ -105,10 +105,10 @@ class TestInstallHook(CharmTestCase):
         openstack_origin_git = {
             'repositories': [
                 {'name': 'requirements',
-                 'repository': 'git://git.openstack.org/openstack/requirements',  # noqa
+                 'repository': 'https://git.openstack.org/openstack/requirements',  # noqa
                  'branch': 'stable/juno'},
                 {'name': 'cinder',
-                 'repository': 'git://git.openstack.org/openstack/cinder',
+                 'repository': 'https://git.openstack.org/openstack/cinder',
                  'branch': 'stable/juno'}
             ],
             'directory': '/mnt/openstack-git',
@@ -224,10 +224,10 @@ class TestChangedHooks(CharmTestCase):
         openstack_origin_git = {
             'repositories': [
                 {'name': 'requirements',
-                 'repository': 'git://git.openstack.org/openstack/requirements',  # noqa
+                 'repository': 'https://git.openstack.org/openstack/requirements',  # noqa
                  'branch': 'stable/juno'},
                 {'name': 'cinder',
-                 'repository': 'git://git.openstack.org/openstack/',
+                 'repository': 'https://git.openstack.org/openstack/',
                  'branch': 'stable/juno'}
             ],
             'directory': '/mnt/openstack-git',
