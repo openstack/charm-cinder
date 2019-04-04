@@ -831,15 +831,18 @@ class CinderBasicDeployment(OpenStackAmuletDeployment):
         vol_new = u.create_cinder_volume(self.cinder)
         vol_new.force_delete()
 
-    def test_405_non_admin_force_delete_volume(self):
-        """Create a cinder volume and delete it."""
-        os_release = self._get_openstack_release()
-        if os_release < self.xenial_queens:
-            u.log.info('Skipping test, {} < queens'.format(os_release))
-            return
-        u.log.debug('Creating, checking and deleting cinder volume...')
-        vol_new = u.create_cinder_volume(self.cinder_non_admin)
-        vol_new.force_delete()
+    # TODO: Re-enable this test after we add back support for non-admins
+    #       force deleting volumes.
+
+    # def test_405_non_admin_force_delete_volume(self):
+    #     """Create a cinder volume and delete it."""
+    #     os_release = self._get_openstack_release()
+    #     if os_release < self.xenial_queens:
+    #         u.log.info('Skipping test, {} < queens'.format(os_release))
+    #         return
+    #     u.log.debug('Creating, checking and deleting cinder volume...')
+    #     vol_new = u.create_cinder_volume(self.cinder_non_admin)
+    #     vol_new.force_delete()
 
     def test_500_security_checklist_action(self):
         """Verify expected result on a default install"""
