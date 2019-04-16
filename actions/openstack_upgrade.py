@@ -33,6 +33,7 @@ _add_path(_root)
 
 from charmhelpers.contrib.openstack.utils import (
     do_action_openstack_upgrade,
+    is_unit_paused_set,
 )
 
 from charmhelpers.core.hookenv import (
@@ -45,6 +46,7 @@ import cinder_hooks
 from cinder_utils import (
     do_openstack_upgrade,
     register_configs,
+    resume_unit_helper,
 )
 
 
@@ -67,6 +69,9 @@ def openstack_upgrade():
         # Force reload to get any chances resulting from upgrade.
         # See LP 1726527.
         cinder_hooks.CONFIGS = register_configs()
+        # If we are paused, resume LP Bug #1824545
+        if is_unit_paused_set():
+            resume_unit_helper(cinder_hooks.register_configs())
         cinder_hooks.config_changed()
 
 if __name__ == '__main__':
