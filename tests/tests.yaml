@@ -1,6 +1,6 @@
 charm_name: cinder
 smoke_bundles:
-- bionic-rocky
+- bionic-stein
 gate_bundles:
 - bionic-stein
 - bionic-rocky
