@@ -40,7 +40,7 @@ relations:
   - neutron-openvswitch:amqp
 applications:
   rabbitmq-server:
-    charm: cs:~openstack-charmers-next/rabbitmq-server
+    charm: cs:rabbitmq-server
     num_units: 1
   percona-cluster:
     charm: cs:trusty/percona-cluster
@@ -49,36 +49,36 @@ applications:
       max-connections: 1000
       innodb-buffer-pool-size: 256M
   nova-cloud-controller:
-    charm: cs:~openstack-charmers-next/nova-cloud-controller
+    charm: cs:nova-cloud-controller
     num_units: 1
     options:
       openstack-origin: cloud:trusty-icehouse
       debug: true
   neutron-api:
-    charm: cs:~openstack-charmers-next/neutron-api
+    charm: cs:neutron-api
     num_units: 1
     options:
       openstack-origin: cloud:trusty-icehouse
       flat-network-providers: physnet1
       neutron-security-groups: true
   keystone:
-    charm: cs:~openstack-charmers-next/keystone
+    charm: cs:keystone
     num_units: 1
     options:
       openstack-origin: cloud:trusty-icehouse
   neutron-gateway:
-    charm: cs:~openstack-charmers-next/neutron-gateway
+    charm: cs:neutron-gateway
     num_units: 1
     options:
       openstack-origin: cloud:trusty-icehouse
       bridge-mappings: physnet1:br-ex
   glance:
-    charm: cs:~openstack-charmers-next/glance
+    charm: cs:glance
     num_units: 1
     options:
       openstack-origin: cloud:trusty-icehouse
   neutron-openvswitch:
-    charm: cs:~openstack-charmers-next/neutron-openvswitch
+    charm: cs:neutron-openvswitch
   nova-compute:
     series: trusty
     charm: ../../../nova-compute
