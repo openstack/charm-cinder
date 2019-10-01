@@ -139,6 +139,11 @@ from charmhelpers.contrib.openstack.context import ADDRESS_TYPES
 from charmhelpers.contrib.charmsupport import nrpe
 from charmhelpers.contrib.hardening.harden import harden
 
+from charmhelpers.contrib.openstack.policyd import (
+    maybe_do_policyd_overrides,
+    maybe_do_policyd_overrides_on_config_changed,
+)
+
 hooks = Hooks()
 
 CONFIGS = register_configs()
@@ -162,6 +167,11 @@ def install():
 
     if run_in_apache():
         disable_package_apache_site()
+    # call the policy overrides handler which will install any policy overrides
+    maybe_do_policyd_overrides(
+        os_release('cinder-common'),
+        'cinder',
+        restart_handler=lambda: service_restart('cinder-api'))
 
 
 @hooks.hook('config-changed')
@@ -229,6 +239,12 @@ def config_changed():
     # any upgrades where this step was missed are fixed.
     for rid in relation_ids('identity-service'):
         identity_joined(rid=rid)
+
+    # call the policy overrides handler which will install any policy overrides
+    maybe_do_policyd_overrides_on_config_changed(
+        os_release('cinder-common'),
+        'cinder',
+        restart_handler=lambda: service_restart('cinder-api'))
 
 
 @hooks.hook('shared-db-relation-joined')
@@ -553,6 +569,11 @@ def upgrade_charm():
         juju_log("Package purge detected, restarting services")
         for s in services():
             service_restart(s)
+    # call the policy overrides handler which will install any policy overrides
+    maybe_do_policyd_overrides(
+        os_release('cinder-common'),
+        'cinder',
+        restart_handler=lambda: service_restart('cinder-api'))
 
 
 @hooks.hook('storage-backend-relation-changed')

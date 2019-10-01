@@ -28,7 +28,7 @@ Basic, all-in-one using local storage and iSCSI
 ===============================================
 
 The api server, scheduler and volume service are all deployed into the same
-unit.  Local storage will be initialized as a LVM phsyical device, and a volume
+unit.  Local storage will be initialized as a LVM physical device, and a volume
 group initialized.  Instance volumes will be created locally as logical volumes
 and exported to instances via iSCSI.  This is ideal for small-scale deployments
 or testing:
@@ -79,7 +79,7 @@ All-in-one using Ceph-backed RBD volumes
 
 All 3 services can be deployed to the same unit, but instead of relying
 on local storage to back volumes an external Ceph cluster is used.  This
-allows scalability and redundancy needs to be satisified and Cinder's RBD
+allows scalability and redundancy needs to be satisfied and Cinder's RBD
 driver used to create, export and connect volumes to instances.  This assumes
 a functioning Ceph cluster has already been deployed using the official Ceph
 charm and a relation exists between the Ceph service and the nova-compute
@@ -112,7 +112,7 @@ block-device:  When using local storage, a block device should be specified to
                all nodes that the service may be deployed to.
 
 overwrite:  Whether or not to wipe local storage that of data that may prevent
-            it from being initialized as a LVM phsyical device.  This includes
+            it from being initialized as a LVM physical device.  This includes
             filesystems and partition tables.  *CAUTION*
 
 enabled-services:  Can be used to separate cinder services between service
@@ -155,17 +155,22 @@ set
 Network Space support
 ---------------------
 
-This charm supports the use of Juju Network Spaces, allowing the charm to be bound to network space configurations managed directly by Juju.  This is only supported with Juju 2.0 and above.
+This charm supports the use of Juju Network Spaces, allowing the charm to be
+bound to network space configurations managed directly by Juju.  This is only
+supported with Juju 2.0 and above.
 
-API endpoints can be bound to distinct network spaces supporting the network separation of public, internal and admin endpoints.
+API endpoints can be bound to distinct network spaces supporting the network
+separation of public, internal and admin endpoints.
 
-Access to the underlying MySQL instance can also be bound to a specific space using the shared-db relation.
+Access to the underlying MySQL instance can also be bound to a specific space
+using the shared-db relation.
 
 To use this feature, use the --bind option when deploying the charm:
 
     juju deploy cinder --bind "public=public-space internal=internal-space admin=admin-space shared-db=internal-space"
 
-alternatively these can also be provided as part of a juju native bundle configuration:
+Alternatively these can also be provided as part of a juju native bundle
+configuration:
 
     cinder:
       charm: cs:xenial/cinder
@@ -176,6 +181,53 @@ alternatively these can also be provided as part of a juju native bundle configu
         internal: internal-space
         shared-db: internal-space
 
-NOTE: Spaces must be configured in the underlying provider prior to attempting to use them.
+NOTE: Spaces must be configured in the underlying provider prior to attempting
+to use them.
 
-NOTE: Existing deployments using os-*-network configuration options will continue to function; these options are preferred over any network space binding provided if set.
+NOTE: Existing deployments using os-*-network configuration options will
+continue to function; these options are preferred over any network space
+binding provided if set.
+
+Policy Overrides
+================
+
+This feature allows for policy overrides using the `policy.d` directory.  This
+is an **advanced** feature and the policies that the OpenStack service supports
+should be clearly and unambiguously understood before trying to override, or
+add to, the default policies that the service uses.  The charm also has some
+policy defaults.  They should also be understood before being overridden.
+
+> **Caution**: It is possible to break the system (for tenants and other
+  services) if policies are incorrectly applied to the service.
+
+Policy overrides are YAML files that contain rules that will add to, or
+override, existing policy rules in the service.  The `policy.d` directory is
+a place to put the YAML override files.  This charm owns the
+`/etc/cinder/policy.d` directory, and as such, any manual changes to it will
+be overwritten on charm upgrades.
+
+Overrides are provided to the charm using a Juju resource called
+`policyd-override`.  The resource is a ZIP file.  This file, say
+`overrides.zip`, is attached to the charm by:
+
+
+    juju attach-resource cinder policyd-override=overrides.zip
+
+The policy override is enabled in the charm using:
+
+    juju config cinder use-policyd-override=true
+
+When `use-policyd-override` is `True` the status line of the charm will be
+prefixed with `PO:` indicating that policies have been overridden.  If the
+installation of the policy override YAML files failed for any reason then the
+status line will be prefixed with `PO (broken):`.  The log file for the charm
+will indicate the reason.  No policy override files are installed if the `PO
+(broken):` is shown.  The status line indicates that the overrides are broken,
+not that the policy for the service has failed. The policy will be the defaults
+for the charm and service.
+
+Policy overrides on one service may affect the functionality of another
+service. Therefore, it may be necessary to provide policy overrides for
+multiple service charms to achieve a consistent set of policies across the
+OpenStack system.  The charms for the other services that may need overrides
+should be checked to ensure that they support overrides before proceeding.

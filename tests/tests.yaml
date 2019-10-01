@@ -23,3 +23,7 @@ configure:
 tests:
 - zaza.openstack.charm_tests.cinder.tests.CinderTests
 - zaza.openstack.charm_tests.cinder.tests.SecurityTests
+- zaza.openstack.charm_tests.policyd.tests.CinderTests
+tests_options:
+  policyd:
+    service: cinder

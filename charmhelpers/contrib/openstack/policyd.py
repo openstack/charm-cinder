@@ -17,6 +17,7 @@ import contextlib
 import os
 import six
 import shutil
+import sys
 import yaml
 import zipfile
 
@@ -296,15 +297,28 @@ def maybe_do_policyd_overrides(openstack_release,
                             restarted.
     :type restart_handler: Union[None, Callable[]]
     """
+    hookenv.log("Running maybe_do_policyd_overrides",
+                level=POLICYD_LOG_LEVEL_DEFAULT)
+    if not is_policyd_override_valid_on_this_release(openstack_release):
+        hookenv.log("... policy overrides not valid on this release: {}"
+                    .format(openstack_release),
+                    level=POLICYD_LOG_LEVEL_DEFAULT)
+        return
     config = hookenv.config()
     try:
         if not config.get(POLICYD_CONFIG_NAME, False):
-            remove_policy_success_file()
             clean_policyd_dir_for(service, blacklist_paths)
+            if (os.path.isfile(_policy_success_file()) and
+                    restart_handler is not None and
+                    callable(restart_handler)):
+                restart_handler()
+            remove_policy_success_file()
             return
-    except Exception:
-        return
-    if not is_policyd_override_valid_on_this_release(openstack_release):
+    except Exception as e:
+        hookenv.log("... ERROR: Exception is: {}".format(str(e)),
+                    level=POLICYD_CONFIG_NAME)
+        import traceback
+        hookenv.log(traceback.format_exc(), level=POLICYD_LOG_LEVEL_DEFAULT)
         return
     # from now on it should succeed; if it doesn't then status line will show
     # broken.
@@ -345,16 +359,30 @@ def maybe_do_policyd_overrides_on_config_changed(openstack_release,
                             restarted.
     :type restart_handler: Union[None, Callable[]]
     """
+    if not is_policyd_override_valid_on_this_release(openstack_release):
+        return
+    hookenv.log("Running maybe_do_policyd_overrides_on_config_changed",
+                level=POLICYD_LOG_LEVEL_DEFAULT)
     config = hookenv.config()
     try:
         if not config.get(POLICYD_CONFIG_NAME, False):
-            remove_policy_success_file()
             clean_policyd_dir_for(service, blacklist_paths)
+            if (os.path.isfile(_policy_success_file()) and
+                    restart_handler is not None and
+                    callable(restart_handler)):
+                restart_handler()
+            remove_policy_success_file()
             return
     except Exception:
+        hookenv.log("... ERROR: Exception is: {}".format(str(e)),
+                    level=POLICYD_CONFIG_NAME)
+        import traceback
+        hookenv.log(traceback.format_exc(), level=POLICYD_LOG_LEVEL_DEFAULT)
         return
     # if the policyd overrides have been performed just return
     if os.path.isfile(_policy_success_file()):
+        hookenv.log("... already setup, so skipping.",
+                    level=POLICYD_LOG_LEVEL_DEFAULT)
         return
     maybe_do_policyd_overrides(
         openstack_release, service, blacklist_paths, blacklist_keys,
@@ -430,8 +458,13 @@ def _yamlfiles(zipfile):
     """
     l = []
     for infolist_item in zipfile.infolist():
-        if infolist_item.is_dir():
-            continue
+        try:
+            if infolist_item.is_dir():
+                continue
+        except AttributeError:
+            # fallback to "old" way to determine dir entry for pre-py36
+            if infolist_item.filename.endswith('/'):
+                continue
         _, name_ext = os.path.split(infolist_item.filename)
         name, ext = os.path.splitext(name_ext)
         ext = ext.lower()
@@ -511,7 +544,7 @@ def clean_policyd_dir_for(service, keep_paths=None):
     path = policyd_dir_for(service)
     if not os.path.exists(path):
         ch_host.mkdir(path, owner=service, group=service, perms=0o775)
-    _scanner = os.scandir if six.PY3 else _py2_scandir
+    _scanner = os.scandir if sys.version_info > (3, 4) else _py2_scandir
     for direntry in _scanner(path):
         # see if the path should be kept.
         if direntry.path in keep_paths:
@@ -641,6 +674,7 @@ def process_policy_resource_file(resource_file,
     :returns: True if the processing was successful, False if not.
     :rtype: boolean
     """
+    hookenv.log("Running process_policy_resource_file", level=hookenv.DEBUG)
     blacklist_paths = blacklist_paths or []
     completed = False
     try:
