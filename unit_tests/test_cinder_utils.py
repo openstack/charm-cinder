@@ -435,8 +435,10 @@ class TestCinderUtils(CharmTestCase):
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
-    def test_configure_lvm_storage(self, extend_lvm, reduce_lvm,
-                                   clean_storage, ensure_non_existent):
+    @patch.object(cinder_utils, 'list_thin_logical_volume_pools')
+    def test_configure_lvm_storage(self, list_thin_pools,
+                                   extend_lvm, reduce_lvm, clean_storage,
+                                   ensure_non_existent):
         devices = ['/dev/fakevbd', '/dev/fakevdc']
         self.is_lvm_physical_volume.return_value = False
         self.ensure_loopback_device.side_effect = lambda x, y: x
@@ -520,7 +522,9 @@ class TestCinderUtils(CharmTestCase):
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
-    def test_configure_lvm_storage_existing_vg(self, extend_lvm, reduce_lvm,
+    @patch.object(cinder_utils, 'list_thin_logical_volume_pools')
+    def test_configure_lvm_storage_existing_vg(self, list_thin_pools,
+                                               extend_lvm, reduce_lvm,
                                                clean_storage, lvm_exists):
         def pv_lookup(device):
             devices = {
@@ -556,7 +560,9 @@ class TestCinderUtils(CharmTestCase):
     @patch.object(cinder_utils, 'clean_storage')
     @patch.object(cinder_utils, 'reduce_lvm_volume_group_missing')
     @patch.object(cinder_utils, 'extend_lvm_volume_group')
-    def test_configure_lvm_storage_different_vg(self, extend_lvm, reduce_lvm,
+    @patch.object(cinder_utils, 'list_thin_logical_volume_pools')
+    def test_configure_lvm_storage_different_vg(self, list_thin_pools,
+                                                extend_lvm, reduce_lvm,
                                                 clean_storage, lvm_exists):
         def pv_lookup(device):
             devices = {
