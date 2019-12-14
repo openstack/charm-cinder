@@ -360,3 +360,9 @@ options:
       override YAML files in the service's policy.d directory.  The resource
       file should be a ZIP file containing at least one yaml file with a .yaml
       or .yml extension.  If False then remove the overrides.
+  notification-topics:
+    type: string
+    default:
+    description: |
+      A comma-separated list of oslo notification topics. If left empty, the
+      default topic 'cinder' is going to be used.
