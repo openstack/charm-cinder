@@ -958,6 +958,7 @@ class TestCinderUtils(CharmTestCase):
                 'cinder-common'
             )
 
+    @patch.object(cinder_utils, 'get_managed_services_and_ports')
     @patch.object(cinder_utils, 'get_optional_interfaces')
     @patch.object(cinder_utils, 'check_optional_relations')
     @patch.object(cinder_utils, 'required_interfaces')
@@ -968,8 +969,10 @@ class TestCinderUtils(CharmTestCase):
                                 services,
                                 required_interfaces,
                                 check_optional_relations,
-                                get_optional_interfaces):
-        services.return_value = 's1'
+                                get_optional_interfaces,
+                                get_managed_services_and_ports):
+        services.return_value = ['s1']
+        get_managed_services_and_ports.return_value = (['s1'], [])
         required_interfaces.return_value = {'int': ['test 1']}
         get_optional_interfaces.return_value = {'opt': ['test 2']}
         cinder_utils.assess_status_func('test-config')
@@ -978,7 +981,7 @@ class TestCinderUtils(CharmTestCase):
             'test-config',
             {'int': ['test 1'], 'opt': ['test 2']},
             charm_func=check_optional_relations,
-            services='s1', ports=None)
+            services=['s1'], ports=None)
 
     def test_pause_unit_helper(self):
         with patch.object(cinder_utils, '_pause_resume_helper') as prh:
@@ -990,13 +993,16 @@ class TestCinderUtils(CharmTestCase):
             prh.assert_called_once_with(cinder_utils.resume_unit,
                                         'random-config')
 
+    @patch.object(cinder_utils, 'get_managed_services_and_ports')
     @patch.object(cinder_utils, 'services')
-    def test_pause_resume_helper(self, services):
+    def test_pause_resume_helper(self, services,
+                                 get_managed_services_and_ports):
         f = MagicMock()
-        services.return_value = 's1'
+        services.return_value = ['s1']
+        get_managed_services_and_ports.return_value = (['s1'], [])
         with patch.object(cinder_utils, 'assess_status_func') as asf:
             asf.return_value = 'assessor'
             cinder_utils._pause_resume_helper(f, 'some-config')
             asf.assert_called_once_with('some-config')
             # ports=None whilst port checks are disabled.
-            f.assert_called_once_with('assessor', services='s1', ports=None)
+            f.assert_called_once_with('assessor', services=['s1'], ports=None)
