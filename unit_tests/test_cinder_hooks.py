@@ -95,6 +95,7 @@ TO_PATCH = [
     'remove_alternative',
     'get_relation_ip',
     'services',
+    'is_db_maintenance_mode',
 ]
 
 
@@ -247,6 +248,7 @@ class TestChangedHooks(CharmTestCase):
 
     def test_db_changed(self):
         'It writes out cinder.conf on db changed'
+        self.is_db_maintenance_mode.return_value = False
         self.relation_get.return_value = 'cinder/0 cinder/1'
         self.local_unit.return_value = 'cinder/0'
         self.CONFIGS.complete_contexts.return_value = ['shared-db']
@@ -256,6 +258,7 @@ class TestChangedHooks(CharmTestCase):
 
     def test_db_changed_relation_incomplete(self):
         'It does not write out cinder.conf with incomplete shared-db rel'
+        self.is_db_maintenance_mode.return_value = False
         self.relation_get.return_value = 'cinder/0 cinder/1'
         self.local_unit.return_value = 'cinder/0'
         hooks.hooks.execute(['hooks/shared-db-relation-changed'])
@@ -264,6 +267,7 @@ class TestChangedHooks(CharmTestCase):
 
     def test_db_changed_relation_db_no_acl(self):
         'It does not migration when acl entry not present'
+        self.is_db_maintenance_mode.return_value = False
         self.relation_get.return_value = 'cinder/1 cinder/2'
         self.local_unit.return_value = 'cinder/0'
         self.CONFIGS.complete_contexts.return_value = ['shared-db']
@@ -273,6 +277,7 @@ class TestChangedHooks(CharmTestCase):
 
     def test_db_changed_relation_db_missing_acls(self):
         'No database migration is attempted when ACL list is not present'
+        self.is_db_maintenance_mode.return_value = False
         self.relation_get.return_value = None
         self.local_unit.return_value = 'cinder/0'
         self.CONFIGS.complete_contexts.return_value = ['shared-db']
@@ -282,6 +287,7 @@ class TestChangedHooks(CharmTestCase):
 
     def test_db_changed_not_leader(self):
         'It does not migrate database when not leader'
+        self.is_db_maintenance_mode.return_value = False
         self.relation_get.return_value = 'cinder/0 cinder/1'
         self.local_unit.return_value = 'cinder/0'
         self.is_elected_leader.return_value = False

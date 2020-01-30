@@ -101,6 +101,7 @@ from charmhelpers.contrib.openstack.utils import (
     CompareOpenStackReleases,
     series_upgrade_prepare,
     series_upgrade_complete,
+    is_db_maintenance_mode,
 )
 
 from charmhelpers.contrib.openstack.alternatives import remove_alternative
@@ -271,6 +272,9 @@ def db_joined():
 @hooks.hook('shared-db-relation-changed')
 @restart_on_change(restart_map())
 def db_changed():
+    if is_db_maintenance_mode():
+        juju_log('Database maintenance mode, aborting hook.')
+        return
     if 'shared-db' not in CONFIGS.complete_contexts():
         juju_log('shared-db relation incomplete. Peer not ready?')
         return
