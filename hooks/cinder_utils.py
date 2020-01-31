@@ -163,6 +163,7 @@ CINDER_POLICY_JSON = '%s/policy.json' % CINDER_CONF_DIR
 CEPH_CONF = '/etc/ceph/ceph.conf'
 
 HAPROXY_CONF = '/etc/haproxy/haproxy.cfg'
+APACHE_PORTS_CONF = '/etc/apache2/ports.conf'
 APACHE_SITE_CONF = '/etc/apache2/sites-available/openstack_https_frontend'
 APACHE_SITE_24_CONF = '/etc/apache2/sites-available/' \
     'openstack_https_frontend.conf'
@@ -249,6 +250,10 @@ BASE_RESOURCE_MAP = OrderedDict([
     }),
     (APACHE_SITE_24_CONF, {
         'contexts': [cinder_contexts.ApacheSSLContext()],
+        'services': ['apache2'],
+    }),
+    (APACHE_PORTS_CONF, {
+        'contexts': [],
         'services': ['apache2'],
     }),
 ])
