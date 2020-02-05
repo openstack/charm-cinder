@@ -1,200 +1,201 @@
-Overview
---------
+# Overview
 
-This charm provides the Cinder volume service for OpenStack.  It is intended to
-be used alongside the other OpenStack components, starting with the Folsom
-release.
+This charm provides the Cinder volume service for OpenStack. It is intended to
+be used alongside the other OpenStack components.
 
-Cinder is made up of 3 separate services: an API service, a scheduler and a
-volume service.  This charm allows them to be deployed in different
-combination, depending on user preference and requirements.
+# Usage
 
-This charm was developed to support deploying Folsom on both
-Ubuntu Quantal and Ubuntu Precise.  Since Cinder is only available for
-Ubuntu 12.04 via the Ubuntu Cloud Archive, deploying this charm to a
-Precise machine will by default install Cinder and its dependencies from
-the Cloud Archive.
+## Deployment
 
-Usage
------
+Two deployment configurations will be shown. Both assume the existence of core
+OpenStack services: mysql, rabbitmq-server, keystone, and
+nova-cloud-controller.
 
-Cinder may be deployed in a number of ways.  This charm focuses on 3 main
-configurations.  All require the existence of the other core OpenStack
-services deployed via Juju charms, specifically: mysql, rabbitmq-server,
-keystone and nova-cloud-controller.  The following assumes these services
-have already been deployed.
+### Storage backed by LVM-iSCSI
 
-Basic, all-in-one using local storage and iSCSI
-===============================================
+With this configuration, a block device (local to the cinder unit) is used as
+an LVM physical volume. A logical volume is created (`openstack volume create`)
+and exported to a cloud instance via iSCSI (`openstack server add volume`).
 
-The api server, scheduler and volume service are all deployed into the same
-unit.  Local storage will be initialized as a LVM physical device, and a volume
-group initialized.  Instance volumes will be created locally as logical volumes
-and exported to instances via iSCSI.  This is ideal for small-scale deployments
-or testing:
+> **Note**: It is not recommended to use the LVM storage method for anything
+  other than testing or for small non-production deployments.
 
-    cat >cinder.cfg <<END
+A sample `cinder.yaml` file's contents:
+
+```yaml
     cinder:
         block-device: sdc
-        overwrite: true
-    END
-    juju deploy --config=cinder.cfg cinder
-    juju add-relation cinder keystone
-    juju add-relation cinder mysql
-    juju add-relation cinder rabbitmq-server
-    juju add-relation cinder nova-cloud-controller
+```
 
-Separate volume units for scale out, using local storage and iSCSI
-==================================================================
+> **Important**: Make sure the designated block device exists and is not
+  currently in use.
 
-Separating the volume service from the API service allows the storage pool
-to easily scale without the added complexity that accompanies load-balancing
-the API server.  When we've exhausted local storage on volume server, we can
-simply add-unit to expand our capacity.  Future requests to allocate volumes
-will be distributed across the pool of volume servers according to the
-availability of storage space.
+Deploy and add relations in this way:
 
-    cat >cinder.cfg <<END
-    cinder-api:
-        enabled-services: api, scheduler
-    cinder-volume:
-        enabled-services: volume
-        block-device: sdc
-        overwrite: true
-    END
-    juju deploy --config=cinder.cfg cinder cinder-api
-    juju deploy --config=cinder.cfg cinder cinder-volume
-    juju add-relation cinder-api mysql
-    juju add-relation cinder-api rabbitmq-server
-    juju add-relation cinder-api keystone
-    juju add-relation cinder-api nova-cloud-controller
-    juju add-relation cinder-volume mysql
-    juju add-relation cinder-volume rabbitmq-server
+    juju deploy --config cinder.yaml cinder
 
-    # When more storage is needed, simply add more volume servers.
-    juju add-unit cinder-volume
+    juju add-relation cinder:cinder-volume-service nova-cloud-controller:cinder-volume-service
+    juju add-relation cinder:shared-db mysql:shared-db
+    juju add-relation cinder:identity-service keystone:identity-service
+    juju add-relation cinder:amqp rabbitmq-server:amqp
 
-All-in-one using Ceph-backed RBD volumes
-========================================
+> **Note**: It has been reported that the LVM storage method may not properly
+  initialise the physical volume and volume group. See bug
+  [LP #1862392][lp-bug-1862392].
 
-All 3 services can be deployed to the same unit, but instead of relying
-on local storage to back volumes an external Ceph cluster is used.  This
-allows scalability and redundancy needs to be satisfied and Cinder's RBD
-driver used to create, export and connect volumes to instances.  This assumes
-a functioning Ceph cluster has already been deployed using the official Ceph
-charm and a relation exists between the Ceph service and the nova-compute
-service.
+### Storage backed by Ceph
 
-    cat >cinder.cfg <<END
+Here, storage volumes are backed by Ceph to allow for scalability and
+redundancy. This is intended for large-scale production deployments. These
+instructions assume a functioning Ceph cluster has been deployed to the cloud.
+
+> **Note**: The Ceph storage method is the recommended method for production
+  deployments.
+
+File `cinder.yaml` contains the following:
+
+```yaml
     cinder:
         block-device: None
-    END
-    juju deploy --config=cinder.cfg cinder
-    juju add-relation cinder ceph
-    juju add-relation cinder keystone
-    juju add-relation cinder mysql
-    juju add-relation cinder rabbitmq-server
-    juju add-relation cinder nova-cloud-controller
+```
 
+Deploy and add relations as in the standard configuration (using the altered
+YAML file). However, to use Ceph as the backend the intermediary cinder-ceph
+charm is required:
 
-Configuration
--------------
+    juju deploy cinder-ceph
 
-The default value for most config options should work for most deployments.
+Then add a relation from this charm to both Cinder and Ceph:
 
-Users should be aware of three options, in particular:
+    juju add-relation cinder-ceph:storage-backend cinder:storage-backend
+    juju add-relation cinder-ceph:ceph ceph-mon:client
 
-openstack-origin:  Allows Cinder to be installed from a specific apt repository.
-                   See config.yaml for a list of supported sources.
+## High availability
 
-block-device:  When using local storage, a block device should be specified to
-               back a LVM volume group.  It's important this device exists on
-               all nodes that the service may be deployed to.
+This charm supports high availability. There are two mutually exclusive
+HA/clustering strategies:
 
-overwrite:  Whether or not to wipe local storage that of data that may prevent
-            it from being initialized as a LVM physical device.  This includes
-            filesystems and partition tables.  *CAUTION*
+- virtual IP(s)
+- DNS
 
-enabled-services:  Can be used to separate cinder services between service
-                   service units (see previous section)
+In both cases, the hacluster subordinate charm is required. It provides the
+corosync backend HA functionality.
 
-HA/Clustering
----------------------
+### virtual IP(s)
 
-There are two mutually exclusive high availability options: using virtual
-IP(s) or DNS. In both cases, a relationship to hacluster is required which
-provides the corosync back end HA functionality.
+To use virtual IP(s) the clustered nodes and the VIP must be on the same
+subnet. That is, the VIP must be a valid IP on the subnet for one of the node's
+interfaces and each node has an interface in said subnet. The VIP becomes a
+highly-available API endpoint.
 
-To use virtual IP(s) the clustered nodes must be on the same subnet such that
-the VIP is a valid IP on the subnet for one of the node's interfaces and each
-node has an interface in said subnet. The VIP becomes a highly-available API
-endpoint.
+At a minimum, the configuration option `vip` must be defined. The value can
+take on space-separated values if multiple networks are in use. Optionally,
+options `vip_iface` or `vip_cidr` may be specified.
 
-At a minimum, the config option 'vip' must be set in order to use virtual IP
-HA. If multiple networks are being used, a VIP should be provided for each
-network, separated by spaces. Optionally, vip_iface or vip_cidr may be
-specified.
+### DNS
 
-To use DNS high availability there are several prerequisites. However, DNS HA
-does not require the clustered nodes to be on the same subnet.
-Currently the DNS HA feature is only available for MAAS 2.0 or greater
-environments. MAAS 2.0 requires Juju 2.0 or greater. The clustered nodes must
-have static or "reserved" IP addresses registered in MAAS. The DNS hostname(s)
-must be pre-registered in MAAS before use with DNS HA.
+DNS high availability does not require the clustered nodes to be on the same
+subnet.
 
-At a minimum, the config option 'dns-ha' must be set to true and at least one
-of 'os-public-hostname', 'os-internal-hostname' or 'os-internal-hostname' must
-be set in order to use DNS HA. One or more of the above hostnames may be set.
+It does require:
+
+- an environment with MAAS 2.0 and Juju 2.0 (as minimum versions)
+- clustered nodes with static or "reserved" IP addresses registered in MAAS
+- DNS hostnames that are pre-registered in MAAS
+
+At a minimum, the configuration option `dns-ha` must be set to 'true' and at
+least one of `os-admin-hostname`, `os-internal-hostname`, or
+`os-public-hostname` must be set.
 
 The charm will throw an exception in the following circumstances:
-If neither 'vip' nor 'dns-ha' is set and the charm is related to hacluster
-If both 'vip' and 'dns-ha' are set as they are mutually exclusive
-If 'dns-ha' is set and none of the os-{admin,internal,public}-hostname(s) are
-set
 
-Network Space support
----------------------
+- if neither `vip` nor `dns-ha` is set and the charm has a relation added to
+  hacluster
+- if both `vip` and `dns-ha` are set
+- if `dns-ha` is set and none of `os-admin-hostname`, `os-internal-hostname`,
+  or `os-public-hostname` are set
 
-This charm supports the use of Juju Network Spaces, allowing the charm to be
-bound to network space configurations managed directly by Juju.  This is only
-supported with Juju 2.0 and above.
+## Network spaces
+
+This charm supports the use of Juju [network spaces][juju-docs-spaces] (Juju
+`v.2.0`). This feature optionally allows specific types of the application's
+network traffic to be bound to subnets that the underlying hardware is
+connected to.
+
+> **Note**: Spaces must be configured in the backing cloud prior to deployment.
 
 API endpoints can be bound to distinct network spaces supporting the network
-separation of public, internal and admin endpoints.
+separation of public, internal, and admin endpoints.
 
 Access to the underlying MySQL instance can also be bound to a specific space
 using the shared-db relation.
 
-To use this feature, use the --bind option when deploying the charm:
+For example, providing that spaces 'public-space', 'internal-space', and
+'admin-space' exist, the deploy command above could look like this:
 
-    juju deploy cinder --bind "public=public-space internal=internal-space admin=admin-space shared-db=internal-space"
+    juju deploy --config cinder.yaml cinder \
+       --bind "public=public-space internal=internal-space admin=admin-space shared-db=internal-space"
 
-Alternatively these can also be provided as part of a juju native bundle
-configuration:
+Alternatively, configuration can be provided as part of a bundle:
 
+```yaml
     cinder:
-      charm: cs:xenial/cinder
+      charm: cs:cinder
       num_units: 1
       bindings:
         public: public-space
-        admin: admin-space
         internal: internal-space
+        admin: admin-space
         shared-db: internal-space
+```
 
-NOTE: Spaces must be configured in the underlying provider prior to attempting
-to use them.
+> **Note**: Existing cinder units configured with the `os-admin-network`,
+  `os-internal-network`, or `os-public-network` options will continue to honour
+  them. Furthermore, these options override any space bindings, if set.
 
-NOTE: Existing deployments using os-*-network configuration options will
-continue to function; these options are preferred over any network space
-binding provided if set.
+## Actions
 
-Policy Overrides
-================
+This section covers Juju [actions][juju-docs-actions] supported by the charm.
+Actions allow specific operations to be performed on a per-unit basis.
 
-Policy overrides is an **advanced** feature that allows an operator to override
-the default policy of an OpenStack service. The policies that the service
-supports, the defaults it implements in its code, and the defaults that a charm
-may include should all be clearly understood before proceeding.
+### openstack-upgrade
+
+Perform the OpenStack service upgrade. Configuration option
+`action-managed-upgrade` must be set to 'True'.
+
+### pause
+
+Pause the cinder unit. This action will stop the Cinder service.
+
+### remove-services
+
+Remove unused services entities from the database after enabling HA with a
+stateless backend such as the cinder-ceph application.
+
+### rename-volume-host
+
+Update the host attribute of volumes from currenthost to newhost.
+
+### resume
+
+Resume the cinder unit. This action will start the Cinder service if paused.
+
+### security-checklist
+
+Validate the running configuration against the OpenStack security guides
+checklist.
+
+### volume-host-add-driver
+
+Update the 'os-vol-host-attr:host' volume attribute. Used for migrating volumes
+to another backend.
+
+## Policy Overrides
+
+Policy overrides is an advanced feature that allows an operator to override the
+default policy of an OpenStack service. The policies that the service supports,
+the defaults it implements in its code, and the defaults that a charm may
+include should all be clearly understood before proceeding.
 
 > **Caution**: It is possible to break the system (for tenants and other
   services) if policies are incorrectly applied to the service.
@@ -212,7 +213,18 @@ Here are the essential commands (filenames are arbitrary):
 See appendix [Policy Overrides][cdg-appendix-n] in the [OpenStack Charms
 Deployment Guide][cdg] for a thorough treatment of this feature.
 
+# Bugs
+
+Please report bugs on [Launchpad][lp-bugs-charm-cinder].
+
+For general charm questions refer to the [OpenStack Charm Guide][cg].
+
 <!-- LINKS -->
 
+[cg]: https://docs.openstack.org/charm-guide
 [cdg]: https://docs.openstack.org/project-deploy-guide/charm-deployment-guide
 [cdg-appendix-n]: https://docs.openstack.org/project-deploy-guide/charm-deployment-guide/latest/app-policy-overrides.html
+[juju-docs-spaces]: https://jaas.ai/docs/spaces
+[juju-docs-actions]: https://jaas.ai/docs/actions
+[lp-bugs-charm-cinder]: https://bugs.launchpad.net/charm-cinder/+filebug
+[lp-bug-1862392]: https://bugs.launchpad.net/charm-cinder/+bug/1862392
