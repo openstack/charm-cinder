@@ -12,8 +12,6 @@ gate_bundles:
 - xenial-mitaka
 - trusty-mitaka
 dev_bundles:
-- cosmic-rocky
-- disco-stein
 configure:
 - zaza.openstack.charm_tests.glance.setup.add_cirros_image
 - zaza.openstack.charm_tests.glance.setup.add_lts_image
