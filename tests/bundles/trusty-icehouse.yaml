@@ -38,6 +38,14 @@ relations:
   - neutron-openvswitch:neutron-plugin
 - - rabbitmq-server:amqp
   - neutron-openvswitch:amqp
+- - cinder:shared-db
+  - percona-cluster:shared-db
+- - cinder:identity-service
+  - keystone:identity-service
+- - cinder:amqp
+  - rabbitmq-server:amqp
+- - cinder:image-service
+  - glance:image-service
 applications:
   rabbitmq-server:
     charm: cs:~openstack-charmers-next/rabbitmq-server
@@ -52,31 +60,31 @@ applications:
     charm: cs:~openstack-charmers-next/nova-cloud-controller
     num_units: 1
     options:
-      openstack-origin: cloud:trusty-icehouse
+      openstack-origin: distro
       debug: true
   neutron-api:
     charm: cs:~openstack-charmers-next/neutron-api
     num_units: 1
     options:
-      openstack-origin: cloud:trusty-icehouse
+      openstack-origin: distro
       flat-network-providers: physnet1
       neutron-security-groups: true
   keystone:
     charm: cs:~openstack-charmers-next/keystone
     num_units: 1
     options:
-      openstack-origin: cloud:trusty-icehouse
+      openstack-origin: distro
   neutron-gateway:
     charm: cs:~openstack-charmers-next/neutron-gateway
     num_units: 1
     options:
-      openstack-origin: cloud:trusty-icehouse
+      openstack-origin: distro
       bridge-mappings: physnet1:br-ex
   glance:
     charm: cs:~openstack-charmers-next/glance
     num_units: 1
     options:
-      openstack-origin: cloud:trusty-icehouse
+      openstack-origin: distro
   neutron-openvswitch:
     charm: cs:~openstack-charmers-next/neutron-openvswitch
   nova-compute:
@@ -85,8 +93,16 @@ applications:
     num_units: 1
     constraints: mem=4G cores=4
     options:
-      openstack-origin: cloud:trusty-icehouse
+      openstack-origin: distro
       config-flags: auto_assign_floating_ip=False
       enable-live-migration: false
       aa-profile-mode: enforce
       debug: true
+  cinder:
+    series: trusty
+    num_units: 1
+    options:
+      block-device: /dev/vdb
+      glance-api-version: 2
+      overwrite: "true"
+      ephemeral-unmount: /mnt
