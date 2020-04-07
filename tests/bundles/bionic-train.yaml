@@ -115,9 +115,11 @@ applications:
   cinder:
     series: bionic
     num_units: 1
+    storage:
+      block-devices: '40G'
     options:
       openstack-origin: cloud:bionic-train
-      block-device: /dev/vdb
+      block-device: None
       glance-api-version: 2
       overwrite: "true"
-      ephemeral-unmount: /mnt
+      #ephemeral-unmount: /mnt

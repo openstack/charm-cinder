@@ -70,6 +70,26 @@ Then add a relation from this charm to both Cinder and Ceph:
     juju add-relation cinder-ceph:storage-backend cinder:storage-backend
     juju add-relation cinder-ceph:ceph ceph-mon:client
 
+### Juju storage
+
+Juju storage can also be used to add block devices to cinder.  This uses LVM on
+a block device that is presented to the cinder unit(s) locally, but can be from
+any storage pool that Juju supports.  This is only recommended for small scale
+deployments. Storage backed by Ceph should be used for larger deployments.
+
+The cinder.yaml can be configured as:
+
+```yaml
+    cinder:
+      options:
+        block-device: None
+      storage:
+        block-devices: 'cinder,40G'
+```
+
+Setting `cinder.options.block-device = None` disables the local block device so
+that Cinder will only be configured with the Juju storage device.
+
 ## High availability
 
 This charm supports high availability. There are two mutually exclusive

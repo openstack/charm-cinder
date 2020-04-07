@@ -596,8 +596,10 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
 
 
 def prepare_volume(device):
+    juju_log("prepare_volume: {}".format(device))
     clean_storage(device)
     create_lvm_physical_volume(device)
+    juju_log("prepared volume: {}".format(device))
 
 
 def has_partition_table(block_device):

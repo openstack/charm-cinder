@@ -63,19 +63,21 @@ from cinder_utils import (
 from cinder_contexts import ceph_config_file
 
 from charmhelpers.core.hookenv import (
-    Hooks,
-    UnregisteredHookError,
     config,
+    DEBUG,
+    Hooks,
     local_unit,
+    log,
+    open_port,
+    related_units,
     relation_get,
     relation_ids,
     relation_set,
-    related_units,
     service_name,
-    log,
-    DEBUG,
     status_set,
-    open_port,
+    storage_get,
+    storage_list,
+    UnregisteredHookError,
 )
 
 from charmhelpers.fetch import (
@@ -197,15 +199,8 @@ def config_changed():
     if e_mountpoint and filesystem_mounted(e_mountpoint):
         umount(e_mountpoint)
 
-    if (service_enabled('volume') and
-            conf['block-device'] not in [None, 'None', 'none']):
-        status_set('maintenance', 'Configuring lvm storage')
-        block_devices = conf['block-device'].split()
-        configure_lvm_storage(block_devices,
-                              conf['volume-group'],
-                              conf['overwrite'] in ['true', 'True', True],
-                              conf['remove-missing'],
-                              conf['remove-missing-force'])
+    # configure block devices either local or from juju storage
+    _configure_block_devices()
 
     if not config('action-managed-upgrade'):
         if openstack_upgrade_available('cinder-common'):
@@ -246,6 +241,40 @@ def config_changed():
         os_release('cinder-common'),
         'cinder',
         restart_handler=lambda: service_restart('cinder-api'))
+
+
+@hooks.hook('storage.real')
+@restart_on_change(restart_map(), stopstart=True)
+def storage_changed():
+    _configure_block_devices()
+    CONFIGS.write_all()
+
+
+def _configure_block_devices():
+    """Configure block devices, either from Juju storage or as a local block
+    device configured in the config.
+    """
+    if service_enabled('volume'):
+        block_devices = []
+        # first see if a specified block device is configured
+        conf = config()
+        if conf['block-device'] not in [None, 'None', 'none']:
+            block_devices.extend(conf['block-device'].split())
+        # now see if there are any Juju storage devies configured
+        storage_ids = storage_list('block-devices')
+        storage_devs = [storage_get('location', s) for s in storage_ids]
+        # add them into the block_devices:
+        block_devices.extend(storage_devs)
+        if block_devices:
+            status_set('maintenance', 'Checking configuration of lvm storage')
+        # Note that there may be None now, and remove-missing is set to true,
+        # so we still have to run the function regardless of whether
+        # block_devices is an empty list or not.
+        configure_lvm_storage(block_devices,
+                              conf['volume-group'],
+                              conf['overwrite'] in ['true', 'True', True],
+                              conf['remove-missing'],
+                              conf['remove-missing-force'])
 
 
 @hooks.hook('shared-db-relation-joined')

@@ -52,3 +52,9 @@ resources:
     type: file
     filename: policyd-override.zip
     description: The policy.d overrides file
+storage:
+  block-devices:
+    type: block
+    multiple:
+      range: 0-
+    minimum-size: 10G

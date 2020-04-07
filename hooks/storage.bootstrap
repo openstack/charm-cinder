@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if ! dpkg -s cinder-common > /dev/null 2>&1; then
+    juju-log "cinder not yet installed."
+    exit 0
+fi
+
+./hooks/storage.real
