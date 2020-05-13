@@ -509,8 +509,11 @@ def ensure_lvm_volume_group_non_existent(volume_group):
 
 def log_lvm_info():
     """Log some useful information about how LVM is setup."""
-    pvscan_output = subprocess.check_output(['pvscan']).decode('UTF-8')
-    juju_log('pvscan: %s' % pvscan_output)
+    try:
+        pvscan_output = subprocess.check_output(['pvscan']).decode('UTF-8')
+        juju_log('pvscan: {}'.format(pvscan_output))
+    except subprocess.CalledProcessError:
+        juju_log('pvscan did not complete successfully; may not be setup yet')
 
 
 def configure_lvm_storage(block_devices, volume_group, overwrite=False,
@@ -570,10 +573,16 @@ def configure_lvm_storage(block_devices, volume_group, overwrite=False,
         new_devices.remove(new_devices[0])
 
     # Remove missing physical volumes from volume group
-    if remove_missing_force:
-        reduce_lvm_volume_group_missing(volume_group, extra_args=['--force'])
-    elif remove_missing:
-        reduce_lvm_volume_group_missing(volume_group)
+    try:
+        if remove_missing_force:
+            reduce_lvm_volume_group_missing(volume_group,
+                                            extra_args=['--force'])
+        elif remove_missing:
+            reduce_lvm_volume_group_missing(volume_group)
+    except subprocess.CalledProcessError as e:
+        juju_log("reduce_lvm_volume_group_missing() didn't complete."
+                 " LVM may not be fully configured yet.  Error was: '{}'."
+                 .format(str(e)))
 
     if len(new_devices) > 0:
         # Extend the volume group as required
