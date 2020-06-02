@@ -2,17 +2,18 @@ name: cinder
 summary: OpenStack block storage service
 maintainer: OpenStack Charmers <openstack-charmers@lists.ubuntu.com>
 description: |
- Cinder is the block storage service for the OpenStack.
+  Cinder is the block storage service for the OpenStack.
 tags:
-  - openstack
-  - storage
-  - misc
+- openstack
+- storage
+- misc
 series:
-  - xenial
-  - bionic
-  - eoan
-  - focal
-  - trusty
+- xenial
+- bionic
+- eoan
+- focal
+- trusty
+- groovy
 extra-bindings:
   public:
   admin:
