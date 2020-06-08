@@ -19,7 +19,7 @@ import yaml
 
 from collections import OrderedDict
 
-from mock import patch
+from unittest.mock import patch
 
 
 RESTART_MAP = OrderedDict([

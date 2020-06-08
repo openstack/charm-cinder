@@ -14,7 +14,7 @@
 
 import os
 
-from mock import patch, MagicMock
+from unittest.mock import patch, MagicMock
 
 from test_utils import (
     CharmTestCase,

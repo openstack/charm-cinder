@@ -12,15 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from mock import patch, mock
+import unittest.mock as mock
 import os
 
 os.environ['JUJU_UNIT_NAME'] = 'cinder'
 
 from test_utils import RESTART_MAP
 
-with patch('cinder_utils.register_configs') as register_configs:
-    with patch('cinder_utils.restart_map') as restart_map:
+with mock.patch('cinder_utils.register_configs') as register_configs:
+    with mock.patch('cinder_utils.restart_map') as restart_map:
         restart_map.return_value = RESTART_MAP
         register_configs.return_value = 'test-config'
         import actions

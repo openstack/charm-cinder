@@ -16,7 +16,7 @@ import os
 import subprocess
 
 from collections import OrderedDict
-from mock import patch, call, MagicMock, Mock
+from unittest.mock import patch, call, MagicMock, Mock
 
 os.environ['JUJU_UNIT_NAME'] = 'cinder'
 import cinder_utils as cinder_utils

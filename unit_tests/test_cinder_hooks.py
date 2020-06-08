@@ -17,7 +17,7 @@ import json
 
 from six.moves import reload_module
 
-from mock import (
+from unittest.mock import (
     patch,
     call
 )

@@ -15,7 +15,7 @@
 import os
 
 from test_utils import CharmTestCase
-from mock import patch, MagicMock
+from unittest.mock import patch, MagicMock
 
 import cinder_contexts as contexts
 

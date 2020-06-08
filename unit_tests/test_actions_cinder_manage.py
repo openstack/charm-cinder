@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from mock import patch, mock
+import unittest.mock as mock
 from test_utils import (
     CharmTestCase
 )
@@ -56,8 +56,8 @@ class CinderManageTestCase(CharmTestCase):
         self.subprocess.check_call.assert_called_once_with(
             ['cinder-manage', 'service', 'remove', 'host', 'host@this#that'])
 
-    @patch.object(cinder_manage, 'cinder_manage_service_list')
-    @patch.object(cinder_manage, 'cinder_manage_remove')
+    @mock.patch.object(cinder_manage, 'cinder_manage_service_list')
+    @mock.patch.object(cinder_manage, 'cinder_manage_remove')
     def test_remove_services(self, cinder_manage_remove,
                              cinder_manage_service_list):
         self.action_get.return_value = 'svc1host'
@@ -70,8 +70,8 @@ class CinderManageTestCase(CharmTestCase):
         cinder_manage_remove.assert_called_once_with('svc1bin', 'svc1host')
         self.action_set.assert_called_once_with({'removed': 'svc1host'})
 
-    @patch.object(cinder_manage, 'cinder_manage_service_list')
-    @patch.object(cinder_manage, 'cinder_manage_remove')
+    @mock.patch.object(cinder_manage, 'cinder_manage_service_list')
+    @mock.patch.object(cinder_manage, 'cinder_manage_remove')
     def test_remove_services_kilo(self, cinder_manage_remove,
                                   cinder_manage_service_list):
         self.action_get.return_value = 'svc1host'
@@ -84,8 +84,8 @@ class CinderManageTestCase(CharmTestCase):
         cinder_manage.remove_services('arg')
         self.action_fail.assert_called_once()
 
-    @patch.object(cinder_manage, 'cinder_manage_service_list')
-    @patch.object(cinder_manage, 'cinder_manage_remove')
+    @mock.patch.object(cinder_manage, 'cinder_manage_service_list')
+    @mock.patch.object(cinder_manage, 'cinder_manage_remove')
     def test_remove_services_fail(self, cinder_manage_remove,
                                   cinder_manage_service_list):
         cinder_manage_remove.side_effect = Exception()
@@ -100,8 +100,8 @@ class CinderManageTestCase(CharmTestCase):
         self.action_fail.assert_called_once_with(
             'Cannot remove service: svc1host')
 
-    @patch.object(cinder_manage, 'cinder_manage_service_list')
-    @patch.object(cinder_manage, 'cinder_manage_volume_update_host')
+    @mock.patch.object(cinder_manage, 'cinder_manage_service_list')
+    @mock.patch.object(cinder_manage, 'cinder_manage_volume_update_host')
     def test__rename_volume_host(self, cinder_manage_volume_update_host,
                                  cinder_manage_service_list):
         self.action_get.return_value = 'myhost'
@@ -112,8 +112,8 @@ class CinderManageTestCase(CharmTestCase):
         cinder_manage._rename_volume_host('a', 'b')
         cinder_manage_volume_update_host.assert_called_once_with('a', 'b')
 
-    @patch.object(cinder_manage, 'cinder_manage_service_list')
-    @patch.object(cinder_manage, 'cinder_manage_volume_update_host')
+    @mock.patch.object(cinder_manage, 'cinder_manage_service_list')
+    @mock.patch.object(cinder_manage, 'cinder_manage_volume_update_host')
     def test__rename_volume_host_missing(self,
                                          cinder_manage_volume_update_host,
                                          cinder_manage_service_list):
@@ -124,8 +124,8 @@ class CinderManageTestCase(CharmTestCase):
         self.action_fail.assert_called_once_with(
             'Cannot update host attribute from a, a not found')
 
-    @patch.object(cinder_manage, 'cinder_manage_service_list')
-    @patch.object(cinder_manage, 'cinder_manage_volume_update_host')
+    @mock.patch.object(cinder_manage, 'cinder_manage_service_list')
+    @mock.patch.object(cinder_manage, 'cinder_manage_volume_update_host')
     def test__rename_volume_host_fail(self,
                                       cinder_manage_volume_update_host,
                                       cinder_manage_service_list):
@@ -139,7 +139,7 @@ class CinderManageTestCase(CharmTestCase):
         cinder_manage_volume_update_host.assert_called_once_with('a', 'b')
         self.action_fail.assert_called_once_with('Cannot update host a')
 
-    @patch.object(cinder_manage, '_rename_volume_host')
+    @mock.patch.object(cinder_manage, '_rename_volume_host')
     def test_rename_volume_host(self, _rename_volume_host):
         self.action_get.return_value = {
             'currenthost': 'orghost',
@@ -147,7 +147,7 @@ class CinderManageTestCase(CharmTestCase):
         cinder_manage.rename_volume_host('arg')
         _rename_volume_host.assert_called_once_with('orghost', 'newhost')
 
-    @patch.object(cinder_manage, '_rename_volume_host')
+    @mock.patch.object(cinder_manage, '_rename_volume_host')
     def test_volume_host_add_driver(self, _rename_volume_host):
         self.action_get.return_value = {
             'currenthost': 'orghost',
@@ -157,7 +157,7 @@ class CinderManageTestCase(CharmTestCase):
         _rename_volume_host.assert_called_once_with(
             'orghost', 'orghost@lvmdriver-1#LVM')
 
-    @patch.object(cinder_manage, '_rename_volume_host')
+    @mock.patch.object(cinder_manage, '_rename_volume_host')
     def test_volume_host_add_driver_novol_backend(self, _rename_volume_host):
         self.action_get.return_value = {
             'currenthost': 'orghost',
@@ -167,7 +167,7 @@ class CinderManageTestCase(CharmTestCase):
         _rename_volume_host.assert_called_once_with(
             'orghost', 'orghost@lvmdriver-1')
 
-    @patch.object(cinder_manage, 'subprocess')
+    @mock.patch.object(cinder_manage, 'subprocess')
     def test_cinder_manage_service_list(self, subprocess):
         subprocess.check_output.return_value = SERVICE_LIST.encode()
         self.assertEqual(len(cinder_manage.cinder_manage_service_list()), 10)
