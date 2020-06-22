@@ -149,7 +149,8 @@ class StorageBackendContext(OSContextGenerator):
                 backends = ['LVM']
         return {
             'active_backends': backends,
-            'backends': ",".join(backends)}
+            'backends': ",".join(backends),
+            'default_volume_type': config('default-volume-type')}
 
 
 class LoggingConfigContext(OSContextGenerator):

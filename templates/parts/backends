@@ -7,6 +7,9 @@
 {% if backends -%}
 enabled_backends = {{ backends }}
 {%- endif %}
+{% if default_volume_type -%}
+default_volume_type = {{ default_volume_type }}
+{%- endif %}
 
 {% for section in sections -%}
 {% if section != 'DEFAULT' -%}

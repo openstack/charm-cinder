@@ -366,3 +366,13 @@ options:
     description: |
       A comma-separated list of oslo notification topics. If left empty, the
       default topic 'cinder' is going to be used.
+  default-volume-type:
+    type: string
+    default:
+    description: |
+      The default volume type when creating a new volume without a
+      volume type specified. It's useful only when multiple storage
+      backends to be connected to Cinder. The corresponding volume type
+      must be created after a deployment via API to take effect, e.g.,
+      `openstack volume type create VOLUME_TYPE --property
+      volume_backend_name=BACKEND_NAME`

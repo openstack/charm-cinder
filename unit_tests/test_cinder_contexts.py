@@ -118,7 +118,9 @@ class TestCinderContext(CharmTestCase):
         self.os_release.return_value = 'havana'
         self.assertEqual(
             contexts.StorageBackendContext()(),
-            {'active_backends': [], 'backends': ''})
+            {'active_backends': [],
+             'backends': '',
+             'default_volume_type': None})
 
     def test_storage_backend_single_backend(self):
         rel_dict = {
@@ -131,7 +133,8 @@ class TestCinderContext(CharmTestCase):
         self.os_release.return_value = 'havana'
         self.assertEqual(contexts.StorageBackendContext()(),
                          {'backends': 'cinder-ceph',
-                          'active_backends': ['cinder-ceph']})
+                          'active_backends': ['cinder-ceph'],
+                          'default_volume_type': None})
 
     def test_storage_backend_multi_backend(self):
         self.config.return_value = None
@@ -146,7 +149,24 @@ class TestCinderContext(CharmTestCase):
         self.assertEqual(
             contexts.StorageBackendContext()(),
             {'backends': 'cinder-ceph,cinder-vmware',
-             'active_backends': ['cinder-ceph', 'cinder-vmware']})
+             'active_backends': ['cinder-ceph', 'cinder-vmware'],
+             'default_volume_type': None})
+
+    def test_storage_backend_multi_backend_with_default_type(self):
+        self.config.return_value = 'my-preferred-volume-type'
+        self.os_release.return_value = 'havana'
+        rel_dict = {
+            'storage-backend': ['cinder-ceph:0', 'cinder-vmware:0'],
+            'ceph': []}
+        self.relation_ids.side_effect = lambda x: rel_dict[x]
+        self.related_units.side_effect = [['cinder-ceph/0'],
+                                          ['cinder-vmware/0']]
+        self.relation_get.side_effect = ['cinder-ceph', 'cinder-vmware']
+        self.assertEqual(
+            contexts.StorageBackendContext()(),
+            {'backends': 'cinder-ceph,cinder-vmware',
+             'active_backends': ['cinder-ceph', 'cinder-vmware'],
+             'default_volume_type': 'my-preferred-volume-type'})
 
     mod_ch_context = 'charmhelpers.contrib.openstack.context'
 
