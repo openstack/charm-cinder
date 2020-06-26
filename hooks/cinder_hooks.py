@@ -116,6 +116,8 @@ from charmhelpers.contrib.storage.linux.ceph import (
     delete_keyring,
 )
 
+from charmhelpers.contrib.hahelpers.apache import install_ca_cert
+
 from charmhelpers.contrib.hahelpers.cluster import (
     is_clustered,
     is_elected_leader,
@@ -168,13 +170,15 @@ def install():
     apt_update()
     apt_install(determine_packages(), fatal=True)
 
-    if run_in_apache():
-        disable_package_apache_site()
-    # call the policy overrides handler which will install any policy overrides
-    maybe_do_policyd_overrides(
-        os_release('cinder-common'),
-        'cinder',
-        restart_handler=lambda: service_restart('cinder-api'))
+    if service_enabled('api'):
+        if run_in_apache():
+            disable_package_apache_site()
+        # call the policy overrides handler which will install any policy
+        # overrides
+        maybe_do_policyd_overrides(
+            os_release('cinder-common'),
+            'cinder',
+            restart_handler=lambda: service_restart('cinder-api'))
 
 
 @hooks.hook('config-changed')
@@ -220,9 +224,10 @@ def config_changed():
         service_restart('cinder-volume')
 
     CONFIGS.write_all()
-    configure_https()
+    if service_enabled('api'):
+        configure_https()
+        open_port(config('api-listening-port'))
     update_nrpe_config()
-    open_port(config('api-listening-port'))
 
     for rid in relation_ids('cluster'):
         cluster_joined(relation_id=rid)
@@ -236,11 +241,13 @@ def config_changed():
     for rid in relation_ids('identity-service'):
         identity_joined(rid=rid)
 
-    # call the policy overrides handler which will install any policy overrides
-    maybe_do_policyd_overrides_on_config_changed(
-        os_release('cinder-common'),
-        'cinder',
-        restart_handler=lambda: service_restart('cinder-api'))
+    if service_enabled('api'):
+        # call the policy overrides handler which will install any policy
+        # overrides
+        maybe_do_policyd_overrides_on_config_changed(
+            os_release('cinder-common'),
+            'cinder',
+            restart_handler=lambda: service_restart('cinder-api'))
 
 
 @hooks.hook('storage.real')
@@ -436,8 +443,9 @@ def identity_changed():
     if 'identity-service' not in CONFIGS.complete_contexts():
         juju_log('identity-service relation incomplete. Peer not ready?')
         return
-    CONFIGS.write(CINDER_API_CONF)
-    configure_https()
+    if service_enabled('api'):
+        CONFIGS.write(CINDER_API_CONF)
+        configure_https()
 
 
 @hooks.hook('ceph-relation-joined')
@@ -602,11 +610,14 @@ def upgrade_charm():
         juju_log("Package purge detected, restarting services")
         for s in services():
             service_restart(s)
-    # call the policy overrides handler which will install any policy overrides
-    maybe_do_policyd_overrides(
-        os_release('cinder-common'),
-        'cinder',
-        restart_handler=lambda: service_restart('cinder-api'))
+
+    if service_enabled('api'):
+        # call the policy overrides handler which will install any policy
+        # overrides
+        maybe_do_policyd_overrides(
+            os_release('cinder-common'),
+            'cinder',
+            restart_handler=lambda: service_restart('cinder-api'))
 
 
 @hooks.hook('storage-backend-relation-changed')
@@ -633,7 +644,11 @@ def update_nrpe_config():
     nrpe_setup = nrpe.NRPE(hostname=hostname)
     nrpe.copy_nrpe_checks()
     nrpe.add_init_service_checks(nrpe_setup, services(), current_unit)
-    nrpe.add_haproxy_checks(nrpe_setup, current_unit)
+    if service_enabled('api'):
+        nrpe.add_haproxy_checks(nrpe_setup, current_unit)
+    else:
+        nrpe.remove_deprecated_check(nrpe_setup,
+                                     ["haproxy_servers", "haproxy_queue"])
     nrpe_setup.write()
 
 
@@ -653,6 +668,13 @@ def certs_joined(relation_id=None):
 @hooks.hook('certificates-relation-changed')
 @restart_on_change(restart_map())
 def certs_changed(relation_id=None, unit=None):
+    if not service_enabled('api'):
+        # Install CA cert to communicate with Keystone and Glance
+        data = relation_get(rid=relation_id, unit=unit)
+        ca = data.get('ca')
+        if ca:
+            install_ca_cert(ca.encode())
+        return
     process_certificates('cinder', relation_id, unit)
     configure_https()
 

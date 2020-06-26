@@ -164,7 +164,8 @@ class TestCinderUtils(CharmTestCase):
                    cinder_utils.VOLUME_PACKAGES +
                    cinder_utils.API_PACKAGES +
                    cinder_utils.SCHEDULER_PACKAGES +
-                   cinder_utils.PY3_PACKAGES))
+                   cinder_utils.PY3_PACKAGES +
+                   cinder_utils.PY3_API_PACKAGES))
 
     @patch('cinder_utils.service_enabled')
     def test_determine_packages_subset(self, service_enabled):
@@ -236,12 +237,8 @@ class TestCinderUtils(CharmTestCase):
         self.ceph_config_file.return_value = self.charm_ceph_conf
         self.relation_ids.return_value = []
         ex_map = OrderedDict([
-            ('/etc/cinder/cinder.conf', ['cinder-volume', 'cinder-scheduler',
-                                         'haproxy']),
-            ('/etc/cinder/api-paste.ini', []),
-            ('/etc/haproxy/haproxy.cfg', ['haproxy']),
-            ('/etc/apache2/sites-available/openstack_https_frontend.conf',
-             ['apache2']),
+            ('/etc/cinder/cinder.conf', ['cinder-volume',
+                                         'cinder-scheduler']),
         ])
         for cfg in ex_map.keys():
             self.assertEqual(cinder_utils.resource_map()[cfg]['services'],
@@ -355,7 +352,7 @@ class TestCinderUtils(CharmTestCase):
         self.assertEqual(
             cinder_utils.filter_services(['cinder-api', 'cinder-volume',
                                           'haproxy']),
-            ['cinder-volume', 'haproxy']
+            ['cinder-volume']
         )
 
     @patch('cinder_utils.service_enabled')
@@ -763,12 +760,13 @@ class TestCinderUtils(CharmTestCase):
                     out.write('env CEPH_ARGS="--id %s"\n' % service)
         """
 
+    @patch.object(cinder_utils, 'service_enabled')
     @patch.object(cinder_utils, 'register_configs')
     @patch.object(cinder_utils, 'services')
     @patch.object(cinder_utils, 'migrate_database')
     @patch.object(cinder_utils, 'determine_packages')
     def test_openstack_upgrade_leader(self, pkgs, migrate, services,
-                                      mock_register_configs):
+                                      mock_register_configs, service_enabled):
         pkgs.return_value = ['mypackage']
         self.os_release.return_value = 'havana'
         self.config.side_effect = None
@@ -777,6 +775,7 @@ class TestCinderUtils(CharmTestCase):
         self.is_elected_leader.return_value = True
         self.get_os_codename_install_source.return_value = 'havana'
         configs = mock_register_configs.return_value
+        service_enabled.return_value = True
         cinder_utils.do_openstack_upgrade(configs)
         self.assertTrue(mock_register_configs.called)
         self.assertTrue(configs.write_all.called)
@@ -786,12 +785,14 @@ class TestCinderUtils(CharmTestCase):
         configs.set_release.assert_called_with(openstack_release='havana')
         self.assertTrue(migrate.called)
 
+    @patch.object(cinder_utils, 'service_enabled')
     @patch.object(cinder_utils, 'register_configs')
     @patch.object(cinder_utils, 'services')
     @patch.object(cinder_utils, 'migrate_database')
     @patch.object(cinder_utils, 'determine_packages')
     def test_openstack_upgrade_not_leader(self, pkgs, migrate, services,
-                                          mock_register_configs):
+                                          mock_register_configs,
+                                          service_enabled):
         pkgs.return_value = ['mypackage']
         self.os_release.return_value = 'havana'
         self.config.side_effect = None
@@ -800,6 +801,7 @@ class TestCinderUtils(CharmTestCase):
         self.is_elected_leader.return_value = False
         self.get_os_codename_install_source.return_value = 'havana'
         configs = mock_register_configs.return_value
+        service_enabled.return_value = True
         cinder_utils.do_openstack_upgrade(configs)
         self.assertTrue(mock_register_configs.called)
         self.assertTrue(configs.write_all.called)
@@ -809,12 +811,14 @@ class TestCinderUtils(CharmTestCase):
         configs.set_release.assert_called_with(openstack_release='havana')
         self.assertFalse(migrate.called)
 
+    @patch.object(cinder_utils, 'service_enabled')
     @patch.object(cinder_utils, 'register_configs')
     @patch.object(cinder_utils, 'services')
     @patch.object(cinder_utils, 'migrate_database')
     @patch.object(cinder_utils, 'determine_packages')
     def test_openstack_upgrade_rocky(self, pkgs, migrate, services,
-                                     mock_register_configs):
+                                     mock_register_configs,
+                                     service_enabled):
         pkgs.return_value = ['mypackage']
         self.os_release.return_value = 'rocky'
         self.config.side_effect = None
@@ -823,6 +827,7 @@ class TestCinderUtils(CharmTestCase):
         self.is_elected_leader.return_value = True
         self.get_os_codename_install_source.return_value = 'rocky'
         configs = mock_register_configs.return_value
+        service_enabled.return_value = True
         self.filter_missing_packages.return_value = [
             'python-cinder',
         ]

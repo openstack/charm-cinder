@@ -118,10 +118,8 @@ import cinder_contexts
 from cinder_contexts import ceph_config_file
 
 COMMON_PACKAGES = [
-    'apache2',
     'cinder-common',
     'gdisk',
-    'haproxy',
     'librbd1',  # bug 1440948 vol-from-img
     'python-jinja2',
     'python-keystoneclient',
@@ -137,10 +135,15 @@ PY3_PACKAGES = [
     'python3-memcache',
     'python3-rados',
     'python3-rbd',
-    'libapache2-mod-wsgi-py3',
 ]
 
-API_PACKAGES = ['cinder-api']
+PY3_API_PACKAGES = ['libapache2-mod-wsgi-py3']
+
+API_PACKAGES = [
+    'apache2',
+    'cinder-api',
+    'haproxy',
+]
 VOLUME_PACKAGES = ['cinder-volume']
 SCHEDULER_PACKAGES = ['cinder-scheduler']
 
@@ -155,6 +158,7 @@ CINDER_DB_INIT_ECHO_RKEY = 'cinder-db-initialised-echo'
 
 class CinderCharmError(Exception):
     pass
+
 
 CINDER_CONF_DIR = "/etc/cinder"
 CINDER_CONF = '%s/cinder.conf' % CINDER_CONF_DIR
@@ -320,7 +324,18 @@ def resource_map(release=None):
             'contexts': [context.MemcacheContext()],
             'services': ['memcached']}
 
-    if run_in_apache():
+    if not service_enabled('api'):
+        # haproxy and apache2 are related to cinder-api
+        cfg_files = {
+            CINDER_API_CONF,
+            HAPROXY_CONF,
+            APACHE_SITE_CONF,
+            APACHE_SITE_24_CONF,
+            APACHE_PORTS_CONF,
+        }
+        for cfg in cfg_files.intersection(resource_map.keys()):
+            resource_map.pop(cfg)
+    elif run_in_apache():
         for cfile in resource_map:
             svcs = resource_map[cfile]['services']
             if 'cinder-api' in svcs:
@@ -347,9 +362,13 @@ def filter_services(svcs):
     @param svcs: List of services
     @returns : List of enabled services
     '''
+    deps = {
+        'haproxy': 'api',
+        'apache2': 'api',
+    }
     return [s for s in svcs
             if service_enabled(s.lstrip('cinder-')) or
-            not s.startswith('cinder')]
+            (deps.get(s) and service_enabled(deps[s]))]
 
 
 def juju_log(msg):
@@ -373,6 +392,8 @@ def determine_packages():
     if CompareOpenStackReleases(os_release('cinder')) >= 'rocky':
         pkgs = [p for p in pkgs if not p.startswith('python-')]
         pkgs.extend(PY3_PACKAGES)
+        if service_enabled('api'):
+            pkgs.extend(PY3_API_PACKAGES)
 
     return pkgs
 
@@ -798,7 +819,7 @@ def do_openstack_upgrade(configs=None):
     configs.set_release(openstack_release=new_os_rel)
     configs.write_all()
 
-    if run_in_apache():
+    if service_enabled('api') and run_in_apache():
         disable_package_apache_site()
 
     # Stop/start services and migrate DB if leader
