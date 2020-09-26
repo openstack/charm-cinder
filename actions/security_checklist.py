@@ -147,5 +147,6 @@ def main():
     config['cinder-conf'] = _config_file('/etc/cinder/cinder.conf')
     return audits.action_parse_results(audits.run(config))
 
+
 if __name__ == "__main__":
     sys.exit(main())

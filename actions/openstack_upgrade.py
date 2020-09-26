@@ -28,8 +28,10 @@ def _add_path(path):
     if path not in sys.path:
         sys.path.insert(1, path)
 
+
 _add_path(_hooks)
 _add_path(_root)
+
 
 from charmhelpers.contrib.openstack.utils import (
     do_action_openstack_upgrade,
@@ -73,6 +75,7 @@ def openstack_upgrade():
         if is_unit_paused_set():
             resume_unit_helper(cinder_hooks.register_configs())
         cinder_hooks.config_changed()
+
 
 if __name__ == '__main__':
     openstack_upgrade()

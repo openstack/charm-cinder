@@ -29,8 +29,10 @@ def _add_path(path):
     if path not in sys.path:
         sys.path.insert(1, path)
 
+
 _add_path(_hooks)
 _add_path(_root)
+
 
 from charmhelpers.contrib.openstack.utils import (
     CompareOpenStackReleases,
@@ -130,7 +132,7 @@ def remove_services(args):
                 cinder_manage_remove(service.binary, service.host)
             else:
                 action_fail("Cannot remove service: {}".format(service.host))
-        except:
+        except Exception:
             action_set({'traceback': traceback.format_exc()})
             action_fail("Cannot remove service: {}".format(service.host))
         else:
@@ -145,7 +147,7 @@ def _rename_volume_host(currenthost, newhost):
     if services:
         try:
             cinder_manage_volume_update_host(currenthost, newhost)
-        except:
+        except Exception:
             action_set({'traceback': traceback.format_exc()})
             action_fail("Cannot update host {}".format(currenthost))
     else:

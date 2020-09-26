@@ -27,10 +27,12 @@ def _add_path(path):
     if path not in sys.path:
         sys.path.insert(1, path)
 
+
 _add_path(_actions)
 _add_path(_hooks)
 _add_path(_charmhelpers)
 _add_path(_unit_tests)
+
 
 cinder = mock.MagicMock()
 sqlalchemy = mock.MagicMock()
