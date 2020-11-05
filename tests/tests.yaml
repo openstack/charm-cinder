@@ -2,6 +2,7 @@ charm_name: cinder
 smoke_bundles:
 - bionic-train
 gate_bundles:
+- groovy-victoria
 - focal-victoria
 - focal-ussuri
 - vault: focal-ussuri-volume-only
@@ -15,8 +16,6 @@ gate_bundles:
 - xenial-pike
 - xenial-mitaka
 - trusty-mitaka
-dev_bundles:
-- groovy-victoria
 target_deploy_status:
   vault:
     workload-status: blocked
