@@ -1,24 +1,83 @@
 # Overview
 
-This charm provides the Cinder volume service for OpenStack. It is intended to
-be used alongside the other OpenStack components.
+The cinder charm deploys [Cinder][upstream-cinder], the Block Storage (volume)
+service for OpenStack. The charm works alongside other Juju-deployed OpenStack
+services.
 
 # Usage
 
+## Configuration
+
+This section covers common and/or important configuration options. See file
+`config.yaml` for the full list of options, along with their descriptions and
+default values. See the [Juju documentation][juju-docs-config-apps] for details
+on configuring applications.
+
+#### `openstack-origin`
+
+The `openstack-origin` option states the software sources. A common value is an
+OpenStack UCA release (e.g. 'cloud:bionic-ussuri' or 'cloud:focal-victoria').
+See [Ubuntu Cloud Archive][wiki-uca]. The underlying host's existing apt
+sources will be used if this option is not specified (this behaviour can be
+explicitly chosen by using the value of 'distro').
+
 ## Deployment
 
-Two deployment configurations will be shown. Both assume the existence of core
-OpenStack services: mysql, rabbitmq-server, keystone, and
-nova-cloud-controller.
+This section includes two different deployment scenarios, each of which
+requires these applications to be present: keystone, nova-cloud-controller,
+nova-compute, rabbitmq-server, and a cloud database.
 
-### Storage backed by LVM-iSCSI
+The database application is determined by the series. Prior to focal
+[percona-cluster][percona-cluster-charm] is used, otherwise it is
+[mysql-innodb-cluster][mysql-innodb-cluster-charm]. In the example deployment
+below mysql-innodb-cluster has been chosen.
 
-With this configuration, a block device (local to the cinder unit) is used as
-an LVM physical volume. A logical volume is created (`openstack volume create`)
-and exported to a cloud instance via iSCSI (`openstack server add volume`).
+### Ceph-backed storage
 
-> **Note**: It is not recommended to use the LVM storage method for anything
-  other than testing or for small non-production deployments.
+Cinder can be backed by Ceph, which provides volumes with scalability and
+redundancy.
+
+> **Note**: Ceph is the recommended storage method for production Cinder
+  deployments.
+
+These instructions assume a pre-existing Ceph cluster.
+
+File `cinder.yaml` contains the following:
+
+```yaml
+    cinder:
+        block-device: None
+```
+
+Option `block-device` must be set to 'None' to disable the local block device.
+
+Here, Cinder is deployed to a container on machine '1' and related to the Ceph
+cluster via the cinder-ceph subordinate charm:
+
+    juju deploy --to lxd:1 --config cinder.yaml cinder
+    juju deploy cinder-ceph
+    juju add-relation cinder-ceph:storage-backend cinder:storage-backend
+    juju add-relation cinder-ceph:ceph ceph-mon:client
+    juju add-relation cinder-ceph:ceph-access nova-compute:ceph-access
+
+Proceed with a group of commands common to both scenarios:
+
+    juju add-relation cinder:identity-service keystone:identity-service
+    juju add-relation cinder:cinder-volume-service nova-cloud-controller:cinder-volume-service
+    juju add-relation cinder:amqp rabbitmq-server:amqp
+
+    juju deploy mysql-router cinder-mysql-router
+    juju add-relation cinder-mysql-router:db-router mysql-innodb-cluster:db-router
+    juju add-relation cinder-mysql-router:shared-db cinder:shared-db
+
+### LVM/iSCSI-backed storage
+
+Cinder can be backed by storage local to the cinder unit, where a block device
+is used as an LVM physical volume. When a logical volume is created (`openstack
+volume create`) it is exported to a VM via iSCSI when needed (`openstack server
+add volume`).
+
+> **Note**: LVM/iSCSI is intended for testing and small Cinder deployments.
 
 A sample `cinder.yaml` file's contents:
 
@@ -30,65 +89,15 @@ A sample `cinder.yaml` file's contents:
 > **Important**: Make sure the designated block device exists and is not
   currently in use.
 
-Deploy and add relations in this way:
+Deploy Cinder:
 
     juju deploy --config cinder.yaml cinder
 
-    juju add-relation cinder:cinder-volume-service nova-cloud-controller:cinder-volume-service
-    juju add-relation cinder:shared-db mysql:shared-db
-    juju add-relation cinder:identity-service keystone:identity-service
-    juju add-relation cinder:amqp rabbitmq-server:amqp
+Proceed with the common group of commands from the Ceph scenario.
 
 > **Note**: It has been reported that the LVM storage method may not properly
   initialise the physical volume and volume group. See bug
   [LP #1862392][lp-bug-1862392].
-
-### Storage backed by Ceph
-
-Here, storage volumes are backed by Ceph to allow for scalability and
-redundancy. This is intended for large-scale production deployments. These
-instructions assume a functioning Ceph cluster has been deployed to the cloud.
-
-> **Note**: The Ceph storage method is the recommended method for production
-  deployments.
-
-File `cinder.yaml` contains the following:
-
-```yaml
-    cinder:
-        block-device: None
-```
-
-Deploy and add relations as in the standard configuration (using the altered
-YAML file). However, to use Ceph as the backend the intermediary cinder-ceph
-charm is required:
-
-    juju deploy cinder-ceph
-
-Then add a relation from this charm to both Cinder and Ceph:
-
-    juju add-relation cinder-ceph:storage-backend cinder:storage-backend
-    juju add-relation cinder-ceph:ceph ceph-mon:client
-
-### Juju storage
-
-Juju storage can also be used to add block devices to cinder.  This uses LVM on
-a block device that is presented to the cinder unit(s) locally, but can be from
-any storage pool that Juju supports.  This is only recommended for small scale
-deployments. Storage backed by Ceph should be used for larger deployments.
-
-The cinder.yaml can be configured as:
-
-```yaml
-    cinder:
-      options:
-        block-device: None
-      storage:
-        block-devices: 'cinder,40G'
-```
-
-Setting `cinder.options.block-device = None` disables the local block device so
-that Cinder will only be configured with the Juju storage device.
 
 ## High availability
 
@@ -143,41 +152,19 @@ Alternatively, configuration can be provided as part of a bundle:
 ## Actions
 
 This section covers Juju [actions][juju-docs-actions] supported by the charm.
-Actions allow specific operations to be performed on a per-unit basis.
+Actions allow specific operations to be performed on a per-unit basis. To
+display action descriptions run `juju actions cinder`. If the charm is not
+deployed then see file `actions.yaml`.
 
-### openstack-upgrade
+* `openstack-upgrade`
+* `pause`
+* `remove-services`
+* `rename-volume-host`
+* `resume`
+* `security-checklist`
+* `volume-host-add-driver`
 
-Perform the OpenStack service upgrade. Configuration option
-`action-managed-upgrade` must be set to 'True'.
-
-### pause
-
-Pause the cinder unit. This action will stop the Cinder service.
-
-### remove-services
-
-Remove unused services entities from the database after enabling HA with a
-stateless backend such as the cinder-ceph application.
-
-### rename-volume-host
-
-Update the host attribute of volumes from currenthost to newhost.
-
-### resume
-
-Resume the cinder unit. This action will start the Cinder service if paused.
-
-### security-checklist
-
-Validate the running configuration against the OpenStack security guides
-checklist.
-
-### volume-host-add-driver
-
-Update the 'os-vol-host-attr:host' volume attribute. Used for migrating volumes
-to another backend.
-
-## Policy Overrides
+## Policy overrides
 
 Policy overrides is an advanced feature that allows an operator to override the
 default policy of an OpenStack service. The policies that the service supports,
@@ -197,7 +184,7 @@ Here are the essential commands (filenames are arbitrary):
     juju attach-resource cinder policyd-override=overrides.zip
     juju config cinder use-policyd-override=true
 
-See appendix [Policy Overrides][cdg-appendix-n] in the [OpenStack Charms
+See [Policy overrides][cdg-policy-overrides] in the [OpenStack Charms
 Deployment Guide][cdg] for a thorough treatment of this feature.
 
 # Bugs
@@ -210,10 +197,15 @@ For general charm questions refer to the [OpenStack Charm Guide][cg].
 
 [cg]: https://docs.openstack.org/charm-guide
 [cdg]: https://docs.openstack.org/project-deploy-guide/charm-deployment-guide
-[cdg-appendix-n]: https://docs.openstack.org/project-deploy-guide/charm-deployment-guide/latest/app-policy-overrides.html
+[cdg-policy-overrides]: https://docs.openstack.org/project-deploy-guide/charm-deployment-guide/latest/app-policy-overrides.html
 [juju-docs-spaces]: https://jaas.ai/docs/spaces
 [juju-docs-actions]: https://jaas.ai/docs/actions
 [lp-bugs-charm-cinder]: https://bugs.launchpad.net/charm-cinder/+filebug
 [lp-bug-1862392]: https://bugs.launchpad.net/charm-cinder/+bug/1862392
 [cdg-ha-apps]: https://docs.openstack.org/project-deploy-guide/charm-deployment-guide/latest/app-ha.html#ha-applications
 [hacluster-charm]: https://jaas.ai/hacluster
+[upstream-cinder]: https://docs.openstack.org/cinder/latest/
+[juju-docs-config-apps]: https://juju.is/docs/configuring-applications
+[wiki-uca]: https://wiki.ubuntu.com/OpenStack/CloudArchive
+[percona-cluster-charm]: https://jaas.ai/percona-cluster
+[mysql-innodb-cluster-charm]: https://jaas.ai/mysql-innodb-cluster
