@@ -49,6 +49,7 @@ TO_PATCH = [
     'remove_lvm_physical_volume',
     'ensure_loopback_device',
     'is_block_device',
+    'is_device_mounted',
     'zap_disk',
     'os_release',
     'get_os_codename_install_source',
@@ -437,7 +438,9 @@ class TestCinderUtils(CharmTestCase):
                                    extend_lvm, reduce_lvm, clean_storage,
                                    ensure_non_existent):
         devices = ['/dev/fakevbd', '/dev/fakevdc']
+        self.is_device_mounted.return_value = False
         self.is_lvm_physical_volume.return_value = False
+        self.is_block_device.return_value = True
         self.ensure_loopback_device.side_effect = lambda x, y: x
         cinder_utils.configure_lvm_storage(devices, 'test', True, True)
         clean_storage.assert_has_calls(
@@ -465,7 +468,9 @@ class TestCinderUtils(CharmTestCase):
                                               extend_lvm, reduce_lvm,
                                               clean_storage, has_part):
         devices = ['/dev/fakevbd', '/dev/fakevdc']
+        self.is_device_mounted.return_value = False
         self.is_lvm_physical_volume.return_value = False
+        self.is_block_device.return_value = True
         has_part.return_value = False
         self.ensure_loopback_device.side_effect = lambda x, y: x
         list_thin_pools.return_value = ['vg/thinpool']
@@ -504,7 +509,9 @@ class TestCinderUtils(CharmTestCase):
                                             ensure_non_existent):
         devices = ['/mnt/loop0|10']
         self.ensure_loopback_device.return_value = '/dev/loop0'
+        self.is_device_mounted.return_value = False
         self.is_lvm_physical_volume.return_value = False
+        self.is_block_device.return_value = False
         cinder_utils.configure_lvm_storage(devices, 'test', True, True)
         clean_storage.assert_called_with('/dev/loop0')
         self.ensure_loopback_device.assert_called_with('/mnt/loop0', '10')
@@ -537,6 +544,8 @@ class TestCinderUtils(CharmTestCase):
             }
             return devices[device]
         devices = ['/dev/fakevbd', '/dev/fakevdc']
+        self.is_device_mounted.return_value = False
+        self.is_block_device.return_value = True
         lvm_exists.return_value = False
         self.is_lvm_physical_volume.side_effect = pv_lookup
         self.list_lvm_volume_group.side_effect = vg_lookup
@@ -575,6 +584,8 @@ class TestCinderUtils(CharmTestCase):
             }
             return devices[device]
         devices = ['/dev/fakevbd', '/dev/fakevdc']
+        self.is_device_mounted.return_value = False
+        self.is_block_device.return_value = True
         self.is_lvm_physical_volume.side_effect = pv_lookup
         self.list_lvm_volume_group.side_effect = vg_lookup
         lvm_exists.return_value = False
