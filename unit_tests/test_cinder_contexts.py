@@ -179,11 +179,12 @@ class TestCinderContext(CharmTestCase):
     @patch('%s.is_clustered' % (mod_ch_context))
     @patch('%s.determine_apache_port' % (mod_ch_context))
     @patch('%s.determine_api_port' % (mod_ch_context))
-    @patch('%s.unit_get' % (mod_ch_context))
+    @patch("%s.local_address" % mod_ch_context)
     @patch('%s.https' % (mod_ch_context))
     @patch.object(utils, 'service_enabled')
     def test_apache_ssl_context_service_enabled(self, service_enabled,
-                                                mock_https, mock_unit_get,
+                                                mock_https,
+                                                mock_local_address,
                                                 mock_determine_api_port,
                                                 mock_determine_apache_port,
                                                 mock_is_clustered,
@@ -195,7 +196,7 @@ class TestCinderContext(CharmTestCase):
                                                 mock_relation_ids):
         mock_relation_ids.return_value = []
         mock_https.return_value = True
-        mock_unit_get.return_value = '1.2.3.4'
+        mock_local_address.return_value = '1.2.3.4'
         mock_ip_network_get.return_value = '1.2.3.4'
         mock_determine_api_port.return_value = '12'
         mock_determine_apache_port.return_value = '34'
@@ -215,7 +216,6 @@ class TestCinderContext(CharmTestCase):
                                   'ext_ports': [34],
                                   'namespace': 'cinder'})
         self.assertTrue(mock_https.called)
-        mock_unit_get.assert_called_with('private-address')
 
     @patch('%s.relation_get' % (mod_ch_context))
     @patch('%s.related_units' % (mod_ch_context))
