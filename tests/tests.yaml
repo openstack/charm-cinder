@@ -1,8 +1,11 @@
 charm_name: cinder
+
 smoke_bundles:
-- bionic-train
+- focal-ussuri
+
 gate_bundles:
 - groovy-victoria
+- focal-wallaby
 - focal-victoria
 - focal-ussuri
 - vault: focal-ussuri-volume-only
@@ -11,16 +14,20 @@ gate_bundles:
 - bionic-stein
 - bionic-queens
 - xenial-mitaka
+
 dev_bundles:
 - trusty-mitaka
 - xenial-ocata
 - xenial-pike
 - xenial-queens
 - bionic-rocky
+- hirsute-wallaby
+
 target_deploy_status:
   vault:
     workload-status: blocked
     workload-status-message: Vault needs to be initialized
+
 configure:
 - zaza.openstack.charm_tests.glance.setup.add_cirros_image
 - zaza.openstack.charm_tests.glance.setup.add_lts_image
@@ -30,12 +37,14 @@ configure:
 - zaza.openstack.charm_tests.nova.setup.manage_ssh_key
 - vault:
   - zaza.openstack.charm_tests.vault.setup.auto_initialize
+
 tests:
 - zaza.openstack.charm_tests.cinder.tests.CinderTests
 - zaza.openstack.charm_tests.cinder.tests.SecurityTests
 - zaza.openstack.charm_tests.policyd.tests.CinderTests
+
 tests_options:
   policyd:
     service: cinder
   force_deploy:
-    - groovy-victoria
+    - hirsute-wallaby
