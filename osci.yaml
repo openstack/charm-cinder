@@ -1,0 +1,15 @@
+- project:
+    templates:
+      - charm-unit-jobs
+      - charm-functional-jobs
+    check:
+      jobs:
+        - focal-ussuri-volume-only
+
+- job:
+    name: focal-ussuri-volume-only
+    parent: func-target
+    dependencies:
+      - bionic-ussuri
+    vars:
+      tox_extra_args: vault:focal-ussuri-volume-only
