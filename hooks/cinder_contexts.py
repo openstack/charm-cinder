@@ -143,7 +143,7 @@ class StorageBackendContext(OSContextGenerator):
             if relation_ids('ceph'):
                 backends.append('CEPH')
             if enable_lvm():
-                backends.append('LVM')
+                backends.append(config('volume-backend-name'))
             # Use the package default backend to stop the service flapping.
             if not backends:
                 backends = ['LVM']
@@ -242,7 +242,7 @@ class LVMContext(OSContextGenerator):
                 'volume_name_template': 'volume-%s',
                 'volume_group': config('volume-group'),
                 'volume_driver': 'cinder.volume.drivers.lvm.LVMVolumeDriver',
-                'volume_backend_name': 'LVM'}
+                'volume_backend_name': config('volume-backend-name')}
         return ctxt
 
 

@@ -92,6 +92,10 @@ options:
       If True, charm will attempt to remove missing physical volumes from
       volume group, even when logical volumes are allocated on them. This
       option overrides 'remove-missing' when set.
+  volume-backend-name:
+    type: string
+    default: LVM
+    description: Name of volume backend to associate with Cinder types.
   ephemeral-unmount:
     type: string
     default:
