@@ -22,7 +22,7 @@ default_volume_type = {{ default_volume_type }}
 
 {% if sectional_default_config -%}
 {% if volume_driver -%}
-[LVM]
+[{{volume_backend_name}}]
 volumes_dir = {{ volumes_dir }}
 volume_name_template = {{ volume_name_template }}
 volume_group = {{ volume_group }}
