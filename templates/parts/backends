@@ -11,6 +11,13 @@ enabled_backends = {{ backends }}
 default_volume_type = {{ default_volume_type }}
 {%- endif %}
 
+[backend_defaults]
+{% if image_volume_cache_enabled %}
+image_volume_cache_enabled = True
+image_volume_cache_max_size_gb = {{ image_volume_cache_max_size_gb }}
+image_volume_cache_max_count = {{ image_volume_cache_max_count }}
+{%- endif %}
+
 {% for section in sections -%}
 {% if section != 'DEFAULT' -%}
 [{{ section }}]

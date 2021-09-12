@@ -376,3 +376,21 @@ options:
       must be created after a deployment via API to take effect, e.g.,
       `openstack volume type create VOLUME_TYPE --property
       volume_backend_name=BACKEND_NAME`
+  image-volume-cache-enabled:
+    type: boolean
+    default: False
+    description: |
+      Enable the image volume cache. Supported on OpenStack Ocata and newer.
+  image-volume-cache-max-size-gb:
+    type: int
+    default: 0
+    description: |
+      Max size of the image volume cache in GB. 0 means unlimited. Supported
+      on OpenStack Ocata and newer.
+  image-volume-cache-max-count:
+    type: int
+    default: 0
+    description: |
+      Max number of entries allowed in the image volume cache. 0 means
+      unlimited. Supported on OpenStack Ocata and newer.
+
