@@ -5,6 +5,10 @@
     check:
       jobs:
         - focal-ussuri-volume-only
+        - focal-xena:
+            voting: false
+        - impish-xena:
+            voting: false
 
 - job:
     name: focal-ussuri-volume-only

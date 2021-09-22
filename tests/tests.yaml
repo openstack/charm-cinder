@@ -4,7 +4,7 @@ smoke_bundles:
 - focal-ussuri
 
 gate_bundles:
-- groovy-victoria
+- focal-xena
 - focal-wallaby
 - focal-victoria
 - focal-ussuri
@@ -22,6 +22,8 @@ dev_bundles:
 - xenial-queens
 - bionic-rocky
 - hirsute-wallaby
+- groovy-victoria
+- impish-xena
 
 target_deploy_status:
   vault:
@@ -48,3 +50,5 @@ tests_options:
     service: cinder
   force_deploy:
     - hirsute-wallaby
+    - groovy-victoria
+    - impish-xena
