@@ -77,6 +77,7 @@ TO_PATCH = [
     'filter_installed_packages',
     'service_reload',
     'service_restart',
+    'service_start',
     # charmhelpers.contrib.openstack.openstack_utils
     'configure_installation_source',
     'openstack_upgrade_available',
