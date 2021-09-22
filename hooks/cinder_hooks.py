@@ -91,6 +91,7 @@ from charmhelpers.fetch import (
 from charmhelpers.core.host import (
     lsb_release,
     service_reload,
+    service_start,
     umount,
 )
 
@@ -181,6 +182,11 @@ def install():
             os_release('cinder-common'),
             'cinder',
             restart_handler=lambda: service_restart('cinder-api'))
+
+    # Make sure iscsid has a unique InitiatorName by starting iscsid
+    # and invoking /lib/open-iscsi/startup-checks.sh indirectly as
+    # ExecStartPre script of it
+    service_start('iscsid')
 
 
 @hooks.hook('config-changed')
@@ -620,6 +626,11 @@ def upgrade_charm():
             os_release('cinder-common'),
             'cinder',
             restart_handler=lambda: service_restart('cinder-api'))
+
+    # Make sure iscsid has a unique InitiatorName by starting iscsid
+    # and invoking /lib/open-iscsi/startup-checks.sh indirectly as
+    # ExecStartPre script of it
+    service_start('iscsid')
 
 
 @hooks.hook('storage-backend-relation-changed')
