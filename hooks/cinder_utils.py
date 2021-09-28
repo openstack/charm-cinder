@@ -97,6 +97,7 @@ from charmhelpers.contrib.openstack import (
 from charmhelpers.contrib.openstack.utils import (
     configure_installation_source,
     get_os_codename_install_source,
+    get_subordinate_release_packages,
     os_release,
     reset_os_release,
     make_assess_status_func,
@@ -389,13 +390,17 @@ def determine_packages():
 
     pkgs.extend(token_cache_pkgs(source=config()['openstack-origin']))
 
-    if CompareOpenStackReleases(os_release('cinder')) >= 'rocky':
+    release = os_release('cinder')
+    if CompareOpenStackReleases(release) >= 'rocky':
         pkgs = [p for p in pkgs if not p.startswith('python-')]
         pkgs.extend(PY3_PACKAGES)
         if service_enabled('api'):
             pkgs.extend(PY3_API_PACKAGES)
 
-    return pkgs
+    pkgs = set(pkgs).union(get_subordinate_release_packages(
+        release).install)
+
+    return sorted(pkgs)
 
 
 def determine_purge_packages():
@@ -405,12 +410,16 @@ def determine_purge_packages():
 
     :returns: list of package names
     '''
-    if CompareOpenStackReleases(os_release('cinder')) >= 'rocky':
+    pkgs = []
+    release = os_release('cinder')
+    if CompareOpenStackReleases(release) >= 'rocky':
         pkgs = [p for p in COMMON_PACKAGES if p.startswith('python-')]
         pkgs.append('python-cinder')
         pkgs.append('python-memcache')
-        return pkgs
-    return []
+
+    pkgs = set(pkgs).union(
+        get_subordinate_release_packages(release).purge)
+    return sorted(pkgs)
 
 
 def remove_old_packages():
