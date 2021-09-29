@@ -127,21 +127,31 @@ class TestCinderUtils(CharmTestCase):
         self.test_config.set('enabled-services', 'api,scheduler')
         self.assertFalse(cinder_utils.service_enabled('volume'))
 
-    def test_determine_purge_packages(self):
+    @patch.object(cinder_utils, 'get_subordinate_release_packages')
+    def test_determine_purge_packages(
+            self,
+            mock_get_subordinate_release_packages):
         'Ensure no packages are identified for purge prior to rocky'
         self.os_release.return_value = 'queens'
         self.assertEqual(cinder_utils.determine_purge_packages(), [])
 
-    def test_determine_purge_packages_rocky(self):
+    @patch.object(cinder_utils, 'get_subordinate_release_packages')
+    def test_determine_purge_packages_rocky(
+            self,
+            mock_get_subordinate_release_packages):
         'Ensure python packages are identified for purge at rocky'
         self.os_release.return_value = 'rocky'
         self.assertEqual(cinder_utils.determine_purge_packages(),
-                         [p for p in cinder_utils.COMMON_PACKAGES
-                          if p.startswith('python-')] +
-                         ['python-cinder', 'python-memcache'])
+                         sorted(set([p for p in cinder_utils.COMMON_PACKAGES
+                                    if p.startswith('python-')] +
+                                    ['python-cinder', 'python-memcache'])))
 
+    @patch.object(cinder_utils, 'get_subordinate_release_packages')
     @patch('cinder_utils.service_enabled')
-    def test_determine_packages_all(self, service_enabled):
+    def test_determine_packages_all(
+            self,
+            service_enabled,
+            mock_get_subordinate_release_packages):
         'It determines all packages required when all services enabled'
         service_enabled.return_value = True
         self.os_release.return_value = 'icehouse'
@@ -152,8 +162,12 @@ class TestCinderUtils(CharmTestCase):
                                 cinder_utils.API_PACKAGES +
                                 cinder_utils.SCHEDULER_PACKAGES))
 
+    @patch.object(cinder_utils, 'get_subordinate_release_packages')
     @patch('cinder_utils.service_enabled')
-    def test_determine_packages_all_rocky(self, service_enabled):
+    def test_determine_packages_all_rocky(
+            self,
+            service_enabled,
+            mock_get_subordinate_release_packages):
         'Check python3 packages are installed @ rocky'
         service_enabled.return_value = True
         self.os_release.return_value = 'rocky'
@@ -168,8 +182,10 @@ class TestCinderUtils(CharmTestCase):
                    cinder_utils.PY3_PACKAGES +
                    cinder_utils.PY3_API_PACKAGES))
 
+    @patch.object(cinder_utils, 'get_subordinate_release_packages')
     @patch('cinder_utils.service_enabled')
-    def test_determine_packages_subset(self, service_enabled):
+    def test_determine_packages_subset(self, service_enabled,
+                                       mock_get_subordinate_release_packages):
         'It determines packages required for a subset of enabled services'
         service_enabled.side_effect = self.svc_enabled
         self.test_config.set('openstack-origin', 'cloud:xenial-newton')
@@ -771,13 +787,15 @@ class TestCinderUtils(CharmTestCase):
                     out.write('env CEPH_ARGS="--id %s"\n' % service)
         """
 
+    @patch.object(cinder_utils, 'get_subordinate_release_packages')
     @patch.object(cinder_utils, 'service_enabled')
     @patch.object(cinder_utils, 'register_configs')
     @patch.object(cinder_utils, 'services')
     @patch.object(cinder_utils, 'migrate_database')
     @patch.object(cinder_utils, 'determine_packages')
     def test_openstack_upgrade_leader(self, pkgs, migrate, services,
-                                      mock_register_configs, service_enabled):
+                                      mock_register_configs, service_enabled,
+                                      mock_get_subordinate_release_packages):
         pkgs.return_value = ['mypackage']
         self.os_release.return_value = 'havana'
         self.config.side_effect = None
@@ -796,14 +814,20 @@ class TestCinderUtils(CharmTestCase):
         configs.set_release.assert_called_with(openstack_release='havana')
         self.assertTrue(migrate.called)
 
+    @patch.object(cinder_utils, 'get_subordinate_release_packages')
     @patch.object(cinder_utils, 'service_enabled')
     @patch.object(cinder_utils, 'register_configs')
     @patch.object(cinder_utils, 'services')
     @patch.object(cinder_utils, 'migrate_database')
     @patch.object(cinder_utils, 'determine_packages')
-    def test_openstack_upgrade_not_leader(self, pkgs, migrate, services,
-                                          mock_register_configs,
-                                          service_enabled):
+    def test_openstack_upgrade_not_leader(
+            self,
+            pkgs,
+            migrate,
+            services,
+            mock_register_configs,
+            service_enabled,
+            mock_get_subordinate_release_packages):
         pkgs.return_value = ['mypackage']
         self.os_release.return_value = 'havana'
         self.config.side_effect = None
@@ -822,6 +846,7 @@ class TestCinderUtils(CharmTestCase):
         configs.set_release.assert_called_with(openstack_release='havana')
         self.assertFalse(migrate.called)
 
+    @patch.object(cinder_utils, 'get_subordinate_release_packages')
     @patch.object(cinder_utils, 'service_enabled')
     @patch.object(cinder_utils, 'register_configs')
     @patch.object(cinder_utils, 'services')
@@ -829,7 +854,8 @@ class TestCinderUtils(CharmTestCase):
     @patch.object(cinder_utils, 'determine_packages')
     def test_openstack_upgrade_rocky(self, pkgs, migrate, services,
                                      mock_register_configs,
-                                     service_enabled):
+                                     service_enabled,
+                                     mock_get_subordinate_release_packages):
         pkgs.return_value = ['mypackage']
         self.os_release.return_value = 'rocky'
         self.config.side_effect = None
