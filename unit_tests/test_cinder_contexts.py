@@ -312,6 +312,23 @@ class TestCinderContext(CharmTestCase):
 
         mock_rel_get.side_effect = fake_rel_get
         self.relation_get.side_effect = fake_rel_get
+        self.os_release.return_value = 'ocata'
+
+        ctxt = contexts.CinderSubordinateConfigContext(
+            interface='storage-backend',
+            service='cinder',
+            config_file='/etc/cinder/cinder.conf')()
+
+        exp = {'sections': {'DEFAULT': [('cluster', 'cinder')],
+               u'cinder-ceph': [[u'volume_backend_name', u'cinder-ceph'],
+                                [u'volume_driver',
+                                 u'cinder.volume.drivers.rbd.RBDDriver'],
+                                [u'rbd_pool', u'cinder-ceph'],
+                                [u'rbd_user', u'cinder-ceph']]}}
+
+        self.assertEqual(ctxt, exp)
+
+        self.os_release.return_value = 'newton'
 
         ctxt = contexts.CinderSubordinateConfigContext(
             interface='storage-backend',
