@@ -13,13 +13,25 @@ This section covers common and/or important configuration options. See file
 default values. See the [Juju documentation][juju-docs-config-apps] for details
 on configuring applications.
 
+#### `block-device`
+
+Specifies the storage source. Setting this option to 'None' will allow for
+storage to be managed by separate charms. See sections [Ceph-backed
+storage][anchor-ceph-storage], [LVM-backed storage][anchor-lvm-storage], and
+[NetApp-backed storage][anchor-netapp-storage].
+
+> **Important**: The practice of setting the `block-device` option to a local
+  block device is deprecated. Doing so enacts the charm's built-in support for
+  LVM storage. This feature will soon be removed from the charm, along with the
+  option's default value of 'sdb'.
+
 #### `openstack-origin`
 
-The `openstack-origin` option states the software sources. A common value is an
-OpenStack UCA release (e.g. 'cloud:bionic-ussuri' or 'cloud:focal-victoria').
-See [Ubuntu Cloud Archive][wiki-uca]. The underlying host's existing apt
-sources will be used if this option is not specified (this behaviour can be
-explicitly chosen by using the value of 'distro').
+States the software sources. A common value is an OpenStack UCA release (e.g.
+'cloud:bionic-ussuri' or 'cloud:focal-wallaby'). See [Ubuntu Cloud
+Archive][wiki-uca]. The underlying host's existing apt sources will be used if
+this option is not specified (this behaviour can be explicitly chosen by using
+the value of 'distro').
 
 ## Deployment
 
@@ -70,34 +82,20 @@ Proceed with a group of commands common to both scenarios:
     juju add-relation cinder-mysql-router:db-router mysql-innodb-cluster:db-router
     juju add-relation cinder-mysql-router:shared-db cinder:shared-db
 
-### LVM/iSCSI-backed storage
+### LVM-backed storage
 
-Cinder can be backed by storage local to the cinder unit, where a block device
-is used as an LVM physical volume. When a logical volume is created (`openstack
-volume create`) it is exported to a VM via iSCSI when needed (`openstack server
-add volume`).
+Cinder can be backed by storage local to the cinder unit, where local block
+devices are used as LVM physical volumes, and volumes are offered via iSCSI.
+This functionality is provided by the [cinder-lvm][cinder-lvm-charm]
+subordinate charm.
 
-> **Note**: LVM/iSCSI is intended for testing and small Cinder deployments.
+> **Note**: Built-in support for LVM in the cinder charm is deprecated.
 
-A sample `cinder.yaml` file's contents:
+### NetApp-backed storage
 
-```yaml
-    cinder:
-        block-device: sdc
-```
-
-> **Important**: Make sure the designated block device exists and is not
-  currently in use.
-
-Deploy Cinder:
-
-    juju deploy --config cinder.yaml cinder
-
-Proceed with the common group of commands from the Ceph scenario.
-
-> **Note**: It has been reported that the LVM storage method may not properly
-  initialise the physical volume and volume group. See bug
-  [LP #1862392][lp-bug-1862392].
+Cinder can be backed by a NetApp appliance local to the cinder unit, where
+volumes are offered via iSCSI or NFS. This functionality is provided by the
+[cinder-netapp][cinder-netapp-charm] subordinate charm.
 
 ## High availability
 
@@ -153,8 +151,8 @@ Alternatively, configuration can be provided as part of a bundle:
 
 This section covers Juju [actions][juju-docs-actions] supported by the charm.
 Actions allow specific operations to be performed on a per-unit basis. To
-display action descriptions run `juju actions cinder`. If the charm is not
-deployed then see file `actions.yaml`.
+display action descriptions run `juju actions --schema cinder`. If the charm is
+not deployed then see file `actions.yaml`.
 
 * `openstack-upgrade`
 * `pause`
@@ -187,11 +185,17 @@ Here are the essential commands (filenames are arbitrary):
 See [Policy overrides][cdg-policy-overrides] in the [OpenStack Charms
 Deployment Guide][cdg] for a thorough treatment of this feature.
 
+# Documentation
+
+The OpenStack Charms project maintains two documentation guides:
+
+* [OpenStack Charm Guide][cg]: for project information, including development
+  and support notes
+* [OpenStack Charms Deployment Guide][cdg]: for charm usage information
+
 # Bugs
 
 Please report bugs on [Launchpad][lp-bugs-charm-cinder].
-
-For general charm questions refer to the [OpenStack Charm Guide][cg].
 
 <!-- LINKS -->
 
@@ -204,8 +208,13 @@ For general charm questions refer to the [OpenStack Charm Guide][cg].
 [lp-bug-1862392]: https://bugs.launchpad.net/charm-cinder/+bug/1862392
 [cdg-ha-apps]: https://docs.openstack.org/project-deploy-guide/charm-deployment-guide/latest/app-ha.html#ha-applications
 [hacluster-charm]: https://jaas.ai/hacluster
+[cinder-lvm-charm]: https://jaas.ai/cinder-lvm
+[cinder-netapp-charm]: https://jaas.ai/cinder-netapp
 [upstream-cinder]: https://docs.openstack.org/cinder/latest/
 [juju-docs-config-apps]: https://juju.is/docs/configuring-applications
 [wiki-uca]: https://wiki.ubuntu.com/OpenStack/CloudArchive
 [percona-cluster-charm]: https://jaas.ai/percona-cluster
 [mysql-innodb-cluster-charm]: https://jaas.ai/mysql-innodb-cluster
+[anchor-ceph-storage]: #ceph-backed-storage
+[anchor-lvm-storage]: #lvm-backed-storage
+[anchor-netapp-storage]: #netapp-backed-storage

@@ -57,10 +57,13 @@ options:
     type: string
     default: sdb
     description: |
-      The block devices on which to create LVM volume group.
+      Set to 'None' for deployments whose storage is managed by separate
+      charms (cinder-lvm, cinder-netapp, ceph-mon).
       .
-      May be set to None for deployments that will not need local
-      storage (eg, Ceph/RBD-backed volumes).
+      The below LVM functionality is DEPRECATED. Use the cinder-lvm charm
+      instead.
+      .
+      The block devices on which to create LVM volume group.
       .
       This can also be a space-delimited list of block devices to attempt
       to use in the cinder LVM volume group - each block device detected
@@ -77,18 +80,27 @@ options:
     type: string
     default: "false"
     description: |
+      The below LVM functionality is DEPRECATED. Use the cinder-lvm charm
+      instead.
+      .
       If true, charm will attempt to overwrite block devices containing
       previous filesystems or LVM, assuming it is not in use.
   remove-missing:
     type: boolean
     default: False
     description: |
+      The below LVM functionality is DEPRECATED. Use the cinder-lvm charm
+      instead.
+      .
       If True, charm will attempt to remove missing physical volumes from
       volume group, if logical volumes are not allocated on them.
   remove-missing-force:
     type: boolean
     default: False
     description: |
+      The below LVM functionality is DEPRECATED. Use the cinder-lvm charm
+      instead.
+      .
       If True, charm will attempt to remove missing physical volumes from
       volume group, even when logical volumes are allocated on them. This
       option overrides 'remove-missing' when set.
@@ -96,6 +108,9 @@ options:
     type: string
     default:
     description: |
+      The below LVM functionality is DEPRECATED. Use the cinder-lvm charm
+      instead.
+      .
       Cloud instances provide ephemeral storage which is normally mounted
       on /mnt.
       .
