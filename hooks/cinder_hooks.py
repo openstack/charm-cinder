@@ -394,7 +394,7 @@ def identity_joined(rid=None):
             'cinder_internal_url': internal_url,
             'cinder_admin_url': admin_url,
         })
-    if CompareOpenStackReleases(cinder_release) >= 'icehouse':
+    if 'icehouse' <= CompareOpenStackReleases(cinder_release) <= 'wallaby':
         # NOTE(jamespage) register v2 endpoint as well
         public_url = '{}:{}/v2/$(tenant_id)s'.format(
             canonical_url(CONFIGS, PUBLIC),
