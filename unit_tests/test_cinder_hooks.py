@@ -482,6 +482,24 @@ class TestJoinedHooks(CharmTestCase):
         }
         self.relation_set.assert_called_with(**expected)
 
+    @patch.object(hooks, 'canonical_url')
+    def test_identity_service_joined_xena(self, _canonical_url):
+        'It properly requests unclustered endpoint via identity-service'
+        self.os_release.return_value = 'xena'
+        self.config.side_effect = self.test_config.get
+        _canonical_url.return_value = 'http://cindernode1'
+        hooks.hooks.execute(['hooks/identity-service-relation-joined'])
+        expected = {
+            'cinderv3_service': 'cinderv3',
+            'cinderv3_region': 'RegionOne',
+            'cinderv3_public_url': 'http://cindernode1:8776/v3/$(tenant_id)s',
+            'cinderv3_admin_url': 'http://cindernode1:8776/v3/$(tenant_id)s',
+            'cinderv3_internal_url': 'http://cindernode1:8776/'
+                                     'v3/$(tenant_id)s',
+            'relation_id': None,
+        }
+        self.relation_set.assert_called_with(**expected)
+
     @patch('charmhelpers.contrib.openstack.ip.config')
     @patch('charmhelpers.contrib.openstack.ip.unit_get')
     @patch('charmhelpers.contrib.openstack.ip.is_clustered')
