@@ -194,18 +194,10 @@ class CinderSubordinateConfigContext(SubordinateConfigContext):
                 any_stateless = any_stateless or stateless
 
         if stateless:
-
-            cmp_os_release = CompareOpenStackReleases(
-                os_release('cinder-common'))
-            clustering_config = ('cluster' if cmp_os_release >= "ocata"
-                                 else 'host')
-
             if 'DEFAULT' in ctxt['sections']:
-                ctxt['sections']['DEFAULT'].append(
-                    (clustering_config, service_name()))
+                ctxt['sections']['DEFAULT'].append(('host', service_name()))
             else:
-                ctxt['sections']['DEFAULT'] = [
-                    (clustering_config, service_name())]
+                ctxt['sections']['DEFAULT'] = [('host', service_name())]
 
         elif any_stateless:
             log("One or more stateless backends configured but unable to "
