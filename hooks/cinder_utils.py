@@ -37,6 +37,7 @@ from charmhelpers.core.hookenv import (
     related_units,
     log,
     DEBUG,
+    INFO,
     hook_name,
 )
 
@@ -785,7 +786,27 @@ def migrate_database(upgrade=False):
         return
 
     cmd = ['cinder-manage', 'db', 'sync']
-    subprocess.check_call(cmd)
+    try:
+        subprocess.check_output(cmd, universal_newlines=True)
+    except subprocess.CalledProcessError as e:
+        # LP #1908037 - Due to a bug in cinder, the sync can fail if the
+        # volume types have not been migrated to __DEFAULT__ volume type.
+        # Check the output message from the logs to see if online data
+        # migrations are necessary and run that first.
+        if not upgrade:
+            raise
+
+        need_online_migration_msg = (
+            "Please run `cinder-manage db online_data_migrations`")
+        if need_online_migration_msg not in e.output:
+            raise
+
+        log("Running online_data_migrations", level=INFO)
+        subprocess.check_call(['cinder-manage', 'db',
+                               'online_data_migrations'])
+        log("Re-running database migration", level=INFO)
+        subprocess.check_call(cmd)
+
     # Notify peers so that services get restarted
     log("Notifying peer(s) that db is initialised and restarting services",
         level=DEBUG)

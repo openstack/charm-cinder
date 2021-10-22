@@ -739,9 +739,11 @@ class TestCinderUtils(CharmTestCase):
         rid = 'cluster:0'
         self.relation_ids.return_value = [rid]
         args = {'cinder-db-initialised': "unit/0-%s" % uuid}
-        with patch('subprocess.check_call') as check_call:
+        with patch('subprocess.check_output') as check_output:
             cinder_utils.migrate_database()
-            check_call.assert_called_with(['cinder-manage', 'db', 'sync'])
+            check_output.assert_called_once_with(
+                ['cinder-manage', 'db', 'sync'], universal_newlines=True
+            )
             self.relation_set.assert_called_with(relation_id=rid, **args)
             self.service_restart.assert_called_with('svc1')
 
@@ -749,10 +751,37 @@ class TestCinderUtils(CharmTestCase):
     def test_migrate_database_already_initisalised(self,
                                                    mock_is_db_initialised):
         mock_is_db_initialised.return_value = True
-        with patch('subprocess.check_call') as check_call:
+        with patch('subprocess.check_output') as check_call:
             cinder_utils.migrate_database()
             self.assertFalse(check_call.called)
             self.assertFalse(self.service_restart.called)
+
+    @patch.object(cinder_utils, 'is_db_initialised')
+    @patch.object(cinder_utils, 'enabled_services')
+    @patch.object(cinder_utils, 'local_unit', lambda *args: 'unit/0')
+    @patch.object(cinder_utils, 'uuid')
+    def test_migrate_database_need_online_migration(
+            self, mock_uuid, mock_enabled_services, mock_is_db_initialised):
+        'It runs online migrations when required'
+        mock_is_db_initialised.return_value = True
+        uuid = 'a-great-uuid'
+        mock_uuid.uuid4.return_value = uuid
+        mock_enabled_services.return_value = ['svc1']
+        rid = 'cluster:0'
+        self.relation_ids.return_value = [rid]
+        with patch('subprocess.check_output') as check_output, \
+             patch('subprocess.check_call') as check_call:
+            check_output.side_effect = subprocess.CalledProcessError(
+                1, 'cinder db-manage sync',
+                ("Please run `cinder-manage db online_data_migrations`. "
+                 "There are still untyped volumes unmigrated."))
+            cinder_utils.migrate_database(upgrade=True)
+            check_output.assert_called_with(['cinder-manage', 'db', 'sync'],
+                                            universal_newlines=True)
+            check_call.assert_has_calls([
+                call(['cinder-manage', 'db', 'online_data_migrations']),
+                call(['cinder-manage', 'db', 'sync'])
+            ])
 
     @patch.object(cinder_utils, 'resource_map')
     def test_register_configs(self, resource_map):
