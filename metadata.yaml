@@ -8,7 +8,6 @@ tags:
 - storage
 - misc
 series:
-- xenial
 - bionic
 - focal
 - groovy
