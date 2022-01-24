@@ -152,6 +152,7 @@ class StorageBackendContext(OSContextGenerator):
             'active_backends': backends,
             'backends': ",".join(backends),
             'default_volume_type': config('default-volume-type'),
+            'scheduler_default_filters': config('scheduler-default-filters'),
             'image_volume_cache_enabled': config(
                 'image-volume-cache-enabled'),
             'image_volume_cache_max_size_gb': config(

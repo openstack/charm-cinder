@@ -408,4 +408,10 @@ options:
     description: |
       Max number of entries allowed in the image volume cache. 0 means
       unlimited. Supported on OpenStack Ocata and newer.
-
+  scheduler-default-filters:
+    type: string
+    default:
+    description: |
+      List of comma-separated filter class names to use for filtering hosts
+      when not specified in the request.
+      The default filters varies based on OpenStack release.

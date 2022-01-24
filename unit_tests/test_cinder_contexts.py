@@ -126,6 +126,7 @@ class TestCinderContext(CharmTestCase):
             {'active_backends': [],
              'backends': '',
              'default_volume_type': None,
+             'scheduler_default_filters': None,
              'image_volume_cache_enabled': False,
              'image_volume_cache_max_size_gb': 0,
              'image_volume_cache_max_count': 0})
@@ -149,6 +150,7 @@ class TestCinderContext(CharmTestCase):
                          {'backends': 'cinder-ceph',
                           'active_backends': ['cinder-ceph'],
                           'default_volume_type': None,
+                          'scheduler_default_filters': None,
                           'image_volume_cache_enabled': False,
                           'image_volume_cache_max_size_gb': 0,
                           'image_volume_cache_max_count': 0})
@@ -172,6 +174,7 @@ class TestCinderContext(CharmTestCase):
             {'backends': 'cinder-ceph,cinder-vmware',
              'active_backends': ['cinder-ceph', 'cinder-vmware'],
              'default_volume_type': None,
+             'scheduler_default_filters': None,
              'image_volume_cache_enabled': False,
              'image_volume_cache_max_size_gb': 0,
              'image_volume_cache_max_count': 0})
@@ -195,9 +198,28 @@ class TestCinderContext(CharmTestCase):
             {'backends': 'cinder-ceph,cinder-vmware',
              'active_backends': ['cinder-ceph', 'cinder-vmware'],
              'default_volume_type': 'my-preferred-volume-type',
+             'scheduler_default_filters': None,
              'image_volume_cache_enabled': True,
              'image_volume_cache_max_size_gb': 10,
              'image_volume_cache_max_count': 100})
+
+    def test_storage_backend_default_filters_set(self):
+        self.test_config.set(
+            'scheduler-default-filters',
+            'DriverFilter,AvailabilityFilter'
+        )
+        self.config.side_effect = self.test_config.get
+        self.relation_ids.return_value = []
+        self.os_release.return_value = 'havana'
+        self.assertEqual(
+            contexts.StorageBackendContext()(),
+            {'active_backends': [],
+             'backends': '',
+             'default_volume_type': None,
+             'scheduler_default_filters': 'DriverFilter,AvailabilityFilter',
+             'image_volume_cache_enabled': False,
+             'image_volume_cache_max_size_gb': 0,
+             'image_volume_cache_max_count': 0})
 
     def test_image_volume_cache(self):
         rel_dict = {
@@ -221,6 +243,7 @@ class TestCinderContext(CharmTestCase):
                                  {'backends': 'cinder-ceph',
                                   'active_backends': ['cinder-ceph'],
                                   'default_volume_type': None,
+                                  'scheduler_default_filters': None,
                                   'image_volume_cache_enabled': enabled,
                                   'image_volume_cache_max_size_gb': size,
                                   'image_volume_cache_max_count': count})

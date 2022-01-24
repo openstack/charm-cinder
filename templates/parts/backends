@@ -4,6 +4,10 @@
 {% endfor %}
 {%- endif %}
 
+{% if scheduler_default_filters -%}
+scheduler_default_filters = {{ scheduler_default_filters }}
+{% endif -%}
+
 {% if backends -%}
 enabled_backends = {{ backends }}
 {%- endif %}
