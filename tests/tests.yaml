@@ -1,23 +1,13 @@
 charm_name: cinder
 
 smoke_bundles:
-- focal-ussuri
+- focal-xena
 
 gate_bundles:
-- bionic-queens
-- bionic-stein
-- bionic-train
-- bionic-ussuri
-- focal-ussuri
-- vault: focal-ussuri-volume-only
-- focal-victoria
-- focal-wallaby
 - focal-xena
-- hirsute-wallaby
 - impish-xena
 
 dev_bundles:
-- bionic-rocky
 - focal-yoga
 - jammy-yoga
 
@@ -45,6 +35,5 @@ tests_options:
   policyd:
     service: cinder
   force_deploy:
-    - hirsute-wallaby
     - impish-xena
     - jammy-yoga

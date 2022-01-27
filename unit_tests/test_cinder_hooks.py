@@ -109,6 +109,7 @@ class TestInstallHook(CharmTestCase):
     def test_install_precise_distro(self):
         'It redirects to cloud archive if setup to install precise+distro'
         self.lsb_release.return_value = {'DISTRIB_CODENAME': 'precise'}
+        self.test_config.set('openstack-origin', 'distro')
         hooks.hooks.execute(['hooks/install.real'])
         ca = 'cloud:precise-folsom'
         self.configure_installation_source.assert_called_with(ca)

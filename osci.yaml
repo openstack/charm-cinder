@@ -1,21 +1,6 @@
 - project:
     templates:
-      - charm-yoga-unit-jobs
-      - charm-yoga-functional-jobs
+      - charm-unit-jobs-py38
+      - charm-unit-jobs-py39
       - charm-xena-functional-jobs
-      - charm-wallaby-functional-jobs
-      - charm-victoria-functional-jobs
-      - charm-ussuri-functional-jobs
-      - charm-stein-functional-jobs
-      - charm-queens-functional-jobs
-    check:
-      jobs:
-        - focal-ussuri-volume-only
-
-- job:
-    name: focal-ussuri-volume-only
-    parent: func-target
-    dependencies:
-      - focal-ussuri
-    vars:
-      tox_extra_args: vault:focal-ussuri-volume-only
+      - charm-yoga-functional-jobs
