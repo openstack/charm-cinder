@@ -3,6 +3,7 @@ bin
 .testrepository
 .tox
 *.sw[nop]
+*.charm
 *.pyc
 .unit-state.db
 .stestr
