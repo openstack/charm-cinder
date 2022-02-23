@@ -1,54 +1,35 @@
 charm_name: cinder
 
 smoke_bundles:
-- focal-ussuri
+  - focal-xena
 
 gate_bundles:
-- focal-xena
-- focal-wallaby
-- focal-victoria
-- focal-ussuri
-- vault: focal-ussuri-volume-only
-- bionic-ussuri
-- bionic-train
-- bionic-stein
-- bionic-queens
-- xenial-mitaka
+  - focal-xena
+  - focal-wallaby
 
-dev_bundles:
-- trusty-mitaka
-- xenial-ocata
-- xenial-pike
-- xenial-queens
-- bionic-rocky
-- hirsute-wallaby
-- groovy-victoria
-- impish-xena
+dev_bundles: []
 
 target_deploy_status:
   vault:
     workload-status: blocked
-    workload-status-message: Vault needs to be initialized
+    workload-status-message-prefix: Vault needs to be initialized
 
 configure:
-- zaza.openstack.charm_tests.glance.setup.add_cirros_image
-- zaza.openstack.charm_tests.glance.setup.add_lts_image
-- zaza.openstack.charm_tests.keystone.setup.add_demo_user
-- zaza.openstack.charm_tests.neutron.setup.basic_overcloud_network
-- zaza.openstack.charm_tests.nova.setup.create_flavors
-- zaza.openstack.charm_tests.nova.setup.manage_ssh_key
-- vault:
-  - zaza.openstack.charm_tests.vault.setup.auto_initialize
+  - zaza.openstack.charm_tests.glance.setup.add_cirros_image
+  - zaza.openstack.charm_tests.glance.setup.add_lts_image
+  - zaza.openstack.charm_tests.keystone.setup.add_demo_user
+  - zaza.openstack.charm_tests.neutron.setup.basic_overcloud_network
+  - zaza.openstack.charm_tests.nova.setup.create_flavors
+  - zaza.openstack.charm_tests.nova.setup.manage_ssh_key
+  - vault:
+    - zaza.openstack.charm_tests.vault.setup.auto_initialize
 
 tests:
-- zaza.openstack.charm_tests.cinder.tests.CinderTests
-- zaza.openstack.charm_tests.cinder.tests.SecurityTests
-- zaza.openstack.charm_tests.policyd.tests.CinderTests
+  - zaza.openstack.charm_tests.cinder.tests.CinderTests
+  - zaza.openstack.charm_tests.cinder.tests.SecurityTests
+  - zaza.openstack.charm_tests.policyd.tests.CinderTests
 
 tests_options:
   policyd:
     service: cinder
-  force_deploy:
-    - hirsute-wallaby
-    - groovy-victoria
-    - impish-xena
+  force_deploy: []

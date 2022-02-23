@@ -106,11 +106,11 @@ class TestInstallHook(CharmTestCase):
         super(TestInstallHook, self).setUp(hooks, TO_PATCH)
         self.config.side_effect = self.test_config.get
 
-    def test_install_precise_distro(self):
+    def test_install_distro(self):
         'It redirects to cloud archive if setup to install precise+distro'
         self.lsb_release.return_value = {'DISTRIB_CODENAME': 'precise'}
         hooks.hooks.execute(['hooks/install.real'])
-        ca = 'cloud:precise-folsom'
+        ca = 'cloud:focal-xena'
         self.configure_installation_source.assert_called_with(ca)
 
     def test_correct_install_packages(self):

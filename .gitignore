@@ -9,3 +9,4 @@ bin
 __pycache__
 func-results.json
 tests/id_rsa_zaza
+*.charm
