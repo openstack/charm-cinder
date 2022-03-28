@@ -143,7 +143,8 @@ def remove_services(args):
 
 def _rename_volume_host(currenthost, newhost):
     services = cinder_manage_service_list()
-    services = [s for s in services if s.host == currenthost]
+    services = [s for s in services if s.host == newhost or
+                ("#" in newhost and s.host == newhost[0:newhost.rfind('#')])]
     if services:
         try:
             cinder_manage_volume_update_host(currenthost, newhost)
@@ -151,8 +152,8 @@ def _rename_volume_host(currenthost, newhost):
             action_set({'traceback': traceback.format_exc()})
             action_fail("Cannot update host {}".format(currenthost))
     else:
-        action_fail("Cannot update host attribute from {}, {} not found"
-                    .format(currenthost, currenthost))
+        action_fail("Cannot update host attribute to {}, {} not found"
+                    .format(newhost, newhost))
 
 
 def rename_volume_host(args):
