@@ -1,0 +1,31 @@
+# Authentication type to load (string value)
+auth_type = password
+
+# Authentication URL (string value)
+auth_url = {{ auth_protocol }}://{{ auth_host }}:{{ auth_port }}
+
+# Username (string value)
+username = {{ admin_user }}
+
+# User's password (string value)
+password = {{ admin_password }}
+
+# Project name to scope to (string value)
+project_name = {{ admin_tenant_name }}
+
+
+{% if admin_domain_name -%}
+project_domain_name = {{ admin_domain_name }}
+user_domain_name = {{ admin_domain_name }}
+{% else -%}
+project_domain_name = default
+user_domain_name = default
+{% endif -%}
+
+{% if ca_cert_path -%}
+# PEM encoded Certificate Authority to use when verifying
+# HTTPs connections. (string value)
+cafile = {{ ca_cert_path }}
+{% endif -%}
+
+region_name = {{ region }}
