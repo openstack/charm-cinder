@@ -22,6 +22,7 @@ machines:
   '8':
   '9':
   '10':
+    constraints: mem=8192M
   '11':
 
 applications:
@@ -135,11 +136,12 @@ applications:
     num_units: 1
     constraints: mem=4G cores=4
     storage:
-      ephemeral-device: '10G'
+      ephemeral-device: '40G'
     options:
       config-flags: auto_assign_floating_ip=False
       enable-live-migration: false
-      aa-profile-mode: enforce
+      # disable apparmor because of https://bugs.launchpad.net/charm-nova-compute/+bug/1979812
+      # aa-profile-mode: enforce
       #ephemeral-device: /dev/vdb
       #ephemeral-unmount: /mnt
       debug: true
@@ -161,7 +163,16 @@ applications:
     to:
       - '11'
 
+  cinder-lvm:
+    charm: ch:cinder-lvm
+    options:
+      block-device: "/mnt/cinder-lvm-block|20G"
+    channel: wallaby/edge
+
 relations:
+
+  - - 'cinder:storage-backend'
+    - 'cinder-lvm:storage-backend'
 
   - - 'nova-compute:image-service'
     - 'glance:image-service'
