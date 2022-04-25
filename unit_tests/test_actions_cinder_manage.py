@@ -107,7 +107,7 @@ class CinderManageTestCase(CharmTestCase):
         self.action_get.return_value = 'myhost'
         svc1_mock = mock.MagicMock()
         svc1_mock.binary = "cinder-volume"
-        svc1_mock.host = "a"
+        svc1_mock.host = "b"
         cinder_manage_service_list.return_value = [svc1_mock]
         cinder_manage._rename_volume_host('a', 'b')
         cinder_manage_volume_update_host.assert_called_once_with('a', 'b')
@@ -122,7 +122,7 @@ class CinderManageTestCase(CharmTestCase):
         cinder_manage._rename_volume_host('a', 'b')
         self.assertFalse(cinder_manage_volume_update_host.called)
         self.action_fail.assert_called_once_with(
-            'Cannot update host attribute from a, a not found')
+            'Cannot update host attribute to b, b not found')
 
     @mock.patch.object(cinder_manage, 'cinder_manage_service_list')
     @mock.patch.object(cinder_manage, 'cinder_manage_volume_update_host')
@@ -133,7 +133,7 @@ class CinderManageTestCase(CharmTestCase):
         self.action_get.return_value = 'myhost'
         svc1_mock = mock.MagicMock()
         svc1_mock.binary = "cinder-volume"
-        svc1_mock.host = "a"
+        svc1_mock.host = "b"
         cinder_manage_service_list.return_value = [svc1_mock]
         cinder_manage._rename_volume_host('a', 'b')
         cinder_manage_volume_update_host.assert_called_once_with('a', 'b')
