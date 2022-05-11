@@ -907,12 +907,42 @@ class TestCinderUtils(CharmTestCase):
             else:
                 return r_settings
 
+        # no clear of cinder_utils.CINDER_DB_INIT_RKEY
+        self.is_elected_leader.return_value = True
         self.relation_get.side_effect = mock_relation_get
         cinder_utils.check_local_db_actions_complete()
         self.assertFalse(self.relation_set.called)
         r_settings = {'cinder-db-initialised': 'unit/1-1234'}
         cinder_utils.check_local_db_actions_complete()
         calls = [call(**{'cinder-db-initialised-echo': 'unit/1-1234'})]
+        self.relation_set.assert_has_calls(calls)
+        self.service_restart.assert_called_with('svc1')
+
+    @patch.object(cinder_utils, 'is_db_initialised')
+    @patch.object(cinder_utils, 'enabled_services')
+    @patch.object(cinder_utils, 'local_unit', lambda *args: 'unit/0')
+    def test_check_local_db_actions_complete_not_leader(
+            self, enabled_services, mock_is_db_initialised):
+        mock_is_db_initialised.return_value = True
+        enabled_services.return_value = ['svc1']
+        r_settings = {}
+
+        def mock_relation_get(unit=None, rid=None, attribute=None):
+            if attribute:
+                return r_settings.get(attribute)
+            else:
+                return r_settings
+
+        # ensure clear of cinder_utils.CINDER_DB_INIT_RKEY
+        self.is_elected_leader.return_value = False
+        self.relation_get.side_effect = mock_relation_get
+        cinder_utils.check_local_db_actions_complete()
+        self.assertFalse(self.relation_set.called)
+        r_settings = {'cinder-db-initialised': 'unit/1-1234'}
+        cinder_utils.check_local_db_actions_complete()
+        calls = [call(
+            **{'cinder-db-initialised-echo': 'unit/1-1234',
+               cinder_utils.CINDER_DB_INIT_RKEY: None})]
         self.relation_set.assert_has_calls(calls)
         self.service_restart.assert_called_with('svc1')
 

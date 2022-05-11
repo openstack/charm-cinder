@@ -762,7 +762,11 @@ def check_local_db_actions_complete():
                     service_restart(svc)
 
             # Echo notification
-            relation_set(**{CINDER_DB_INIT_ECHO_RKEY: init_id})
+            data = {CINDER_DB_INIT_ECHO_RKEY: init_id}
+            # BUG: #1928383 - clear CINDER_DB_INIT_RKEY if not the leader
+            if not(is_elected_leader(CLUSTER_RES)):
+                data[CINDER_DB_INIT_RKEY] = None
+            relation_set(**data)
 
 
 # NOTE(jamespage): Retry deals with sync issues during one-shot HA deploys.
