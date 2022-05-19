@@ -1,19 +1,20 @@
 - project:
     templates:
-      - charm-unit-jobs
-      - charm-functional-jobs
+      - charm-unit-jobs-py38
+      - charm-focal-ussuri-functional-jobs
+      - charm-victoria-functional-jobs
     check:
       jobs:
-        - focal-ussuri-volume-only
-        - focal-xena:
-            voting: false
-        - impish-xena:
-            voting: false
+        - cinder_focal-ussuri-volume-only
+    vars:
+      needs_charm_build: true
+      charm_build_name: cinder
+      build_type: charmcraft
 
 - job:
-    name: focal-ussuri-volume-only
+    name: cinder_focal-ussuri-volume-only
     parent: func-target
     dependencies:
-      - bionic-ussuri
+      - focal-ussuri
     vars:
       tox_extra_args: vault:focal-ussuri-volume-only
