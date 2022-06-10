@@ -73,7 +73,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '4'
-    channel: yoga/edge
+    channel: latest/edge
 
   placement:
     charm: ch:placement
@@ -83,7 +83,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
      - '5'
-    channel: yoga/edge
+    channel: latest/edge
 
   neutron-api:
     charm: ch:neutron-api
@@ -95,7 +95,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '6'
-    channel: yoga/edge
+    channel: latest/edge
 
   keystone:
     charm: ch:keystone
@@ -104,7 +104,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '7'
-    channel: yoga/edge
+    channel: latest/edge
 
   neutron-gateway:
     charm: ch:neutron-gateway
@@ -114,7 +114,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '8'
-    channel: yoga/edge
+    channel: latest/edge
 
   glance:
     charm: ch:glance
@@ -123,11 +123,11 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '9'
-    channel: yoga/edge
+    channel: latest/edge
 
   neutron-openvswitch:
     charm: ch:neutron-openvswitch
-    channel: yoga/edge
+    channel: latest/edge
 
   nova-compute:
     charm: ch:nova-compute
@@ -146,7 +146,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '10'
-    channel: yoga/edge
+    channel: latest/edge
 
   cinder:
     charm: ../../cinder.charm
@@ -166,6 +166,7 @@ applications:
     options:
       block-device: "/mnt/cinder-lvm-block|20G"
       config-flags: "target_helper=lioadm"
+    channel: latest/edge
 
 relations:
 

@@ -571,18 +571,16 @@ class TestJoinedHooks(CharmTestCase):
             self.assertNotIn(c, self.CONFIGS.write.call_args_list)
 
     @patch('charmhelpers.core.host.service')
-    @patch("cinder_hooks.relation_get", autospec=True)
     @patch.object(hooks, "get_ceph_request")
     def test_ceph_changed_broker_success(self,
                                          mock_get_ceph_request,
-                                         mock_relation_get,
                                          _service):
         'It ensures ceph assets created on ceph changed'
         self.CONFIGS.complete_contexts.return_value = ['ceph']
         self.service_name.return_value = 'cinder'
         self.ensure_ceph_keyring.return_value = True
         self.ceph_config_file.return_value = '/var/lib/charm/cinder/ceph.conf'
-        mock_relation_get.return_value = {'broker_rsp':
+        self.relation_get.return_value = {'broker_rsp':
                                           json.dumps({'exit-code': 0})}
         hooks.hooks.execute(['hooks/ceph-relation-changed'])
         self.ensure_ceph_keyring.assert_called_with(service='cinder',

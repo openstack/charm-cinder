@@ -1,15 +1,15 @@
 charm_name: cinder
 
 smoke_bundles:
-- focal-xena
+- jammy-yoga
 
 gate_bundles:
-- focal-xena
-- impish-xena
+- jammy-yoga
 
 dev_bundles:
-- focal-yoga
 - jammy-yoga
+- jammy-zed
+- kinetic-zed
 
 target_deploy_status:
   vault:
@@ -35,5 +35,4 @@ tests_options:
   policyd:
     service: cinder
   force_deploy:
-    - impish-xena
-    - jammy-yoga
+    - kinetic-zed

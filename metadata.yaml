@@ -8,7 +8,6 @@ tags:
 - storage
 - misc
 series:
-- focal
 - jammy
 extra-bindings:
   public:
