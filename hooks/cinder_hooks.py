@@ -175,6 +175,10 @@ def install():
 
     status_set('maintenance', 'Installing apt packages')
     apt_update()
+    # (ajkavanagh) LP: #1989538
+    # Tactical fix to force openstack-release to match the configured
+    # installation source; note that it comes after apt_update().
+    apt_install(['openstack-release'], fatal=False, quiet=True)
     apt_install(determine_packages(), fatal=True)
 
     if service_enabled('api'):
