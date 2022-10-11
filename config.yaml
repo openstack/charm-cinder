@@ -58,7 +58,7 @@ options:
     default: sdb
     description: |
       Set to 'None' for deployments whose storage is managed by separate
-      charms (cinder-lvm, cinder-netapp, ceph-mon).
+      charms (cinder-lvm, cinder-netapp, cinder-ceph, cinder-purestorage).
       .
       The below LVM functionality is DEPRECATED. Use the cinder-lvm charm
       instead.

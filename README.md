@@ -8,72 +8,27 @@ services.
 
 ## Configuration
 
-This section covers common and/or important configuration options. See file
-`config.yaml` for the full list of options, along with their descriptions and
-default values. See the [Juju documentation][juju-docs-config-apps] for details
-on configuring applications.
-
-#### `block-device`
-
-Specifies the storage source. Setting this option to 'None' will allow for
-storage to be managed by separate charms. See sections [Ceph-backed
-storage][anchor-ceph-storage], [LVM-backed storage][anchor-lvm-storage], and
-[NetApp-backed storage][anchor-netapp-storage].
-
-> **Important**: The practice of setting the `block-device` option to a local
-  block device is deprecated. Doing so enacts the charm's built-in support for
-  LVM storage. This feature will soon be removed from the charm, along with the
-  option's default value of 'sdb'.
-
-#### `openstack-origin`
-
-States the software sources. A common value is an OpenStack UCA release (e.g.
-'cloud:bionic-ussuri' or 'cloud:focal-wallaby'). See [Ubuntu Cloud
-Archive][wiki-uca]. The underlying host's existing apt sources will be used if
-this option is not specified (this behaviour can be explicitly chosen by using
-the value of 'distro').
+To display all configuration option information run `juju config
+<application>`. If the application is not deployed then see the charm's
+[Configure tab][cinder-configure] in the Charmhub. Finally, the [Juju
+documentation][juju-docs-config-apps] provides general guidance on configuring
+applications.
 
 ## Deployment
 
-This section includes two different deployment scenarios, each of which
-requires these applications to be present: keystone, nova-cloud-controller,
-nova-compute, rabbitmq-server, and a cloud database.
+The cinder application requires the following applications to be present:
+keystone, nova-cloud-controller, nova-compute, rabbitmq-server, and a cloud
+database.
 
 The database application is determined by the series. Prior to focal
 [percona-cluster][percona-cluster-charm] is used, otherwise it is
 [mysql-innodb-cluster][mysql-innodb-cluster-charm]. In the example deployment
 below mysql-innodb-cluster has been chosen.
 
-### Ceph-backed storage
-
-Cinder can be backed by Ceph, which provides volumes with scalability and
-redundancy.
-
-> **Note**: Ceph is the recommended storage method for production Cinder
-  deployments.
-
-These instructions assume a pre-existing Ceph cluster.
-
-File `cinder.yaml` contains the following:
-
-```yaml
-    cinder:
-        block-device: None
-```
-
-Option `block-device` must be set to 'None' to disable the local block device.
-
-Here, Cinder is deployed to a container on machine '1' and related to the Ceph
-cluster via the cinder-ceph subordinate charm:
+Deploy Cinder itself (here, to a container on machine '1'), add relations to
+the core cloud applications, and then connect it to the cloud database:
 
     juju deploy --to lxd:1 --config cinder.yaml cinder
-    juju deploy cinder-ceph
-    juju add-relation cinder-ceph:storage-backend cinder:storage-backend
-    juju add-relation cinder-ceph:ceph ceph-mon:client
-    juju add-relation cinder-ceph:ceph-access nova-compute:ceph-access
-
-Proceed with a group of commands common to both scenarios:
-
     juju add-relation cinder:identity-service keystone:identity-service
     juju add-relation cinder:cinder-volume-service nova-cloud-controller:cinder-volume-service
     juju add-relation cinder:amqp rabbitmq-server:amqp
@@ -81,6 +36,14 @@ Proceed with a group of commands common to both scenarios:
     juju deploy mysql-router cinder-mysql-router
     juju add-relation cinder-mysql-router:db-router mysql-innodb-cluster:db-router
     juju add-relation cinder-mysql-router:shared-db cinder:shared-db
+
+Multiple backend storage solutions are described next.
+
+### Ceph-backed storage
+
+Cinder can be backed by Ceph, which is the recommended storage method for
+production Cinder deployments. This functionality is provided by the
+[cinder-ceph][cinder-ceph-charm] subordinate charm.
 
 ### LVM-backed storage
 
@@ -97,17 +60,18 @@ Cinder can be backed by a NetApp appliance local to the cinder unit, where
 volumes are offered via iSCSI or NFS. This functionality is provided by the
 [cinder-netapp][cinder-netapp-charm] subordinate charm.
 
+### Pure Storage-backed storage
+
+Cinder can be backed by a Pure Storage appliance reachable by its API endpoint.
+This functionality is provided by the
+[cinder-purestorage][cinder-purestorage-charm] subordinate charm.
+
 ## High availability
+
+This charm supports high availability via HAcluster.
 
 When more than one unit is deployed with the [hacluster][hacluster-charm]
 application the charm will bring up an HA active/active cluster.
-
-There are two mutually exclusive high availability options: using virtual IP(s)
-or DNS. In both cases the hacluster subordinate charm is used to provide the
-Corosync and Pacemaker backend HA functionality.
-
-See [OpenStack high availability][cdg-ha-apps] in the [OpenStack Charms
-Deployment Guide][cdg] for details.
 
 ## Network spaces
 
@@ -149,72 +113,52 @@ Alternatively, configuration can be provided as part of a bundle:
 
 ## Actions
 
-This section covers Juju [actions][juju-docs-actions] supported by the charm.
-Actions allow specific operations to be performed on a per-unit basis. To
-display action descriptions run `juju actions --schema cinder`. If the charm is
-not deployed then see file `actions.yaml`.
+This charm supports actions.
 
-* `openstack-upgrade`
-* `pause`
-* `remove-services`
-* `rename-volume-host`
-* `resume`
-* `security-checklist`
-* `volume-host-add-driver`
+[Actions][juju-docs-actions] allow specific operations to be performed on a
+per-unit basis. To display actions and their descriptions run `juju actions
+--schema <application>`. If the application is not deployed then see the
+charm's [Actions tab][cinder-actions] in the Charmhub.
 
 ## Policy overrides
 
-Policy overrides is an advanced feature that allows an operator to override the
-default policy of an OpenStack service. The policies that the service supports,
-the defaults it implements in its code, and the defaults that a charm may
-include should all be clearly understood before proceeding.
+This charm supports the policy overrides feature.
 
-> **Caution**: It is possible to break the system (for tenants and other
-  services) if policies are incorrectly applied to the service.
-
-Policy statements are placed in a YAML file. This file (or files) is then (ZIP)
-compressed into a single file and used as an application resource. The override
-is then enabled via a Boolean charm option.
-
-Here are the essential commands (filenames are arbitrary):
-
-    zip overrides.zip override-file.yaml
-    juju attach-resource cinder policyd-override=overrides.zip
-    juju config cinder use-policyd-override=true
-
-See [Policy overrides][cdg-policy-overrides] in the [OpenStack Charms
-Deployment Guide][cdg] for a thorough treatment of this feature.
+Policy overrides allow an operator to override the default policy of an
+OpenStack service. See [Policy overrides][cg-policy-overrides] for more
+information on this feature.
 
 # Documentation
 
 The OpenStack Charms project maintains two documentation guides:
 
-* [OpenStack Charm Guide][cg]: for project information, including development
-  and support notes
-* [OpenStack Charms Deployment Guide][cdg]: for charm usage information
+* [OpenStack Charm Guide][cg]: the primary source of information for
+  OpenStack charms
+* [OpenStack Charms Deployment Guide][cdg]: a step-by-step guide for
+  deploying OpenStack with charms
 
 # Bugs
 
-Please report bugs on [Launchpad][lp-bugs-charm-cinder].
+Please report bugs on [Launchpad][cinder-filebug].
 
 <!-- LINKS -->
 
 [cg]: https://docs.openstack.org/charm-guide
 [cdg]: https://docs.openstack.org/project-deploy-guide/charm-deployment-guide
-[cdg-policy-overrides]: https://docs.openstack.org/project-deploy-guide/charm-deployment-guide/latest/app-policy-overrides.html
-[juju-docs-spaces]: https://jaas.ai/docs/spaces
-[juju-docs-actions]: https://jaas.ai/docs/actions
-[lp-bugs-charm-cinder]: https://bugs.launchpad.net/charm-cinder/+filebug
+[cg-policy-overrides]: https://docs.openstack.org/charm-guide/latest/admin/policy-overrides.html
+[juju-docs-spaces]: https://juju.is/docs/olm/network-spaces
+[juju-docs-actions]: https://juju.is/docs/olm/working-with-actions
+[cinder-actions]: https://charmhub.io/cinder/actions
+[juju-docs-config-apps]: https://juju.is/docs/olm/configure-an-application
+[cinder-configure]: https://charmhub.io/cinder/configure
+[cinder-filebug]: https://bugs.launchpad.net/charm-cinder/+filebug
 [lp-bug-1862392]: https://bugs.launchpad.net/charm-cinder/+bug/1862392
-[cdg-ha-apps]: https://docs.openstack.org/project-deploy-guide/charm-deployment-guide/latest/app-ha.html#ha-applications
-[hacluster-charm]: https://jaas.ai/hacluster
-[cinder-lvm-charm]: https://jaas.ai/cinder-lvm
-[cinder-netapp-charm]: https://jaas.ai/cinder-netapp
+[hacluster-charm]: https://charmhub.io/hacluster
+[cinder-lvm-charm]: https://charmhub.io/cinder-lvm
+[cinder-netapp-charm]: https://charmhub.io/cinder-netapp
+[cinder-purestorage-charm]: https://charmhub.io/cinder-purestorage
+[percona-cluster-charm]: https://charmhub.io/percona-cluster
+[mysql-innodb-cluster-charm]: https://charmhub.io/mysql-innodb-cluster
 [upstream-cinder]: https://docs.openstack.org/cinder/latest/
 [juju-docs-config-apps]: https://juju.is/docs/configuring-applications
 [wiki-uca]: https://wiki.ubuntu.com/OpenStack/CloudArchive
-[percona-cluster-charm]: https://jaas.ai/percona-cluster
-[mysql-innodb-cluster-charm]: https://jaas.ai/mysql-innodb-cluster
-[anchor-ceph-storage]: #ceph-backed-storage
-[anchor-lvm-storage]: #lvm-backed-storage
-[anchor-netapp-storage]: #netapp-backed-storage
