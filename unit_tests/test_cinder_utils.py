@@ -770,18 +770,31 @@ class TestCinderUtils(CharmTestCase):
         rid = 'cluster:0'
         self.relation_ids.return_value = [rid]
         with patch('subprocess.check_output') as check_output, \
-             patch('subprocess.check_call') as check_call:
+             patch('subprocess.check_call') as check_call, \
+             patch('subprocess.run') as run:
             check_output.side_effect = subprocess.CalledProcessError(
                 1, 'cinder db-manage sync',
                 ("Please run `cinder-manage db online_data_migrations`. "
                  "There are still untyped volumes unmigrated."))
+            run_result = MagicMock()
+            run_result.returncode = 0
+            run.return_value = run_result
             cinder_utils.migrate_database(upgrade=True)
             check_output.assert_called_with(['cinder-manage', 'db', 'sync'],
                                             universal_newlines=True)
             check_call.assert_has_calls([
-                call(['cinder-manage', 'db', 'online_data_migrations']),
                 call(['cinder-manage', 'db', 'sync'])
             ])
+            run.assert_has_calls([
+                call(['cinder-manage', 'db', 'online_data_migrations',
+                      '--max_count', cinder_utils.MAX_OBJECTS_COUNT],
+                     check=False),
+            ])
+
+            run_result.returncode = 2
+            self.assertRaises(subprocess.CalledProcessError,
+                              cinder_utils.migrate_database,
+                              upgrade=True)
 
     @patch.object(cinder_utils, 'resource_map')
     def test_register_configs(self, resource_map):

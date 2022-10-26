@@ -38,6 +38,7 @@ from charmhelpers.core.hookenv import (
     log,
     DEBUG,
     INFO,
+    ERROR,
     hook_name,
 )
 
@@ -176,6 +177,10 @@ APACHE_SITE_24_CONF = '/etc/apache2/sites-available/' \
 MEMCACHED_CONF = '/etc/memcached.conf'
 WSGI_CINDER_API_CONF = '/etc/apache2/sites-enabled/wsgi-openstack-api.conf'
 PACKAGE_CINDER_API_CONF = '/etc/apache2/conf-enabled/cinder-wsgi.conf'
+
+# max number of objects to include in a batch/query when running
+# online_data_migrations.
+MAX_OBJECTS_COUNT = '5000'
 
 VERSION_PACKAGE = 'cinder-common'
 
@@ -801,9 +806,36 @@ def migrate_database(upgrade=False):
         if need_online_migration_msg not in e.output:
             raise
 
-        log("Running online_data_migrations", level=INFO)
-        subprocess.check_call(['cinder-manage', 'db',
-                               'online_data_migrations'])
+        # Re-run online_data_migrations until the exit code is 0 or 2.
+        # See https://docs.openstack.org/cinder/latest/admin/upgrades.html
+        num_runs = 1
+        cmd_online_data_migrations = ['cinder-manage', 'db',
+                                      'online_data_migrations',
+                                      '--max_count', MAX_OBJECTS_COUNT]
+        exit_code = 1
+        while exit_code == 1:
+            log("Running online_data_migrations (%d iteration(s))" % num_runs,
+                level=INFO)
+            result = subprocess.run(cmd_online_data_migrations, check=False)
+            exit_code = result.returncode
+            # log as ERROR when the exit code 2 which is a fatal failure.
+            level = ERROR if exit_code == 2 else DEBUG
+            log("%s: exit code %s" % (" ".join(cmd_online_data_migrations),
+                                      result.returncode),
+                level=level)
+            log("stdout: %s" % result.stdout, level=level)
+            log("stderr: %s" % result.stderr, level=level)
+
+            if exit_code == 2:
+                # If no further migrations are possible, the exit status will
+                # be 2 if some migrations are still generating errors, which
+                # requires intervention to resolve.
+                raise subprocess.CalledProcessError(result.returncode,
+                                                    result.args,
+                                                    result.stdout,
+                                                    result.stderr)
+            num_runs += 1
+
         log("Re-running database migration", level=INFO)
         subprocess.check_call(cmd)
 
