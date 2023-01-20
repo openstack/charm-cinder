@@ -469,6 +469,21 @@ def identity_changed():
         configure_https()
 
 
+@hooks.hook('identity-credentials-relation-joined')
+def identity_credentials_joined(rid=None):
+    if service_enabled('volume') and not service_enabled('api'):
+        settings = {'username': 'cinder', 'requested_roles': 'Admin'}
+        relation_set(relation_id=rid, **settings)
+
+
+@hooks.hook('identity-credentials-relation-changed')
+@restart_on_change(restart_map())
+def identity_credentials_changed():
+    if service_enabled('volume') and not service_enabled('api'):
+        if 'identity-credentials' in CONFIGS.complete_contexts():
+            CONFIGS.write(CINDER_CONF)
+
+
 @hooks.hook('ceph-relation-joined')
 def ceph_joined():
     if not os.path.isdir('/etc/ceph'):
@@ -586,6 +601,7 @@ def image_service_changed():
 
 @hooks.hook('amqp-relation-broken',
             'identity-service-relation-broken',
+            'identity-credentials-relation-broken',
             'image-service-relation-broken',
             'shared-db-relation-broken')
 @restart_on_change(restart_map(), stopstart=True)
