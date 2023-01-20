@@ -66,6 +66,32 @@ Cinder can be backed by a Pure Storage appliance reachable by its API endpoint.
 This functionality is provided by the
 [cinder-purestorage][cinder-purestorage-charm] subordinate charm.
 
+## Separate Volume Service
+
+For certain operations when an instance is not involved, the cinder application
+will connect directly to the storage for operations such as cloning a volume
+from a glance image. You can deploy a second cinder application for the volume
+service only where the primary cinder application cannot connect to this
+storage. This may be required for iSCSI connections because LXD containers
+cannot create iSCSI connections or where you need a physical Fibre Channel
+connection. This is not required for Ceph deployments which use userspace RBD
+tools.
+
+1. Deploy cinder with enabled-services=api,scheduler
+2. Deploy a second application of cinder named 'cinder-volume' with
+   enabled-services=volume
+3. Relate the storage subordinate (e.g. cinder-purestorage) to the
+   cinder-volume application only (not to the 'cinder' application)
+4. Keystone should be related to cinder:identity-__service__ but
+   cinder-volume:identity-__credentials__
+
+   The primary cinder application gets keystone credentials when registering a
+   service endpoint via the identity-service relation. The cinder-volume
+   application does not register a service, so we need to relate
+   identity-credentials instead. The image volume cache will not work without
+   this relation.
+5. Both cinder and cinder-volume should otherwise have the same relations
+
 ## High availability
 
 This charm supports high availability via HAcluster.
