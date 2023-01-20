@@ -278,8 +278,8 @@ relations:
   - - 'cinder:image-service'
     - 'glance:image-service'
 
-  - - 'cinder-volume:identity-service'
-    - 'keystone:identity-service'
+  - - 'cinder-volume:identity-credentials'
+    - 'keystone:identity-credentials'
 
   - - 'cinder-volume:amqp'
     - 'rabbitmq-server:amqp'
