@@ -405,7 +405,7 @@ class TestCinderUtils(CharmTestCase):
         self.zap_disk.return_value = True
         self.mounts.return_value = MOUNTS
         cinder_utils.clean_storage('/dev/fakevbd')
-        self.umount.called_with('/dev/fakevbd', True)
+        self.umount.assert_called_with('/mnt', persist=True)
 
     def test_clean_storage_lvm_wipe(self):
         'It removes traces of LVM when cleaning storage'
