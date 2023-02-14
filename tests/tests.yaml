@@ -1,15 +1,15 @@
 charm_name: cinder
 
 smoke_bundles:
-- jammy-yoga
+- jammy-zed
 
 gate_bundles:
-- jammy-yoga
+- jammy-zed
 
 dev_bundles:
-- jammy-yoga
-- jammy-zed
+- jammy-antelope
 - kinetic-zed
+- lunar-antelope
 
 target_deploy_status:
   vault:
@@ -36,3 +36,4 @@ tests_options:
     service: cinder
   force_deploy:
     - kinetic-zed
+    - lunar-antelope
