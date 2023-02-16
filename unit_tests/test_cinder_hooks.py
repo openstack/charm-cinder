@@ -126,6 +126,14 @@ class TestChangedHooks(CharmTestCase):
         'identity-service': ['identity-service:1'],
     }
 
+    def svc_enabled(self, svc):
+        enabled = self.test_config.get('enabled-services')
+
+        if enabled == 'all':
+            return True
+
+        return svc in enabled
+
     def setUp(self):
         super(TestChangedHooks, self).setUp(hooks, TO_PATCH)
         self.config.side_effect = self.test_config.get
@@ -326,6 +334,42 @@ class TestChangedHooks(CharmTestCase):
     def test_identity_changed_incomplete(self):
         'It does not write api-paste.ini with incomplete identity-service'
         hooks.hooks.execute(['hooks/identity-service-relation-changed'])
+        self.assertFalse(self.CONFIGS.write.called)
+
+    @patch.object(hooks, 'service_enabled')
+    def test_identity_credentials_joined_without_api(self, service_enabled):
+        'It requests keystone credentials without API service'
+        self.test_config.set('enabled-services', 'volume')
+        service_enabled.side_effect = self.svc_enabled
+        hooks.hooks.execute(['hooks/identity-credentials-relation-joined'])
+        expected = {'relation_id': None,
+                    'username': 'cinder',
+                    'requested_roles': 'Admin'}
+        self.relation_set.assert_called_with(**expected)
+
+    @patch.object(hooks, 'service_enabled')
+    def test_identity_credentials_joined_with_api(self, service_enabled):
+        'It requests keystone credentials with API service'
+        self.test_config.set('enabled-services', 'all')
+        service_enabled.side_effect = self.svc_enabled
+        hooks.hooks.execute(['hooks/identity-credentials-relation-joined'])
+        self.relation_set.assert_not_called()
+
+    @patch.object(hooks, 'service_enabled')
+    def test_identity_credentials_changed(self, service_enabled):
+        'It writes out cinder.conf on identity-credentials changed'
+        self.CONFIGS.complete_contexts.return_value = ['identity-credentials']
+        self.test_config.set('enabled-services', 'volume')
+        service_enabled.side_effect = self.svc_enabled
+        hooks.hooks.execute(['hooks/identity-credentials-relation-changed'])
+        self.CONFIGS.write.assert_called_with('/etc/cinder/cinder.conf')
+
+    @patch.object(hooks, 'service_enabled')
+    def test_identity_credentials_changed_incomplete(self, service_enabled):
+        'It does not write cinder.conf with incomplete identity-service'
+        self.test_config.set('enabled-services', 'volume')
+        service_enabled.side_effect = self.svc_enabled
+        hooks.hooks.execute(['hooks/identity-credentials-relation-changed'])
         self.assertFalse(self.CONFIGS.write.called)
 
     @patch.object(hooks, 'identity_joined')
