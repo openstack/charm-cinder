@@ -18,6 +18,7 @@
 import os
 import sys
 import uuid
+from base64 import b64decode
 
 _path = os.path.dirname(os.path.realpath(__file__))
 _root = os.path.abspath(os.path.join(_path, '..'))
@@ -119,7 +120,10 @@ from charmhelpers.contrib.storage.linux.ceph import (
     delete_keyring,
 )
 
-from charmhelpers.contrib.hahelpers.apache import install_ca_cert
+from charmhelpers.contrib.hahelpers.apache import (
+    get_ca_cert,
+    install_ca_cert,
+)
 
 from charmhelpers.contrib.hahelpers.cluster import (
     is_clustered,
@@ -235,6 +239,11 @@ def config_changed():
     if service_enabled('api'):
         configure_https()
         open_port(config('api-listening-port'))
+    else:
+        # Install CA cert to communicate with Keystone and Glance
+        ca_cert = get_ca_cert()
+        if ca_cert:
+            install_ca_cert(b64decode(ca_cert))
     update_nrpe_config()
 
     for rid in relation_ids('cluster'):
