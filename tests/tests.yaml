@@ -8,7 +8,6 @@ gate_bundles:
 
 dev_bundles:
 - jammy-antelope
-- kinetic-zed
 - lunar-antelope
 
 target_deploy_status:
@@ -35,5 +34,4 @@ tests_options:
   policyd:
     service: cinder
   force_deploy:
-    - kinetic-zed
     - lunar-antelope
