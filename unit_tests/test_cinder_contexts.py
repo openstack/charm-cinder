@@ -26,8 +26,6 @@ TO_PATCH = [
     'config',
     'relation_ids',
     'service_name',
-    'determine_apache_port',
-    'determine_api_port',
     'os_release',
     'related_units',
     'relation_get'
@@ -545,3 +543,32 @@ class TestCinderContext(CharmTestCase):
             contexts.VolumeUsageAuditContext.DEFAULT_CRONTAB_PATH, "wt+")
         self.assertEqual(self.config.return_value,
                          ctxt["volume_usage_audit_period"])
+
+    @patch('charmhelpers.contrib.hahelpers.cluster.https')
+    @patch('cinder_contexts.https')
+    def test_haproxy_context(self, mock_https, mock_ch_https):
+        config = {'api-listening-port': 8776}
+        self.config.side_effect = lambda x: config[x]
+        for https_mode in [False, True]:
+            mock_https.return_value = https_mode
+            mock_ch_https.return_value = https_mode
+            api_port = 8766
+            if https_mode:
+                api_port = 8756
+
+            haproxy_context = contexts.HAProxyContext()
+            expected = {
+                "service_ports": {"cinder_api": [8776, 8766]},
+                "osapi_volume_listen_port": api_port,
+                'port': api_port,
+                "backend_options": {
+                    "cinder_api": [
+                        {
+                            'option': 'httpchk GET /healthcheck',
+                            'http-check': 'expect status 200',
+                        }
+                    ]
+                },
+                "https": https_mode,
+            }
+            self.assertEqual(expected, haproxy_context())
