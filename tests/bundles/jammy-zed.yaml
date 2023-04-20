@@ -27,40 +27,40 @@ applications:
 
   nova-cloud-controller-mysql-router:
     charm: ch:mysql-router
-    channel: latest/edge
+    channel: 8.0/edge
   placement-mysql-router:
     charm: ch:mysql-router
-    channel: latest/edge
+    channel: 8.0/edge
   keystone-mysql-router:
     charm: ch:mysql-router
-    channel: latest/edge
+    channel: 8.0/edge
   glance-mysql-router:
     charm: ch:mysql-router
-    channel: latest/edge
+    channel: 8.0/edge
   neutron-api-mysql-router:
     charm: ch:mysql-router
-    channel: latest/edge
+    channel: 8.0/edge
   cinder-mysql-router:
     charm: ch:mysql-router
-    channel: latest/edge
+    channel: 8.0/edge
 
   mysql-innodb-cluster:
     charm: ch:mysql-innodb-cluster
     num_units: 3
     options:
-      source: *openstack-origin
+      source: distro
     to:
       - '0'
       - '1'
       - '2'
-    channel: latest/edge
+    channel: 8.0/edge
 
   rabbitmq-server:
     charm: ch:rabbitmq-server
     num_units: 1
     to:
       - '3'
-    channel: latest/edge
+    channel: 3.9/edge
 
   nova-cloud-controller:
     charm: ch:nova-cloud-controller
@@ -71,7 +71,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '4'
-    channel: latest/edge
+    channel: 2023.1/edge
 
   placement:
     charm: ch:placement
@@ -81,7 +81,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
      - '5'
-    channel: latest/edge
+    channel: 2023.1/edge
 
   neutron-api:
     charm: ch:neutron-api
@@ -93,7 +93,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '6'
-    channel: latest/edge
+    channel: 2023.1/edge
 
   keystone:
     charm: ch:keystone
@@ -102,7 +102,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '7'
-    channel: latest/edge
+    channel: 2023.1/edge
 
   neutron-gateway:
     charm: ch:neutron-gateway
@@ -112,7 +112,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '8'
-    channel: latest/edge
+    channel: 2023.1/edge
 
   glance:
     charm: ch:glance
@@ -121,11 +121,11 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '9'
-    channel: latest/edge
+    channel: 2023.1/edge
 
   neutron-openvswitch:
     charm: ch:neutron-openvswitch
-    channel: latest/edge
+    channel: 2023.1/edge
 
   nova-compute:
     charm: ch:nova-compute
@@ -143,7 +143,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '10'
-    channel: latest/edge
+    channel: 2023.1/edge
 
   cinder:
     charm: ../../cinder.charm
@@ -163,7 +163,7 @@ applications:
     options:
       block-device: "/mnt/cinder-lvm-block|20G"
       config-flags: "target_helper=lioadm"
-    channel: latest/edge
+    channel: 2023.1/edge
 
 relations:
 
