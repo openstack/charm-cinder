@@ -3,6 +3,7 @@ summary: OpenStack block storage service
 maintainer: OpenStack Charmers <openstack-charmers@lists.ubuntu.com>
 description: |
   Cinder is the block storage service for the OpenStack.
+docs: https://discourse.charmhub.io/t/cinder-docs-index/10549
 tags:
 - openstack
 - storage
