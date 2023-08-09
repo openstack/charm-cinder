@@ -1,7 +1,7 @@
 pause:
   description: Pause the cinder unit.  This action will stop cinder services.
 resume:
-  descrpition: Resume the cinder unit.  This action will start cinder services.
+  description: Resume the cinder unit.  This action will start cinder services.
 openstack-upgrade:
   description: Perform openstack upgrades. Config option action-managed-upgrade must be set to True.
 remove-services:
