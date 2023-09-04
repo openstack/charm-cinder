@@ -415,3 +415,11 @@ options:
       List of comma-separated filter class names to use for filtering hosts
       when not specified in the request.
       The default filters varies based on OpenStack release.
+  wsgi-socket-rotation:
+    type: boolean
+    default: True
+    description: |
+      Allow users to disable Apache wsgi socket rotation. If not configured,
+      this option sets True as the default value, which is consistent with the
+      default value 'WSGISocketRotation On' in Apache. This option should be
+      used with caution. Please read the Apache doc page for more information.
