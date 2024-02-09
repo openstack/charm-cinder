@@ -5,13 +5,11 @@ description: |
   Cinder is the block storage service for the OpenStack.
 docs: https://discourse.charmhub.io/t/cinder-docs-index/10549
 tags:
-- openstack
-- storage
-- misc
+  - openstack
+  - storage
+  - misc
 series:
-- jammy
-- lunar
-- mantic
+  - jammy
 extra-bindings:
   public:
   admin:
