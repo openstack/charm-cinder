@@ -167,6 +167,7 @@ CINDER_CONF_DIR = "/etc/cinder"
 CINDER_CONF = '%s/cinder.conf' % CINDER_CONF_DIR
 CINDER_API_CONF = '%s/api-paste.ini' % CINDER_CONF_DIR
 CINDER_POLICY_JSON = '%s/policy.json' % CINDER_CONF_DIR
+CINDER_AUDIT_MAP = '%s/api_audit_map.conf' % CINDER_CONF_DIR
 CEPH_CONF = '/etc/ceph/ceph.conf'
 
 HAPROXY_CONF = '/etc/haproxy/haproxy.cfg'
@@ -237,16 +238,22 @@ BASE_RESOURCE_MAP = OrderedDict([
                      cinder_contexts.VolumeUsageAuditContext(),
                      context.MemcacheContext(),
                      cinder_contexts.SectionalConfigContext(),
-                     cinder_contexts.LVMContext()],
+                     cinder_contexts.LVMContext(),
+                     context.KeystoneAuditMiddleware(service='cinder')],
         'services': ['cinder-api', 'cinder-volume', 'cinder-scheduler',
                      'haproxy']
     }),
     (CINDER_API_CONF, {
-        'contexts': [context.IdentityServiceContext()],
+        'contexts': [context.IdentityServiceContext(),
+                     context.KeystoneAuditMiddleware(service='cinder')],
         'services': ['cinder-api'],
     }),
     (CINDER_POLICY_JSON, {
         'contexts': [],
+        'services': ['cinder-api']
+    }),
+    (CINDER_AUDIT_MAP, {
+        'contexts': [context.KeystoneAuditMiddleware(service='cinder')],
         'services': ['cinder-api']
     }),
     (ceph_config_file(), {
@@ -773,7 +780,7 @@ def check_local_db_actions_complete():
             # Echo notification
             data = {CINDER_DB_INIT_ECHO_RKEY: init_id}
             # BUG: #1928383 - clear CINDER_DB_INIT_RKEY if not the leader
-            if not(is_elected_leader(CLUSTER_RES)):
+            if not is_elected_leader(CLUSTER_RES):
                 data[CINDER_DB_INIT_RKEY] = None
             relation_set(**data)
 
