@@ -27,11 +27,14 @@ configure:
   - zaza.openstack.charm_tests.vault.setup.auto_initialize
 
 tests:
-- zaza.openstack.charm_tests.cinder.tests.CinderTests
-- zaza.openstack.charm_tests.cinder.tests.SecurityTests
-- zaza.openstack.charm_tests.policyd.tests.CinderTests
+  - zaza.openstack.charm_tests.cinder.tests.CinderTests
+  - zaza.openstack.charm_tests.cinder.tests.SecurityTests
+  - zaza.openstack.charm_tests.policyd.tests.CinderTests
+  - zaza.openstack.charm_tests.audit.tests.KeystoneAuditMiddlewareTest
 
 tests_options:
+  audit-middleware:
+    service: cinder
   policyd:
     service: cinder
   force_deploy:
