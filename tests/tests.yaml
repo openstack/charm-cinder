@@ -1,11 +1,9 @@
 charm_name: cinder
 
 smoke_bundles:
-  - jammy-caracal
+  - noble-caracal
 gate_bundles:
-  - jammy-antelope
-  - jammy-bobcat
-  - jammy-caracal
+  - noble-caracal
 dev_bundles:
   - noble-caracal
 target_deploy_status:
@@ -34,5 +32,3 @@ tests_options:
     service: cinder
   policyd:
     service: cinder
-  force_deploy:
-    - noble-caracal
