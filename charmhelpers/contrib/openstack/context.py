@@ -202,6 +202,21 @@ class OSContextGenerator(object):
             return self.related
 
 
+class KeystoneAuditMiddleware(OSContextGenerator):
+    def __init__(self, service: str) -> None:
+        self.service_name = service
+
+    def __call__(self):
+        """Return context dictionary containing configuration status of
+        audit-middleware and the charm service name.
+        """
+        ctxt = {
+            'audit_middleware': config('audit-middleware') or False,
+            'service_name': self.service_name
+        }
+        return ctxt
+
+
 class SharedDBContext(OSContextGenerator):
     interfaces = ['shared-db']
 
@@ -525,7 +540,6 @@ class IdentityServiceContext(OSContextGenerator):
                 if float(api_version) > 2:
                     ctxt.update({
                         'admin_domain_name': _resolve('service_domain'),
-                        'service_user_id': _resolve('service_user_id'),
                         'service_project_id': _resolve('service_tenant_id'),
                         'service_domain_id': _resolve('service_domain_id')})
 
@@ -546,7 +560,7 @@ class IdentityServiceContext(OSContextGenerator):
                         'internal_auth_url': internal_auth_url,
                     })
 
-                # we keep all veriables in ctxt for compatibility and
+                # we keep all variables in ctxt for compatibility and
                 # add nested dictionary for keystone_authtoken generic
                 # templating
                 if keystonemiddleware_os_release:
