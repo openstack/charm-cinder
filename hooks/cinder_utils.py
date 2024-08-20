@@ -147,7 +147,10 @@ API_PACKAGES = [
     'cinder-api',
     'haproxy',
 ]
-VOLUME_PACKAGES = ['cinder-volume']
+# lsscsi is installed as a dependency of os-brick for jammy-antelope
+# (lunar) or later. Explicit installation by the charm is only necessary
+# for zed or older releases. LP: #1939390
+VOLUME_PACKAGES = ['cinder-volume', 'lsscsi']
 SCHEDULER_PACKAGES = ['cinder-scheduler']
 
 DEFAULT_LOOPBACK_SIZE = '5G'
