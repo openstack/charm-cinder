@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from importlib import reload
 import os
 import json
-
-from six.moves import reload_module
 
 from unittest.mock import (
     patch,
@@ -34,7 +33,7 @@ with patch('charmhelpers.contrib.hardening.harden.harden') as mock_dec:
         with patch('cinder_utils.restart_map') as restart_map:
             restart_map.return_value = RESTART_MAP
             import cinder_hooks as hooks
-            reload_module(hooks)
+            reload(hooks)
 
 hooks.hooks._config_save = False
 import cinder_utils as utils
