@@ -428,3 +428,12 @@ options:
       this option sets True as the default value, which is consistent with the
       default value 'WSGISocketRotation On' in Apache. This option should be
       used with caution. Please read the Apache doc page for more information.
+  dns-query-timeout:
+    type: float
+    default: 5.0
+    description: |
+      Sets the timeout (in seconds) for DNS queries in the charm. If not
+      configured, the default value is 5.0 seconds. Adjust this value to
+      balance query speed and reliability, especially in environments with
+      slow or unstable DNS servers. Use with caution, as very low values
+      may lead to frequent query failures.
