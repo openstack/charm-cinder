@@ -66,6 +66,42 @@ Cinder can be backed by a Pure Storage appliance reachable by its API endpoint.
 This functionality is provided by the
 [cinder-purestorage][cinder-purestorage-charm] subordinate charm.
 
+### Storage Backend Secrets
+
+Subordinate storage backends (e.g. cinder-ceph, cinder-netapp etc.) may send
+configuration values that contain sensitive credentials. Rather than writing 
+these values directly in cinder.conf in plain text, the Cinder charm can resolve
+them at runtime via Castellan using Vault as a backend.
+
+When a subordinate storage charm sends a Vault secret ref (`vault://<secret-name>`)
+as a config value, the cinder charm automatically configures Castellan, adds 
+the secret reference to /etc/cinder/secret_map.conf and generates /etc/cinder/castellan.conf
+using the Vault backend.
+
+The Cinder charm must be related to Vault over the secrets-storage interface
+and the secret should be created in the KV mountpoint created by the secrets-storage relation (e.g. charm-cinder/*).
+
+Example (cinder-netapp):
+
+```
+juju integrate vault cinder:secrets-storage
+
+# Below is an example for creating a secret in vault for the password: "password$long@#"
+# Ensure the '$' character is escaped due to how oslo.config parses config files
+secret_encoded=$(echo -n 'password\$long@#' | xxd -p)
+
+vault write charm-cinder/netapp_password - <<EOF
+{
+  "type": "opaque",
+  "value": "$secret_encoded",
+  "name": "netapp_password",
+  "created": $(date +%s)
+}
+EOF
+
+juju config cinder-netapp netapp-password=="vault://netapp_password"
+```
+
 ## Separate Volume Service
 
 For certain operations when an instance is not involved, the cinder application

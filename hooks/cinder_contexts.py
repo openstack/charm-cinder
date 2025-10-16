@@ -39,6 +39,8 @@ from charmhelpers.contrib.hahelpers.cluster import (
     https
 )
 
+import re
+
 CHARM_CEPH_CONF = '/var/lib/charm/{}/ceph.conf'
 
 
@@ -216,7 +218,67 @@ class CinderSubordinateConfigContext(SubordinateConfigContext):
                 "set host param since there appear to also be stateful "
                 "backends configured.", level=WARNING)
 
+        self._generate_castellan_config(ctxt)
+
         return ctxt
+
+    def _generate_castellan_config(self, context):
+        """Post-process the subordinate charm context to detect
+        Vault secret references.
+
+        If any references are found, modify the context to render
+        the relevant cinder.conf sections and Castellan config files.
+        """
+        sections = context.get('sections', {})
+
+        secret_map_sections = {}
+
+        # vault://<secret-name>
+        vault_re = re.compile(r"^vault://(.+)$")
+
+        for section, config_list in sections.items():
+            # Iterate over a shallow copy of config_list so items
+            # can be removed from the original list
+            for config_pair in list(config_list):
+                key, value = config_pair
+                if not isinstance(value, str):
+                    continue
+
+                is_vault = vault_re.match(value)
+
+                if is_vault:
+                    secret_map_value = is_vault.group(1)
+                    entry = (key, secret_map_value)
+                    if section in secret_map_sections:
+                        secret_map_sections[section].append(entry)
+                    else:
+                        secret_map_sections[section] = [entry]
+
+                    config_list.remove(config_pair)
+
+        # If we found any secret refs, add the relevant config to the context
+        if secret_map_sections:
+            context['castellan_enabled'] = True
+            context['castellan_secret_map_sections'] = secret_map_sections
+            context['castellan_backend'] = 'vault'
+
+            if 'DEFAULT' in context['sections']:
+                context['sections']['DEFAULT'].append(
+                    ('config_source', 'secrets'))
+            else:
+                context['sections']['DEFAULT'] = [('config_source', 'secrets')]
+
+            if 'secrets' in context['sections']:
+                context['sections']['secrets'].append(('driver', 'castellan'))
+                context['sections']['secrets'].append(
+                    ('config_file', '/etc/cinder/castellan.conf'))
+                context['sections']['secrets'].append(
+                    ('mapping_file', '/etc/cinder/secret_map.conf'))
+            else:
+                context['sections']['secrets'] = [
+                    ('driver', 'castellan'),
+                    ('config_file', '/etc/cinder/castellan.conf'),
+                    ('mapping_file', '/etc/cinder/secret_map.conf')]
 
 
 class RegionContext(OSContextGenerator):
