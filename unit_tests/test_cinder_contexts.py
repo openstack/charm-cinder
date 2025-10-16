@@ -501,6 +501,108 @@ class TestCinderContext(CharmTestCase):
 
         self.assertEqual(ctxt, exp)
 
+    @patch('%s.relation_get' % (mod_ch_context))
+    @patch('%s.related_units' % (mod_ch_context))
+    @patch('%s.relation_ids' % (mod_ch_context))
+    @patch('%s.log' % (mod_ch_context), lambda *args, **kwargs: None)
+    def test_subordinate_config_context_vault_ref(self, mock_rel_ids,
+                                                  mock_rel_units,
+                                                  mock_rel_get):
+        mock_rel_ids.return_value = ['storage-backend:0', 'storage-backend:1']
+        self.relation_ids.return_value = ['storage-backend:0',
+                                          'storage-backend:1']
+
+        def fake_rel_units(rid):
+            if rid == 'storage-backend:0':
+                return ['cinder-ceph/0']
+            else:
+                return ['cinder-other/0']
+
+        mock_rel_units.side_effect = fake_rel_units
+        self.related_units.side_effect = fake_rel_units
+
+        self.service_name.return_value = 'cinder'
+
+        cinder_ceph_settings = \
+            {'backend_name': 'cinder-ceph',
+             'private-address': '10.5.8.191',
+             'stateless': 'True',
+             'subordinate_configuration':
+             '{"cinder": '
+             '{"/etc/cinder/cinder.conf": '
+             '{"sections": '
+             '{"cinder-ceph": '
+             '[["volume_backend_name", '
+             '"vault://secret1"], '
+             '["volume_driver", '
+             '"cinder.volume.drivers.rbd.RBDDriver"], '
+             '["rbd_pool", '
+             '"cinder-ceph"], '
+             '["rbd_user", '
+             '"cinder-ceph"]]}}}}'}
+
+        cinder_other_settings = \
+            {'backend_name': 'cinder-other',
+             'private-address': '10.5.8.192',
+             'subordinate_configuration':
+             '{"cinder": '
+             '{"/etc/cinder/cinder.conf": '
+             '{"sections": '
+             '{"cinder-other": '
+             '[["volume_backend_name", '
+             '"vault://secret2"], '
+             '["volume_driver", '
+             '"cinder.volume.drivers.OtherDriver"]]}}}}'}
+
+        def fake_rel_get(attribute=None, unit=None, rid=None):
+            if unit == 'cinder-ceph/0':
+                return cinder_ceph_settings.get(attribute)
+            elif unit == 'cinder-other/0':
+                return cinder_other_settings.get(attribute)
+
+        mock_rel_get.side_effect = fake_rel_get
+        self.relation_get.side_effect = fake_rel_get
+
+        ctxt = contexts.CinderSubordinateConfigContext(
+            interface='storage-backend',
+            service='cinder',
+            config_file='/etc/cinder/cinder.conf')()
+
+        exp = {
+            'sections': {
+                'cinder-ceph': [
+                    ['volume_driver', 'cinder.volume.drivers.rbd.RBDDriver'],
+                    ['rbd_pool', 'cinder-ceph'],
+                    ['rbd_user', 'cinder-ceph'],
+                ],
+                'cinder-other': [
+                    ['volume_driver', 'cinder.volume.drivers.OtherDriver'],
+                ],
+                'DEFAULT': [
+                    ('config_source', 'secrets'),
+                ],
+                'secrets': [
+                    ('driver', 'castellan'),
+                    ('config_file', '/etc/cinder/castellan.conf'),
+                    ('mapping_file', '/etc/cinder/secret_map.conf'),
+                ],
+            },
+            'castellan_enabled': True,
+            'castellan_backend': 'vault',
+            'castellan_secret_map_sections': {
+                'cinder-ceph': [
+                    ('volume_backend_name',
+                     'secret1'),
+                ],
+                'cinder-other': [
+                    ('volume_backend_name',
+                     'secret2'),
+                ],
+            },
+        }
+
+        self.assertEqual(ctxt, exp)
+
     def test_region_context(self):
         self.config.return_value = 'two'
         ctxt = contexts.RegionContext()()

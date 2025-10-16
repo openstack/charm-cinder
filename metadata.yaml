@@ -45,6 +45,9 @@ requires:
     scope: container
   certificates:
     interface: tls-certificates
+  secrets-storage:
+    interface: vault-kv
+    optional: true
 peers:
   cluster:
     interface: cinder-ha

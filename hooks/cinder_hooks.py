@@ -53,6 +53,9 @@ from cinder_utils import (
     CINDER_CONF,
     CINDER_API_CONF,
     CEPH_CONF,
+    CASTELLAN_CONF,
+    SECRET_MAP_CONF,
+    CINDER_VOLUME_OVERRIDE_CONF,
     setup_ipv6,
     check_local_db_actions_complete,
     filesystem_mounted,
@@ -64,6 +67,8 @@ from cinder_utils import (
 )
 
 from cinder_contexts import ceph_config_file
+
+from socket import gethostname
 
 from charmhelpers.core.hookenv import (
     config,
@@ -91,6 +96,7 @@ from charmhelpers.fetch import (
 
 from charmhelpers.core.host import (
     lsb_release,
+    service,
     service_reload,
     service_start,
     umount,
@@ -198,7 +204,8 @@ def install():
 
 
 @hooks.hook('config-changed')
-@restart_on_change(restart_map(), stopstart=True)
+@restart_on_change(restart_map(), stopstart=True,
+                   pre_restarts_wait_f=lambda: service('daemon-reload'))
 @harden()
 def config_changed():
     # if we are paused, delay doing any config changed hooks.
@@ -664,15 +671,23 @@ def upgrade_charm():
 
 @hooks.hook('storage-backend-relation-changed')
 @hooks.hook('storage-backend-relation-broken')
-@restart_on_change(restart_map())
+@restart_on_change(restart_map(),
+                   pre_restarts_wait_f=lambda: service('daemon-reload'))
 def storage_backend():
+    CONFIGS.write(CASTELLAN_CONF)
+    CONFIGS.write(SECRET_MAP_CONF)
+    CONFIGS.write(CINDER_VOLUME_OVERRIDE_CONF)
     CONFIGS.write(CINDER_CONF)
 
 
 @hooks.hook('backup-backend-relation-changed')
 @hooks.hook('backup-backend-relation-broken')
-@restart_on_change(restart_map())
+@restart_on_change(restart_map(),
+                   pre_restarts_wait_f=lambda: service('daemon-reload'))
 def backup_backend():
+    CONFIGS.write(CASTELLAN_CONF)
+    CONFIGS.write(SECRET_MAP_CONF)
+    CONFIGS.write(CINDER_VOLUME_OVERRIDE_CONF)
     CONFIGS.write(CINDER_CONF)
 
 
@@ -719,6 +734,26 @@ def certs_changed(relation_id=None, unit=None):
         return
     process_certificates('cinder', relation_id, unit)
     configure_https()
+
+
+@hooks.hook('secrets-storage-relation-joined')
+def secrets_storage_joined(relation_id=None):
+    relation_set(relation_id=relation_id,
+                 secret_backend='charm-cinder',
+                 isolated='false',
+                 access_address=get_relation_ip('secrets-storage'),
+                 hostname=gethostname())
+
+
+@hooks.hook('secrets-storage-relation-changed')
+@hooks.hook('secrets-storage-relation-broken')
+@restart_on_change(restart_map(),
+                   pre_restarts_wait_f=lambda: service('daemon-reload'))
+def secrets_storage_backend():
+    CONFIGS.write(CASTELLAN_CONF)
+    CONFIGS.write(SECRET_MAP_CONF)
+    CONFIGS.write(CINDER_VOLUME_OVERRIDE_CONF)
+    CONFIGS.write(CINDER_CONF)
 
 
 @hooks.hook('pre-series-upgrade')
