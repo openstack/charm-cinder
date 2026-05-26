@@ -116,6 +116,8 @@ from charmhelpers.core.decorators import (
     retry_on_exception,
 )
 
+import charmhelpers.contrib.openstack.vaultlocker as vaultlocker
+
 import cinder_contexts
 
 from cinder_contexts import ceph_config_file
@@ -138,6 +140,7 @@ PY3_PACKAGES = [
     'python3-memcache',
     'python3-rados',
     'python3-rbd',
+    'python3-hvac',
 ]
 
 PY3_API_PACKAGES = ['libapache2-mod-wsgi-py3']
@@ -164,11 +167,15 @@ class CinderCharmError(Exception):
 
 
 CINDER_CONF_DIR = "/etc/cinder"
+CINDER_VOLUME_OVERRIDE_DIR = '/etc/systemd/system/cinder-volume.service.d'
 CINDER_CONF = '%s/cinder.conf' % CINDER_CONF_DIR
 CINDER_API_CONF = '%s/api-paste.ini' % CINDER_CONF_DIR
 CINDER_POLICY_JSON = '%s/policy.json' % CINDER_CONF_DIR
 CINDER_AUDIT_MAP = '%s/api_audit_map.conf' % CINDER_CONF_DIR
 CEPH_CONF = '/etc/ceph/ceph.conf'
+CASTELLAN_CONF = '%s/castellan.conf' % CINDER_CONF_DIR
+SECRET_MAP_CONF = '%s/secret_map.conf' % CINDER_CONF_DIR
+CINDER_VOLUME_OVERRIDE_CONF = '%s/override.conf' % CINDER_VOLUME_OVERRIDE_DIR
 
 HAPROXY_CONF = '/etc/haproxy/haproxy.cfg'
 APACHE_PORTS_CONF = '/etc/apache2/ports.conf'
@@ -277,6 +284,46 @@ BASE_RESOURCE_MAP = OrderedDict([
         'contexts': [],
         'services': ['apache2'],
     }),
+    (CASTELLAN_CONF, {
+        'contexts': [
+            cinder_contexts.CinderSubordinateConfigContext(
+                interface=['storage-backend', 'backup-backend'],
+                service='cinder',
+                config_file=CINDER_CONF,
+            ),
+            context.IdentityServiceContext(
+                service='cinder',
+                service_user='cinder',
+            ),
+            vaultlocker.VaultKVContext(secret_backend='charm-cinder'),
+        ],
+        'services': ['cinder-volume']
+    }),
+    (SECRET_MAP_CONF, {
+        'contexts': [
+            cinder_contexts.CinderSubordinateConfigContext(
+                interface=['storage-backend', 'backup-backend'],
+                service='cinder',
+                config_file=CINDER_CONF,
+            )
+        ],
+        'services': ['cinder-volume']
+    }),
+    (CINDER_VOLUME_OVERRIDE_CONF, {
+        'contexts': [
+            cinder_contexts.CinderSubordinateConfigContext(
+                interface=['storage-backend', 'backup-backend'],
+                service='cinder',
+                config_file=CINDER_CONF,
+            ),
+            context.IdentityServiceContext(
+                service='cinder',
+                service_user='cinder',
+            ),
+            vaultlocker.VaultKVContext(secret_backend='charm-cinder')
+        ],
+        'services': ['cinder-volume']
+    }),
 ])
 
 
@@ -291,6 +338,7 @@ def register_configs(release=None):
     release = release or os_release('cinder-common', base='icehouse')
     configs = templating.OSConfigRenderer(templates_dir=TEMPLATES,
                                           openstack_release=release)
+    mkdir(os.path.dirname(CINDER_VOLUME_OVERRIDE_CONF))
     for cfg, rscs in resource_map().items():
         configs.register(cfg, rscs['contexts'])
     return configs
