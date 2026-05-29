@@ -8,7 +8,6 @@ gate_bundles:
 
 dev_bundles:
 - jammy-bobcat
-- mantic-bobcat
 
 target_deploy_status:
   vault:
@@ -36,5 +35,3 @@ tests_options:
     service: cinder
   policyd:
     service: cinder
-  force_deploy:
-    - mantic-bobcat
