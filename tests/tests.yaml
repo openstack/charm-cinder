@@ -5,7 +5,6 @@ smoke_bundles:
 
 gate_bundles:
 - focal-xena
-- impish-xena
 
 dev_bundles:
 - focal-yoga
@@ -38,5 +37,4 @@ tests_options:
   policyd:
     service: cinder
   force_deploy:
-    - impish-xena
     - jammy-yoga
