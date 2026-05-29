@@ -144,7 +144,7 @@ applications:
     channel: zed/edge
 
   cinder:
-    charm: ../../cinder.charm
+    charm: ../../charm-cinder_ubuntu@22.04-amd64.charm
     num_units: 1
     storage:
       block-devices: '40G'
