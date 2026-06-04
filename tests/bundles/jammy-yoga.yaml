@@ -150,7 +150,7 @@ applications:
     channel: yoga/edge
 
   cinder:
-    charm: ../../charm-cinder_ubuntu@22.04-amd64.charm
+    charm: ../../cinder_ubuntu@22.04-amd64.charm
     num_units: 1
     storage:
       block-devices: '40G'
