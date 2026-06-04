@@ -146,7 +146,7 @@ applications:
     channel: latest/edge
 
   cinder:
-    charm: ../../charm-cinder_ubuntu@24.04-amd64.charm
+    charm: ../../cinder_ubuntu@24.04-amd64.charm
     num_units: 1
     storage:
       block-devices: '40G'
