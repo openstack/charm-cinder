@@ -674,6 +674,11 @@ def upgrade_charm():
 @restart_on_change(restart_map(),
                    pre_restarts_wait_f=lambda: service('daemon-reload'))
 def storage_backend():
+    release = os_release('cinder-common')
+    if CompareOpenStackReleases(release) < 'caracal':
+        juju_log("Skipping castellan backend config since release < caracal")
+        return
+
     CONFIGS.write(CASTELLAN_CONF)
     CONFIGS.write(SECRET_MAP_CONF)
     CONFIGS.write(CINDER_VOLUME_OVERRIDE_CONF)
@@ -685,6 +690,11 @@ def storage_backend():
 @restart_on_change(restart_map(),
                    pre_restarts_wait_f=lambda: service('daemon-reload'))
 def backup_backend():
+    release = os_release('cinder-common')
+    if CompareOpenStackReleases(release) < 'caracal':
+        juju_log("Skipping castellan backend config since release < caracal")
+        return
+
     CONFIGS.write(CASTELLAN_CONF)
     CONFIGS.write(SECRET_MAP_CONF)
     CONFIGS.write(CINDER_VOLUME_OVERRIDE_CONF)
@@ -750,6 +760,11 @@ def secrets_storage_joined(relation_id=None):
 @restart_on_change(restart_map(),
                    pre_restarts_wait_f=lambda: service('daemon-reload'))
 def secrets_storage_backend():
+    release = os_release('cinder-common')
+    if CompareOpenStackReleases(release) < 'caracal':
+        juju_log("Skipping castellan backend config since release < caracal")
+        return
+
     CONFIGS.write(CASTELLAN_CONF)
     CONFIGS.write(SECRET_MAP_CONF)
     CONFIGS.write(CINDER_VOLUME_OVERRIDE_CONF)
