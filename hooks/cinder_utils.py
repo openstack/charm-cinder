@@ -418,6 +418,12 @@ def resource_map(release=None):
     if release and CompareOpenStackReleases(release) < 'queens':
         resource_map.pop(CINDER_POLICY_JSON)
 
+    if release and CompareOpenStackReleases(release) < 'caracal':
+        juju_log("Skipping castellan backend config since release < caracal")
+        resource_map.pop(CASTELLAN_CONF)
+        resource_map.pop(SECRET_MAP_CONF)
+        resource_map.pop(CINDER_VOLUME_OVERRIDE_CONF)
+
     return resource_map
 
 
