@@ -677,11 +677,10 @@ def storage_backend():
     release = os_release('cinder-common')
     if CompareOpenStackReleases(release) < 'caracal':
         juju_log("Skipping castellan backend config since release < caracal")
-        return
-
-    CONFIGS.write(CASTELLAN_CONF)
-    CONFIGS.write(SECRET_MAP_CONF)
-    CONFIGS.write(CINDER_VOLUME_OVERRIDE_CONF)
+    else:
+        CONFIGS.write(CASTELLAN_CONF)
+        CONFIGS.write(SECRET_MAP_CONF)
+        CONFIGS.write(CINDER_VOLUME_OVERRIDE_CONF)
     CONFIGS.write(CINDER_CONF)
 
 
@@ -693,11 +692,10 @@ def backup_backend():
     release = os_release('cinder-common')
     if CompareOpenStackReleases(release) < 'caracal':
         juju_log("Skipping castellan backend config since release < caracal")
-        return
-
-    CONFIGS.write(CASTELLAN_CONF)
-    CONFIGS.write(SECRET_MAP_CONF)
-    CONFIGS.write(CINDER_VOLUME_OVERRIDE_CONF)
+    else:
+        CONFIGS.write(CASTELLAN_CONF)
+        CONFIGS.write(SECRET_MAP_CONF)
+        CONFIGS.write(CINDER_VOLUME_OVERRIDE_CONF)
     CONFIGS.write(CINDER_CONF)
 
 

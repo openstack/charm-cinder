@@ -410,7 +410,7 @@ class TestChangedHooks(CharmTestCase):
     def test_storage_backend_lt_caracal(self):
         self.os_release.return_value = 'bobcat'
         hooks.hooks.execute(['hooks/storage-backend-relation-changed'])
-        self.CONFIGS.write.assert_not_called()
+        self.CONFIGS.write.assert_called_once_with(utils.CINDER_CONF)
 
     def test_storage_backend_changed(self):
         self.os_release.return_value = 'caracal'
@@ -420,7 +420,17 @@ class TestChangedHooks(CharmTestCase):
     def test_storage_backend_broken_lt_caracal(self):
         self.os_release.return_value = 'bobcat'
         hooks.hooks.execute(['hooks/storage-backend-relation-broken'])
-        self.CONFIGS.write.assert_not_called()
+        self.CONFIGS.write.assert_called_once_with(utils.CINDER_CONF)
+
+    def test_backup_backend_lt_caracal(self):
+        self.os_release.return_value = 'bobcat'
+        hooks.hooks.execute(['hooks/backup-backend-relation-changed'])
+        self.CONFIGS.write.assert_called_once_with(utils.CINDER_CONF)
+
+    def test_backup_backend_broken_lt_caracal(self):
+        self.os_release.return_value = 'bobcat'
+        hooks.hooks.execute(['hooks/backup-backend-relation-broken'])
+        self.CONFIGS.write.assert_called_once_with(utils.CINDER_CONF)
 
     def test_storage_backend_broken(self):
         self.os_release.return_value = 'caracal'
